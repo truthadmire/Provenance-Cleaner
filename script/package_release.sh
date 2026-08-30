@@ -15,6 +15,8 @@ DEPENDENCY_RECEIPT="$ROOT_DIR/Vendor/Artifacts/staged/DEPENDENCY_BUILD_RECEIPT.t
 PYINSTALLER_LOCK="$ROOT_DIR/Helper/requirements-build.txt"
 VERIFICATION_EVIDENCE="$ROOT_DIR/Config/VerificationEvidence.md"
 UPSTREAM_MANIFEST="$ROOT_DIR/Config/UpstreamWatermarksRemover.manifest.sha256"
+RELEASE_PROBE_SOURCE="$ROOT_DIR/script/release_probe.swift"
+RELEASE_PROBE_INFO="$ROOT_DIR/Config/ReleaseProbe-Info.plist"
 SIGNING_IDENTITY="${DEVELOPER_ID_APPLICATION:-}"
 NOTARY_PROFILE="${NOTARYTOOL_PROFILE:-}"
 SOURCE_REF="${SOURCE_REF:-HEAD}"
@@ -173,6 +175,68 @@ audit_extended_attributes() {
   fi
 }
 
+verify_capabilities_json() {
+  local capabilities_file="$1"
+  /usr/bin/plutil -convert xml1 -o /dev/null "$capabilities_file"
+  [[ "$(/usr/bin/plutil -extract requestID raw -o - "$capabilities_file")" == "signed-release-probe" || \
+     "$(/usr/bin/plutil -extract requestID raw -o - "$capabilities_file")" == "release-audit" ]] || \
+    die "unexpected helper capability response request ID"
+  [[ "$(/usr/bin/plutil -extract ok raw -o - "$capabilities_file")" == "true" ]] || \
+    die "bundled helper capability request failed"
+  [[ "$(/usr/bin/plutil -extract kind raw -o - "$capabilities_file")" == "capabilities" ]] || \
+    die "unexpected helper capability response kind"
+  [[ "$(/usr/bin/plutil -extract report.engine.commit raw -o - "$capabilities_file")" == \
+     "3f84d3e3964368b82172112b09ef3e7c02b25749" ]] || \
+    die "unexpected bundled upstream commit"
+  [[ "$(/usr/bin/plutil -extract report.runtime.pythonVersion raw -o - "$capabilities_file")" == "3.14.7" ]] || \
+    die "unexpected bundled CPython version"
+  /usr/bin/plutil -extract report.runtime.opensslVersion raw -o - "$capabilities_file" | \
+    /usr/bin/grep -F 'OpenSSL 3.5.7' >/dev/null || die "unexpected bundled OpenSSL version"
+  [[ "$(/usr/bin/plutil -extract report.execution.offline raw -o - "$capabilities_file")" == "true" ]] || \
+    die "bundled helper does not report offline execution"
+  [[ "$(/usr/bin/plutil -extract report.execution.networkBackends raw -o - "$capabilities_file")" == "false" ]] || \
+    die "bundled helper unexpectedly reports network backends"
+  [[ "$(/usr/bin/plutil -extract report.execution.c2patoolNetworkPolicy raw -o - "$capabilities_file")" == "deny-all" ]] || \
+    die "bundled helper does not report the deny-all c2patool policy"
+  [[ "$(/usr/bin/plutil -extract report.upstream.tools.ghostscript raw -o - "$capabilities_file")" == "false" ]] || \
+    die "bundled helper unexpectedly reports Ghostscript availability"
+}
+
+verify_helper_capabilities_direct() {
+  local app="$1"
+  local output_file="$2"
+  printf '%s\n' '{"requestID":"release-audit","operation":"capabilities"}' | \
+    "$app/Contents/Helpers/ProvenanceEngine.app/Contents/MacOS/provenance-engine" > "$output_file"
+  verify_capabilities_json "$output_file"
+}
+
+probe_inherited_helper_capabilities() {
+  local app="$1"
+  local output_file="$2"
+  local probe_app probe_executable
+  PROBE_TEMP="$(/usr/bin/mktemp -d /private/tmp/provenance-release-probe.XXXXXX)"
+  probe_app="$PROBE_TEMP/ProvenanceReleaseProbe.app"
+  probe_executable="$probe_app/Contents/MacOS/provenance-release-probe"
+  /bin/mkdir -p "$probe_app/Contents/MacOS" "$probe_app/Contents/Helpers"
+  /usr/bin/xcrun swiftc -target arm64-apple-macos14.0 \
+    "$RELEASE_PROBE_SOURCE" -o "$probe_executable"
+  /usr/bin/ditto "$RELEASE_PROBE_INFO" "$probe_app/Contents/Info.plist"
+  /usr/bin/ditto "$app/Contents/Helpers/ProvenanceEngine.app" \
+    "$probe_app/Contents/Helpers/ProvenanceEngine.app"
+  /usr/bin/xattr -cr "$probe_app"
+  audit_extended_attributes "$probe_app"
+  /usr/bin/codesign --force --timestamp --options runtime \
+    --entitlements "$APP_ENTITLEMENTS" \
+    --sign "$SIGNING_IDENTITY" "$probe_app"
+  /usr/bin/codesign --verify --deep --strict --verbose=4 "$probe_app"
+  "$probe_executable" > "$output_file"
+  verify_capabilities_json "$output_file"
+  [[ "$PROBE_TEMP" == /private/tmp/provenance-release-probe.* ]] || \
+    die "refusing to clean an unexpected release-probe path"
+  /bin/rm -rf -- "$PROBE_TEMP"
+  PROBE_TEMP=""
+}
+
 sign_inside_out() {
   local app="$1"
   local path helper_app
@@ -206,7 +270,7 @@ sign_inside_out() {
 
 verify_expected_payload() {
   local app="$1"
-  local helper_root helper_frameworks helper_resources license_resource capabilities
+  local helper_root helper_frameworks helper_resources license_resource
   helper_root="$app/Contents/Helpers/ProvenanceEngine.app/Contents"
   helper_frameworks="$helper_root/Frameworks/tools"
   helper_resources="$helper_root/Resources/tools"
@@ -250,18 +314,6 @@ verify_expected_payload() {
     die "unexpected bundled ExifTool version"
   "$helper_frameworks/qpdf/qpdf" --version | /usr/bin/grep -F '12.4.1' >/dev/null || \
     die "unexpected bundled qpdf version"
-  capabilities="$(printf '%s\n' '{"requestID":"release-audit","operation":"capabilities"}' | \
-    "$helper_root/MacOS/provenance-engine")"
-  [[ "$(printf '%s' "$capabilities" | /usr/bin/plutil -extract report.runtime.pythonVersion raw -o - -)" == "3.14.7" ]] || \
-    die "unexpected bundled CPython version"
-  printf '%s' "$capabilities" | /usr/bin/plutil -extract report.runtime.opensslVersion raw -o - - | \
-    /usr/bin/grep -F 'OpenSSL 3.5.7' >/dev/null || die "unexpected bundled OpenSSL version"
-  [[ "$(printf '%s' "$capabilities" | /usr/bin/plutil -extract report.execution.offline raw -o - -)" == "true" ]] || \
-    die "bundled helper does not report offline execution"
-  [[ "$(printf '%s' "$capabilities" | /usr/bin/plutil -extract report.execution.c2patoolNetworkPolicy raw -o - -)" == "deny-all" ]] || \
-    die "bundled helper does not report the deny-all c2patool policy"
-  [[ "$(printf '%s' "$capabilities" | /usr/bin/plutil -extract report.upstream.tools.ghostscript raw -o - -)" == "false" ]] || \
-    die "bundled helper unexpectedly reports Ghostscript availability"
   if /usr/bin/find "$app" \( -iname 'gs' -o -iname 'ghostscript' \) -print | /usr/bin/grep . >/dev/null; then
     die "Ghostscript is excluded from this release but was found in the app bundle"
   fi
@@ -322,10 +374,13 @@ verify_entitlements_policy
 [[ -f "$PYINSTALLER_LOCK" ]] || die "missing hash-locked PyInstaller requirements"
 [[ -f "$VERIFICATION_EVIDENCE" ]] || die "missing release verification evidence"
 [[ -f "$UPSTREAM_MANIFEST" ]] || die "missing pinned upstream tree manifest"
+[[ -f "$RELEASE_PROBE_SOURCE" ]] || die "missing signed-helper release probe source"
+/usr/bin/plutil -lint "$RELEASE_PROBE_INFO" >/dev/null
 
 DERIVED_DIR="$(/usr/bin/mktemp -d /private/tmp/provenance-release-derived.XXXXXX)"
 BUILT_APP="$DERIVED_DIR/Build/Products/Release/$PRODUCT_NAME.app"
 PACKAGE_TEMP=""
+PROBE_TEMP=""
 MOUNT_POINT=""
 DMG_MOUNTED=0
 cleanup_release_temps() {
@@ -333,7 +388,7 @@ cleanup_release_temps() {
   if [[ "$DMG_MOUNTED" -eq 1 && -n "$MOUNT_POINT" ]]; then
     /usr/bin/hdiutil detach "$MOUNT_POINT" -quiet >/dev/null 2>&1 || true
   fi
-  for temporary_path in "$DERIVED_DIR" "$PACKAGE_TEMP"; do
+  for temporary_path in "$DERIVED_DIR" "$PACKAGE_TEMP" "$PROBE_TEMP"; do
     if [[ -n "$temporary_path" && "$temporary_path" == /private/tmp/provenance-* ]]; then
       /bin/rm -rf -- "$temporary_path"
     fi
@@ -372,6 +427,8 @@ xcodegen generate --spec "$ROOT_DIR/project.yml" --project "$ROOT_DIR"
 verify_expected_payload "$BUILT_APP"
 audit_linked_libraries "$BUILT_APP"
 audit_architectures "$BUILT_APP"
+UNSIGNED_CAPABILITIES_LOG="$DERIVED_DIR/UnsignedHelperCapabilities.json"
+verify_helper_capabilities_direct "$BUILT_APP" "$UNSIGNED_CAPABILITIES_LOG"
 
 VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$BUILT_APP/Contents/Info.plist")"
 BUILD_NUMBER="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$BUILT_APP/Contents/Info.plist")"
@@ -397,15 +454,6 @@ CURRENT_HEAD="$(/usr/bin/git -C "$ROOT_DIR" rev-parse --verify HEAD^{commit})" |
 [[ "$SOURCE_COMMIT" == "$CURRENT_HEAD" ]] || \
   die "source ref must resolve to the clean current HEAD used for this build"
 
-verify_entitlements_policy
-sign_inside_out "$BUILT_APP"
-/usr/bin/codesign --verify --deep --strict --verbose=4 "$BUILT_APP"
-audit_linked_libraries "$BUILT_APP"
-audit_architectures "$BUILT_APP"
-audit_hardened_runtime "$BUILT_APP"
-verify_signed_entitlements "$BUILT_APP"
-verify_expected_payload "$BUILT_APP"
-
 HELPER_INTEGRATION_LOG="$DERIVED_DIR/FrozenHelperIntegrationTests.txt"
 HELPER_UNDER_TEST="$BUILT_APP/Contents/Helpers/ProvenanceEngine.app/Contents/MacOS/provenance-engine"
 if [[ -n "${PROVENANCE_DYLD_FRAMEWORK_PATH:-}" ]]; then
@@ -415,17 +463,28 @@ if [[ -n "${PROVENANCE_DYLD_FRAMEWORK_PATH:-}" ]]; then
     "$HELPER_PYTHON" "$ROOT_DIR/Tests/HelperIntegration/test_provenance_helper.py" \
     >"$HELPER_INTEGRATION_LOG" 2>&1; then
     /bin/cat "$HELPER_INTEGRATION_LOG" >&2
-    die "signed frozen helper integration matrix failed"
+    die "frozen helper integration matrix failed"
   fi
 else
   if ! PROVENANCE_HELPER_UNDER_TEST="$HELPER_UNDER_TEST" \
     "$HELPER_PYTHON" "$ROOT_DIR/Tests/HelperIntegration/test_provenance_helper.py" \
     >"$HELPER_INTEGRATION_LOG" 2>&1; then
     /bin/cat "$HELPER_INTEGRATION_LOG" >&2
-    die "signed frozen helper integration matrix failed"
+    die "frozen helper integration matrix failed"
   fi
 fi
 /bin/cat "$HELPER_INTEGRATION_LOG"
+
+verify_entitlements_policy
+sign_inside_out "$BUILT_APP"
+/usr/bin/codesign --verify --deep --strict --verbose=4 "$BUILT_APP"
+audit_linked_libraries "$BUILT_APP"
+audit_architectures "$BUILT_APP"
+audit_hardened_runtime "$BUILT_APP"
+verify_signed_entitlements "$BUILT_APP"
+verify_expected_payload "$BUILT_APP"
+SIGNED_CAPABILITIES_LOG="$DERIVED_DIR/SignedHelperCapabilities.json"
+probe_inherited_helper_capabilities "$BUILT_APP" "$SIGNED_CAPABILITIES_LOG"
 
 /bin/mkdir -p "$OUTPUT_DIR"
 SOURCE_ARCHIVE="$OUTPUT_DIR/ProvenanceCleaner-$VERSION-source.zip"
@@ -438,6 +497,7 @@ SOURCE_ARCHIVE="$OUTPUT_DIR/ProvenanceCleaner-$VERSION-source.zip"
 /usr/bin/ditto "$VERIFICATION_EVIDENCE" "$OUTPUT_DIR/VERIFICATION_EVIDENCE.md"
 /usr/bin/ditto "$ROOT_DIR/THIRD_PARTY_NOTICES.md" "$OUTPUT_DIR/THIRD_PARTY_NOTICES.md"
 /usr/bin/ditto "$HELPER_INTEGRATION_LOG" "$OUTPUT_DIR/FROZEN_HELPER_INTEGRATION_TESTS.txt"
+/usr/bin/ditto "$SIGNED_CAPABILITIES_LOG" "$OUTPUT_DIR/SIGNED_HELPER_CAPABILITIES.json"
 /usr/bin/ditto "$UPSTREAM_MANIFEST" "$OUTPUT_DIR/UPSTREAM_WATERMARKS_REMOVER_MANIFEST.sha256"
 
 PACKAGE_TEMP="$(/usr/bin/mktemp -d /private/tmp/provenance-release-package.XXXXXX)"
@@ -481,6 +541,10 @@ audit_architectures "$MOUNTED_APP"
 audit_hardened_runtime "$MOUNTED_APP"
 verify_signed_entitlements "$MOUNTED_APP"
 verify_expected_payload "$MOUNTED_APP"
+MOUNTED_CAPABILITIES_LOG="$DERIVED_DIR/MountedHelperCapabilities.json"
+probe_inherited_helper_capabilities "$MOUNTED_APP" "$MOUNTED_CAPABILITIES_LOG"
+/usr/bin/cmp -s "$SIGNED_CAPABILITIES_LOG" "$MOUNTED_CAPABILITIES_LOG" || \
+  die "mounted helper capabilities differ from the pre-DMG signed helper"
 if [[ -n "$NOTARY_PROFILE" ]]; then
   /usr/sbin/spctl --assess --type execute --verbose=4 "$MOUNTED_APP"
 fi
@@ -499,6 +563,7 @@ CHECKSUMS="$OUTPUT_DIR/SHA256SUMS.txt"
     VERIFICATION_EVIDENCE.md
     THIRD_PARTY_NOTICES.md
     FROZEN_HELPER_INTEGRATION_TESTS.txt
+    SIGNED_HELPER_CAPABILITIES.json
     UPSTREAM_WATERMARKS_REMOVER_MANIFEST.sha256
   )
   if [[ -f notarization.json ]]; then
@@ -538,8 +603,8 @@ REPORT="$OUTPUT_DIR/RELEASE_REPORT.md"
   echo "- linked-library relocation audit: passed"
   echo "- arm64-only Mach-O audit: passed"
   echo "- required helper/tool payload audit: passed"
-  echo "- helper capability audit before and after signing: CPython/OpenSSL versions, offline mode, c2patool deny-all, and Ghostscript exclusion passed"
-  echo "- frozen helper integration matrix: passed against the exact helper embedded in the signed app (see FROZEN_HELPER_INTEGRATION_TESTS.txt)"
+  echo "- helper capability audit before signing and through a disposable signed sandbox parent after signing and after DMG mounting: CPython/OpenSSL versions, pinned commit, offline mode, c2patool deny-all, no network backend, and Ghostscript exclusion passed"
+  echo "- frozen helper integration matrix: passed against the exact frozen payload before applying its inherit-only sandbox signature (see FROZEN_HELPER_INTEGRATION_TESTS.txt)"
   echo "- DMG filesystem verification, mounted-app strict signature, architecture, linked-library, and helper capability checks: passed"
   if [[ -z "$NOTARY_PROFILE" ]]; then
     echo "- Gatekeeper distribution verification: pending notarization"

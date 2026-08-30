@@ -89,6 +89,10 @@ versions, offline policy, arm64 architectures, linked libraries, and helper
 capabilities. It then signs nested code inside-out with Hardened Runtime, creates
 and signs the DMG, optionally notarizes and staples it, and emits a source
 archive, checksums, notices, verification evidence, and a release report.
+The frozen integration matrix runs before the helper receives its inherit-only
+sandbox signature; after signing and again from the mounted DMG, a disposable
+signed sandbox parent exercises that exact helper and validates its capability
+envelope. The probe is release tooling and is not shipped in the application.
 
 ```sh
 ./script/package_release.sh \
