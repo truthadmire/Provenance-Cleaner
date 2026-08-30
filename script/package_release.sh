@@ -161,16 +161,28 @@ verify_signed_entitlements() {
   /bin/rm -f -- "$actual_app" "$actual_helper"
 }
 
+audit_extended_attributes() {
+  local app="$1"
+  local attributes unexpected
+  attributes="$(/usr/bin/xattr -r "$app" 2>/dev/null || true)"
+  unexpected="$(printf '%s\n' "$attributes" | \
+    /usr/bin/awk 'NF && $0 !~ /: com\.apple\.provenance$/')"
+  if [[ -n "$unexpected" ]]; then
+    printf '%s\n' "$unexpected" >&2
+    die "bundle contains unexpected extended attributes"
+  fi
+}
+
 sign_inside_out() {
   local app="$1"
   local path helper_app
   helper_app="$app/Contents/Helpers/ProvenanceEngine.app"
 
   /usr/bin/xattr -cr "$app"
-  if [[ -n "$(/usr/bin/xattr -lr "$app" 2>/dev/null)" ]]; then
-    /usr/bin/xattr -lr "$app" >&2 || true
-    die "extended attributes remained after clearing the disposable signing tree"
-  fi
+  # macOS 26 may immediately restore its system-managed provenance marker even
+  # on a disposable /private/tmp signing tree. It is neither quarantine data nor
+  # bundle content; reject every other attribute before signing.
+  audit_extended_attributes "$app"
   while IFS= read -r -d '' path; do
     if is_macho "$path"; then
       sign_macho "$path"
@@ -463,6 +475,7 @@ DMG_MOUNTED=1
 MOUNTED_APP="$MOUNT_POINT/$PRODUCT_NAME.app"
 [[ -d "$MOUNTED_APP" ]] || die "signed DMG does not contain the expected application"
 /usr/bin/codesign --verify --deep --strict --verbose=4 "$MOUNTED_APP"
+audit_extended_attributes "$MOUNTED_APP"
 audit_linked_libraries "$MOUNTED_APP"
 audit_architectures "$MOUNTED_APP"
 audit_hardened_runtime "$MOUNTED_APP"
