@@ -1,0 +1,194 @@
+{
+  "schemaVersion": 1,
+  "lockedAt": "2026-08-30",
+  "distribution": {
+    "minimumMacOS": "14.0",
+    "applicationArchitecture": "arm64",
+    "ghostscript": "excluded",
+    "notes": "The release bundle contains only deterministic local tooling. CPython and PyInstaller are helper build inputs; they are not staged by fetch_dependencies.sh."
+  },
+  "components": {
+    "watermarksRemover": {
+      "version": "3f84d3e3964368b82172112b09ef3e7c02b25749",
+      "role": "vendored deterministic engine source",
+      "source": "https://github.com/guillaumemeyer/watermarks-remover/commit/3f84d3e3964368b82172112b09ef3e7c02b25749",
+      "archiveSha256": "f7ee273a621bba3429ad4f21dee1db1338be1ccee6c585a8a36b068709e84116",
+      "treeManifest": "Config/UpstreamWatermarksRemover.manifest.sha256",
+      "treeManifestSha256": "db2e360d2172fb9721e6a1e4c8b5f0216ce298f83045e4d2897b87193bcb9b8d",
+      "treeFileCount": 206,
+      "license": "MIT",
+      "bundled": true
+    },
+    "c2patool": {
+      "version": "0.27.16",
+      "role": "C2PA inspection and removal helper",
+      "artifact": {
+        "fileName": "c2patool-v0.27.16-universal-apple-darwin.zip",
+        "url": "https://github.com/contentauth/c2pa-rs/releases/download/c2patool-v0.27.16/c2patool-v0.27.16-universal-apple-darwin.zip",
+        "sha256": "2c2cd9f949c7231a71bce26b0d4f7e7b45db2128bf93cd0e3189ad0172e9039e",
+        "sizeBytes": 20263585,
+        "hashAuthority": "GitHub release asset digest"
+      },
+      "architecture": "universal2 source artifact; arm64 after verified lipo thinning",
+      "license": "MIT OR Apache-2.0",
+      "selectedLicense": "MIT",
+      "bundled": true
+    },
+    "exiftool": {
+      "version": "13.59",
+      "sourceCommit": "2200871d9cef988051d2a99d67df3bda6cbb30a8",
+      "role": "metadata inspection and structural rewrite helper",
+      "artifact": {
+        "fileName": "exiftool-13.59-2200871d9cef988051d2a99d67df3bda6cbb30a8.tar.gz",
+        "url": "https://github.com/exiftool/exiftool/archive/2200871d9cef988051d2a99d67df3bda6cbb30a8.tar.gz",
+        "sha256": "e1e2ad6c6fbf568afee5993ef8b2b91ab013d21698c9304e079e633ad82776f5",
+        "hashAuthority": "recorded after download from the official immutable GitHub commit archive on 2026-08-30; fail closed if GitHub regenerates the archive"
+      },
+      "runtime": "/usr/bin/perl supplied by macOS",
+      "license": "GPL-3.0-or-later OR Artistic-1.0-Perl",
+      "selectedLicense": "Artistic-1.0-Perl",
+      "bundled": true
+    },
+    "qpdf": {
+      "version": "12.4.1",
+      "role": "PDF structural rewrite helper",
+      "artifact": {
+        "fileName": "qpdf-12.4.1.tar.gz",
+        "url": "https://github.com/qpdf/qpdf/releases/download/v12.4.1/qpdf-12.4.1.tar.gz",
+        "sha256": "f045aa277be2356ff53a89a8622945958291177d2483afc20ede7c8a8cd3873c",
+        "sizeBytes": 19713921,
+        "hashAuthority": "GitHub release asset digest and upstream qpdf-12.4.1.sha256"
+      },
+      "architecture": "arm64",
+      "build": "static libqpdf and static libjpeg-turbo; native qpdf crypto; Apple system libz/libSystem remain dynamic",
+      "license": "Apache-2.0",
+      "bundled": true
+    },
+    "libjpegTurbo": {
+      "version": "3.2.0",
+      "role": "pinned static qpdf build dependency",
+      "artifact": {
+        "fileName": "libjpeg-turbo-3.2.0.tar.gz",
+        "url": "https://github.com/libjpeg-turbo/libjpeg-turbo/releases/download/3.2.0/libjpeg-turbo-3.2.0.tar.gz",
+        "sha256": "6f30092cef9fb839779646608f4ee14ae3cbac989c47fa05e841b0841f09878e",
+        "sizeBytes": 2537858,
+        "hashAuthority": "GitHub release asset digest"
+      },
+      "architecture": "arm64",
+      "build": "static libjpeg API only; SIMD, tools, tests, and TurboJPEG API disabled",
+      "license": "IJG AND BSD-3-Clause",
+      "bundled": "statically linked into qpdf"
+    },
+    "cpython": {
+      "version": "3.14.7",
+      "role": "PyInstaller helper build/runtime input",
+      "artifact": {
+        "fileName": "python-3.14.7-macos11.pkg",
+        "url": "https://www.python.org/ftp/python/3.14.7/python-3.14.7-macos11.pkg",
+        "sha256": "70c5239ad2d62925d2947e46921d0ddd3d35be3d2f0a2d50db33da507dbcb419",
+        "hashAuthority": "python.org release checksum"
+      },
+      "architecture": "universal2",
+      "license": "PSF-2.0",
+      "bundled": "by Helper/build_helper.sh through PyInstaller, not by fetch_dependencies.sh"
+    },
+    "openssl": {
+      "version": "3.5.7",
+      "role": "CPython SSL/TLS runtime libraries libcrypto.3.dylib and libssl.3.dylib",
+      "source": "https://github.com/openssl/openssl/tree/openssl-3.5.7",
+      "artifactSource": "contained in the SHA-256-locked CPython 3.14.7 macOS installer and embedded by Helper/build_helper.sh",
+      "architecture": "arm64 after verified thinning by Helper/build_helper.sh",
+      "license": "Apache-2.0",
+      "bundled": true
+    },
+    "zstandard": {
+      "version": "1.5.7",
+      "role": "CPython compression runtime library libzstd.1.dylib",
+      "source": "https://github.com/facebook/zstd/tree/v1.5.7",
+      "artifactSource": "contained in the SHA-256-locked CPython 3.14.7 macOS installer and embedded by Helper/build_helper.sh",
+      "architecture": "arm64 after verified thinning by Helper/build_helper.sh",
+      "license": "BSD-3-Clause",
+      "selectedLicense": "BSD-3-Clause",
+      "bundled": true
+    },
+    "pyinstaller": {
+      "version": "6.22.2",
+      "role": "helper build tool and bootloader",
+      "artifact": {
+        "fileName": "pyinstaller-6.22.2-py3-none-macosx_10_13_universal2.whl",
+        "url": "https://files.pythonhosted.org/packages/57/39/08cd53632276de70426e7c273820277a48253fee397b4048301ec03c3566/pyinstaller-6.22.2-py3-none-macosx_10_13_universal2.whl",
+        "sha256": "ebd1b1ca932d7cf25d7366ce691aaf79a5ff9425811ed7328b5116e4471b6d6d",
+        "sizeBytes": 1062734,
+        "hashAuthority": "PyPI file digest"
+      },
+      "architecture": "universal2",
+      "license": "GPL-2.0-or-later WITH PyInstaller-Bootloader-exception",
+      "bundled": "bootloader and runtime hooks may be embedded by Helper/build_helper.sh; the wheel is not shipped"
+    },
+    "altgraph": {
+      "version": "0.17.5",
+      "role": "PyInstaller transitive build dependency",
+      "artifact": {
+        "fileName": "altgraph-0.17.5-py2.py3-none-any.whl",
+        "url": "https://files.pythonhosted.org/packages/a9/ba/000a1996d4308bc65120167c21241a3b205464a2e0b58deda26ae8ac21d1/altgraph-0.17.5-py2.py3-none-any.whl",
+        "sha256": "f3a22400bce1b0c701683820ac4f3b159cd301acab067c51c653e06961600597",
+        "sizeBytes": 21228,
+        "hashAuthority": "PyPI file digest"
+      },
+      "license": "MIT",
+      "bundled": false
+    },
+    "macholib": {
+      "version": "1.16.4",
+      "role": "PyInstaller transitive macOS build dependency",
+      "artifact": {
+        "fileName": "macholib-1.16.4-py2.py3-none-any.whl",
+        "url": "https://files.pythonhosted.org/packages/c7/d1/a9f36f8ecdf0fb7c9b1e78c8d7af12b8c8754e74851ac7b94a8305540fc7/macholib-1.16.4-py2.py3-none-any.whl",
+        "sha256": "da1a3fa8266e30f0ce7e97c6a54eefaae8edd1e5f86f3eb8b95457cae90265ea",
+        "sizeBytes": 38117,
+        "hashAuthority": "PyPI file digest"
+      },
+      "license": "MIT",
+      "bundled": false
+    },
+    "packaging": {
+      "version": "26.3",
+      "role": "PyInstaller transitive build dependency",
+      "artifact": {
+        "fileName": "packaging-26.3-py3-none-any.whl",
+        "url": "https://files.pythonhosted.org/packages/63/34/ba1c580383c9eada3711951fef0795c80b829a078d72188184bcab9dd527/packaging-26.3-py3-none-any.whl",
+        "sha256": "d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c",
+        "sizeBytes": 129956,
+        "hashAuthority": "PyPI file digest"
+      },
+      "license": "Apache-2.0 OR BSD-2-Clause",
+      "bundled": false
+    },
+    "pyinstallerHooksContrib": {
+      "version": "2026.7",
+      "role": "PyInstaller transitive build hook set",
+      "artifact": {
+        "fileName": "pyinstaller_hooks_contrib-2026.7-py3-none-any.whl",
+        "url": "https://files.pythonhosted.org/packages/0a/67/350377af7b50416344ab8792756d414eef7629c618a73e9a0b13bb1552d9/pyinstaller_hooks_contrib-2026.7-py3-none-any.whl",
+        "sha256": "24257a04c7a5a7a034cf28e39dcee20fbeeb9f043076729480f2e1b69904408a",
+        "sizeBytes": 459445,
+        "hashAuthority": "PyPI file digest"
+      },
+      "license": "GPL-2.0-or-later for standard build hooks; Apache-2.0 for runtime hooks",
+      "bundled": false
+    },
+    "setuptools": {
+      "version": "84.0.0",
+      "role": "PyInstaller transitive build dependency",
+      "artifact": {
+        "fileName": "setuptools-84.0.0-py3-none-any.whl",
+        "url": "https://files.pythonhosted.org/packages/95/9c/c510029fc6ef33a6275cd2c5d3cecd6613dfd6aa401d57c54f1c18852ccf/setuptools-84.0.0-py3-none-any.whl",
+        "sha256": "51a52592b3b99e102b609654876bd65f19f999935166d1352678931132b0c670",
+        "sizeBytes": 818216,
+        "hashAuthority": "PyPI file digest"
+      },
+      "license": "MIT",
+      "bundled": false
+    }
+  }
+}

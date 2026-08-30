@@ -1,0 +1,23 @@
+.DS_Store
+.build/
+build/
+DerivedData/
+dist/
+*.xcarchive
+*.dmg
+*.zip
+*.log
+*.profraw
+.pytest_cache/
+__pycache__/
+*.pyc
+Helper/.venv/
+Helper/build/
+Helper/dist/
+Vendor/Artifacts/
+ProvenanceCleaner.xcodeproj/project.xcworkspace/xcuserdata/
+ProvenanceCleaner.xcodeproj/xcuserdata/
+# File Provider conflict copies created when generated project files are
+# replaced while another process still has the old inode open.
+ProvenanceCleaner [0-9]*.xcodeproj/
+Config/* [0-9]*.entitlements

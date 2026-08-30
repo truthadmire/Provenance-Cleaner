@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+HELPER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PYTHON_BIN="${PROVENANCE_PYTHON:-$(command -v python3)}"
+HELPER_SOURCE="$HELPER_DIR/provenance_helper.py"
+if [[ -f "$HELPER_DIR/../Resources/provenance_helper.py" ]]; then
+  HELPER_SOURCE="$HELPER_DIR/../Resources/provenance_helper.py"
+fi
+
+if [[ -z "$PYTHON_BIN" || ! -x "$PYTHON_BIN" ]]; then
+  echo "provenance-engine-dev: python3 was not found" >&2
+  exit 127
+fi
+
+exec "$PYTHON_BIN" "$HELPER_SOURCE"

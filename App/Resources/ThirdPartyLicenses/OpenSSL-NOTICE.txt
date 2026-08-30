@@ -1,0 +1,8 @@
+OpenSSL 3.5.7
+
+Copyright (c) 1998-2026 The OpenSSL Project Authors
+Copyright (c) 1995-1998 Eric A. Young, Tim J. Hudson
+
+OpenSSL is licensed under the Apache License 2.0. The complete Apache License
+2.0 text included in qpdf-LICENSE-Apache-2.0.txt applies to this component as
+well. Source: https://github.com/openssl/openssl/tree/openssl-3.5.7

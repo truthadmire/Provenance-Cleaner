@@ -1,0 +1,14 @@
+ExifTool 13.59
+
+Copyright 2003-2026, Phil Harvey
+
+Upstream license statement, reproduced from the ExifTool 13.59 README:
+
+This is free software; you can redistribute it and/or modify it under the
+same terms as Perl itself (either the Perl Artistic License or GPL).
+
+Provenance Cleaner selects the Perl Artistic License option. The complete
+Artistic License is included as ExifTool-LICENSE-Artistic-1.0-Perl.txt.
+
+Upstream source:
+https://github.com/exiftool/exiftool/tree/2200871d9cef988051d2a99d67df3bda6cbb30a8
