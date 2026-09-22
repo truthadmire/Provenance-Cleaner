@@ -183,7 +183,15 @@ final class AppStore {
         }
     }
 
-    func clean(jobID: CleanerJob.ID) async {
+    func applyWordEditingTraces(jobID: CleanerJob.ID) async {
+        guard let job = job(withID: jobID), job.sourceURL.pathExtension.lowercased() == "docx",
+              preferences.wordDateRangeValid else { return }
+        var options = CleaningOptions.conservative
+        options.wordTraces = preferences.wordTraceOptions
+        await clean(jobID: jobID, optionsOverride: options)
+    }
+
+    func clean(jobID: CleanerJob.ID, optionsOverride: CleaningOptions? = nil) async {
         guard let job = job(withID: jobID), job.status.canClean else { return }
         let previousOutputURL = job.stagedOutputURL
         update(jobID) { $0.status = .cleaning }
@@ -192,7 +200,7 @@ final class AppStore {
         do {
             let outputURL = try makeStagingURL(for: job)
             attemptOutputURL = outputURL
-            let options = preferences.cleaningOptions
+            let options = optionsOverride ?? preferences.cleaningOptions
             let result = try await withTrackedRequest(for: jobID) { requestID in
                 try await engine.clean(
                     fileAt: job.sourceURL,
@@ -228,10 +236,12 @@ final class AppStore {
                 current.postCleanInspection = postInspection
                 current.stagedOutputURL = result.outputURL
                 current.cleaningOptions = options
-                if !postInspectionCompleted || postInspection?.inspectionIncomplete == true {
+                if !postInspectionCompleted || postInspection?.inspectionIncomplete == true || result.report.pdfDeepCleaningIncomplete {
                     current.status = .cleanedInspectionIncomplete
                 } else {
-                    current.status = .readyToExport(residualCount: residualCount)
+                    current.status = options.wordTraces == nil
+                        ? .readyToExport(residualCount: residualCount)
+                        : .editingTracesReady(residualCount: residualCount)
                 }
             }
             if let previousOutputURL, previousOutputURL != result.outputURL {

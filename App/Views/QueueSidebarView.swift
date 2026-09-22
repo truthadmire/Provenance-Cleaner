@@ -5,7 +5,7 @@ struct QueueSidebarView: View {
 
     var body: some View {
         List(selection: $store.selectedJobID) {
-            Section("Queue") {
+            Section {
                 ForEach(store.jobs) { job in
                     QueueRow(job: job)
                         .tag(job.id)
@@ -20,17 +20,28 @@ struct QueueSidebarView: View {
                             .disabled(job.status.isBusy)
                         }
                 }
+            } header: {
+                HStack {
+                    Text("Queue")
+                    Spacer()
+                    if !store.jobs.isEmpty {
+                        Text(store.jobs.count, format: .number)
+                            .monospacedDigit()
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(.quaternary, in: Capsule())
+                    }
+                }
             }
         }
         .listStyle(.sidebar)
         .overlay {
             if store.jobs.isEmpty {
-                VStack(spacing: 8) {
-                    Image(systemName: "tray")
-                        .font(.title2)
+                VStack(spacing: 10) {
+                    CleanerSymbol(systemImage: "tray", tint: .secondary, size: 40)
                     Text("No files")
-                        .font(.headline)
-                    Text("Drop files into the window")
+                        .font(.subheadline.weight(.medium))
+                    Text("Added files will appear here")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -51,7 +62,7 @@ struct QueueSidebarView: View {
                     .font(.caption)
                 }
                 .padding(.horizontal, 12)
-                .padding(.vertical, 8)
+                .padding(.vertical, 12)
                 .background(.bar)
             }
         }
@@ -64,10 +75,12 @@ private struct QueueRow: View {
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: job.kind.systemImage)
+                .font(.system(size: 18))
+                .symbolRenderingMode(.hierarchical)
                 .foregroundStyle(.secondary)
                 .frame(width: 17)
 
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
                     Text(job.displayName)
                         .lineLimit(1)
@@ -84,26 +97,15 @@ private struct QueueRow: View {
                     if job.status.isBusy {
                         ProgressView()
                             .controlSize(.mini)
-                    } else {
-                        Image(systemName: job.status.systemImage)
                     }
                     Text(job.status.label)
                         .lineLimit(1)
                         .accessibilityIdentifier("queue.status.\(job.displayName)")
                 }
                 .font(.caption)
-                .foregroundStyle(statusStyle)
+                .foregroundStyle(.secondary)
             }
         }
-        .padding(.vertical, 2)
-    }
-
-    private var statusStyle: HierarchicalShapeStyle {
-        switch job.status {
-        case .failed, .unsupported:
-            .secondary
-        default:
-            .secondary
-        }
+        .padding(.vertical, 5)
     }
 }

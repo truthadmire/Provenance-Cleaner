@@ -25,6 +25,15 @@ App/Resources/ThirdPartyLicenses.
 - **libjpeg-turbo 3.2.0** is statically linked into qpdf. This software is
   based in part on the work of the Independent JPEG Group. Its upstream
   combined IJG and BSD license notice is included.
+- **Ghostscript 10.07.1**, copyright Artifex Software, Inc. and contributors,
+  is bundled as a standalone command-line executable under AGPL-3.0-or-later.
+  Its source-bundled codecs, fonts and profiles retain their upstream notices.
+  The complete AGPL and Ghostscript license notice are included in
+  `Ghostscript-AGPL-3.0.txt` and `Ghostscript-LICENSE.txt`; the dependency notice
+  collection is in the nested helper's `Contents/Resources/tools/ghostscript/notices`.
+  The original source archive and exact build recipe accompany release DMGs
+  under `Third-Party Source/Ghostscript`. See `Config/Ghostscript-Source.md`
+  for the source URL, checksum and rebuild command.
 
 ## Helper runtime and build tooling
 
@@ -56,10 +65,5 @@ wheels and SHA-256 values are recorded in the canonical dependency lock and
 enforced with pip's hash-checking mode. These transitive packages are build
 tools only and are not included in the shipped helper; the PyInstaller
 bootloader exception terms above cover the embedded PyInstaller bootloader.
-
-## Explicit exclusion
-
-Ghostscript is not downloaded, linked, or shipped. Consequently, the app does
-not offer Ghostscript-based deep PDF image rewriting.
 
 These notices are informational and do not replace the complete license texts.

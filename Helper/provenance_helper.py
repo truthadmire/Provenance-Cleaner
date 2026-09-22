@@ -4,7 +4,7 @@
 The macOS app owns file selection and passes absolute paths.  This process is
 deliberately synchronous: it reads one request, writes one response, flushes,
 and only then reads the next request.  Closing stdin exits normally; cancelling
-work is done by terminating this process.
+work terminates this process and its child metadata tools together.
 
 stdout is protocol-only.  Diagnostics, including unexpected exceptions, go to
 stderr so they can never corrupt a JSONL response stream.
@@ -18,11 +18,16 @@ import json
 import math
 import os
 import platform
+import shutil
+import signal
 import ssl
 import stat
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any, NoReturn
+
+import word_editing_traces
 
 
 PROTOCOL_VERSION = 1
@@ -107,7 +112,7 @@ def _sanitize_environment() -> None:
     """Disable every upstream environment-controlled remote/heavy backend."""
 
     for key in tuple(os.environ):
-        if key.startswith("WATERMARKS_") or key in _REMOTE_OR_HEAVY_ENV:
+        if key.startswith(("WATERMARKS_", "GS_")) or key in _REMOTE_OR_HEAVY_ENV:
             os.environ.pop(key, None)
 
     # Pin the cap before importing upstream.common, which reads it at import.
@@ -130,7 +135,7 @@ def _sanitize_environment() -> None:
     tool_paths: list[str] = []
     c2patool_settings: Path | None = None
     for root in tool_roots:
-        for name in ("c2patool", "exiftool", "qpdf"):
+        for name in ("c2patool", "exiftool", "qpdf", "ghostscript"):
             candidate = root / name
             if not candidate.is_dir():
                 continue
@@ -182,6 +187,7 @@ sys.path.insert(0, str(_UPSTREAM_DIRECTORY))
 # Import only after sanitizing the environment.  These are internal upstream
 # entry points pinned by ENGINE_COMMIT and covered by our integration tests.
 from common import safe_write_bytes as _safe_write_bytes  # noqa: E402
+from container_meta import embedded_provenance_present  # noqa: E402
 from server import (  # noqa: E402
     _clean_payload as _upstream_clean_payload,
     _inspect_payload as _upstream_inspect_payload,
@@ -348,7 +354,7 @@ def _clean_options(request: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(options, dict):
         raise ProtocolError("invalid_options", "options must be a JSON object")
 
-    unknown = sorted(set(options) - set(_OPTION_TYPES))
+    unknown = sorted(set(options) - set(_OPTION_TYPES) - {"wordTraces"})
     if unknown:
         raise ProtocolError(
             "invalid_options",
@@ -358,6 +364,8 @@ def _clean_options(request: dict[str, Any]) -> dict[str, Any]:
 
     normalized = dict(_OPTION_DEFAULTS)
     for key, value in options.items():
+        if key == "wordTraces":
+            continue
         expected = _OPTION_TYPES[key]
         # bool is a subclass of int, so use exact types for a strict envelope.
         if type(value) is not expected:  # noqa: E721
@@ -376,7 +384,13 @@ def _clean_options(request: dict[str, Any]) -> dict[str, Any]:
             "option deepImages must be one of: auto, always, lossless, never",
             details={"option": "deepImages", "allowedValues": sorted(_DEEP_IMAGE_MODES)},
         )
-    return {_OPTION_MAP[key]: value for key, value in normalized.items()}
+    result = {_OPTION_MAP[key]: value for key, value in normalized.items()}
+    if "wordTraces" in options:
+        try:
+            result["word_traces"] = word_editing_traces.validate_options(options["wordTraces"])
+        except word_editing_traces.WordTraceError as exc:
+            raise ProtocolError("invalid_options", str(exc)) from exc
+    return result
 
 
 def _report_object(value: Any) -> dict[str, Any]:
@@ -418,6 +432,7 @@ def _capabilities_response(request_id: str) -> dict[str, Any]:
             "packaged": bool(getattr(sys, "frozen", False)),
         },
         "operations": sorted(_OPERATIONS),
+        "wordEditingTraces": {"available": True, "dateOrder": "preserved", "contentPreserved": True},
         "limits": {
             "maxInputBytes": MAX_INPUT_BYTES,
             "maxOutputBytes": MAX_OUTPUT_BYTES,
@@ -431,7 +446,7 @@ def _capabilities_response(request_id: str) -> dict[str, Any]:
             "c2patoolNetworkPolicy": (
                 "deny-all" if os.environ.get("C2PATOOL_SETTINGS") else "disabled"
             ),
-            "cancellation": "terminate-process",
+            "cancellation": "terminate-process-group",
         },
         "cleanOptions": {
             "normalizeSpaces": {"type": "boolean", "default": False},
@@ -443,6 +458,7 @@ def _capabilities_response(request_id: str) -> dict[str, Any]:
                 "default": "auto",
                 "allowedValues": sorted(_DEEP_IMAGE_MODES),
             },
+            "wordTraces": {"type": "object", "scope": "DOCX editing metadata only"},
         },
         "upstream": _safe_upstream_capabilities(),
     }
@@ -465,6 +481,13 @@ def _inspect_response(request_id: str, input_path: Path) -> dict[str, Any]:
         kind = "unknown"
     report = dict(_report_object(result.get("report")))
     report.setdefault("suspicious", bool(result.get("suspicious")))
+    if input_path.suffix.lower() == ".docx":
+        report["word_editing_traces"] = word_editing_traces.inspect(data)
+    if input_path.suffix.lower() == ".pdf" and embedded_provenance_present(data):
+        findings = report.setdefault("findings", [])
+        confidences = report.setdefault("findings_confidence", ["informational"] * len(findings))
+        findings.append("Potential provenance metadata inside an embedded PDF image.")
+        confidences.append("probable")
     return {"requestID": request_id, "ok": True, "kind": kind, "report": report}
 
 
@@ -476,6 +499,44 @@ def _clean_response(
 ) -> dict[str, Any]:
     _validate_output(input_path, output_path)
     data = _read_input(input_path)
+    if "word_traces" in options:
+        if input_path.suffix.lower() != ".docx":
+            raise ProtocolError("unsupported_format", "Editing-trace changes require a DOCX file.")
+        try:
+            cleaned, trace_report = word_editing_traces.rewrite(data, options["word_traces"])
+            if len(cleaned) > MAX_OUTPUT_BYTES:
+                raise ProtocolError("output_too_large", "The rewritten DOCX exceeds the output limit.")
+            _safe_write_bytes(output_path, cleaned)
+        except word_editing_traces.WordTraceError as exc:
+            raise ProtocolError("word_trace_error", str(exc)) from exc
+        except OSError as exc:
+            raise ProtocolError("output_io_error", f"Could not save the rewritten DOCX: {exc}") from exc
+        return {
+            "requestID": request_id, "ok": True, "kind": "container", "outputPath": str(output_path),
+            "report": {
+                "changed": cleaned != data, "word_trace_changes": trace_report,
+                "actions": [
+                    f"Word editing traces: {trace_report['changedFields']} metadata fields processed; text, formatting, comments, and tracked changes preserved.",
+                    f"Session IDs: {options['word_traces']['rsids']}; recorded dates: {options['word_traces']['dates']}; chronological order preserved.",
+                    f"Archive timestamps reset: {trace_report['archiveDatesReset']} entries.",
+                ],
+            },
+        }
+    if input_path.suffix.lower() == ".pdf" and options.get("deep_images", "auto") != "never":
+        # pdfwrite may repair an unparseable input into a blank page while
+        # returning success. Validate before allowing it to rewrite a PDF.
+        qpdf = shutil.which("qpdf")
+        if qpdf is None:
+            raise ProtocolError("pdf_validation_unavailable", "Deep PDF cleaning requires the bundled qpdf validator.")
+        try:
+            validation = subprocess.run(
+                [qpdf, "--check", str(input_path)],
+                capture_output=True, timeout=30, check=False,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            raise ProtocolError("pdf_validation_failed", "The PDF validation step could not complete. Deep cleaning was not started.") from exc
+        if validation.returncode not in (0, 3):  # qpdf 3 means recoverable warnings.
+            raise ProtocolError("invalid_pdf", "The PDF could not be validated for deep cleaning. It may be damaged or require a password.")
     try:
         result = _upstream_clean_payload(data, input_path.name, options)
     except ValueError as exc:
@@ -516,6 +577,23 @@ def _clean_response(
     if not isinstance(kind, str):
         kind = "unknown"
     report = _report_object(result.get("report"))
+    if input_path.suffix.lower() == ".pdf":
+        # Document-level inspection can miss a marker living inside a JPEG.
+        # Keep that residual visible after a pass-through-only clean as well.
+        if embedded_provenance_present(cleaned):
+            report.setdefault("post_findings", []).append(
+                "Potential provenance metadata remains inside an embedded PDF image."
+            )
+        meta = report.get("meta", {})
+        deep_ran = meta.get("deep_image_pass", False)
+        actions = [str(action).lower() for action in report.get("actions", [])]
+        report["pdf_deep_clean_incomplete"] = (
+            (options.get("deep_images") in ("always", "lossless") and not deep_ran)
+            or any(
+                "deep image pass" in action and ("failed" in action or "skipped" in action or "install ghostscript" in action)
+                for action in actions
+            )
+        )
     return {
         "requestID": request_id,
         "ok": True,
@@ -608,7 +686,24 @@ def _drain_oversized_line(first_chunk: bytes) -> None:
             return
 
 
+def _configure_cancellation() -> None:
+    if os.name != "posix":
+        return
+    # The app sends SIGTERM to this helper. Own a private process group so a
+    # long-running Ghostscript child cannot keep working after Stop is pressed.
+    if os.getpgrp() != os.getpid():
+        os.setsid()
+
+    def terminate_group(signum: int, _frame: Any) -> NoReturn:
+        signal.signal(signal.SIGTERM, signal.SIG_DFL)
+        os.killpg(os.getpid(), signal.SIGTERM)
+        os._exit(128 + signum)
+
+    signal.signal(signal.SIGTERM, terminate_group)
+
+
 def main() -> int:
+    _configure_cancellation()
     while True:
         raw = sys.stdin.buffer.readline(MAX_REQUEST_LINE_BYTES + 1)
         if not raw:

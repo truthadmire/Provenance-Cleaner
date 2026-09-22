@@ -14,6 +14,7 @@ struct JobDetailView: View {
     @Binding var selectedTab: JobDetailTab
     var onInspect: () -> Void
     var onClean: () -> Void
+    var onEditWordTraces: () -> Void
     var onExportCopy: () -> Void
     var onReplaceOriginal: () -> Void
     var onReveal: () -> Void
@@ -21,32 +22,51 @@ struct JobDetailView: View {
     @State private var showingReplaceConfirmation = false
 
     var body: some View {
+        // The header owns its layout space. An inset on the scroll view lets
+        // scrolled content draw into that inset, behind the header and tabs.
         VStack(spacing: 0) {
-            header
-            Divider()
+            VStack(spacing: 0) {
+                header
 
-            Picker("View", selection: $selectedTab) {
-                ForEach(JobDetailTab.allCases) { tab in
-                    Text(tab.rawValue).tag(tab)
+                HStack {
+                    Picker("View", selection: $selectedTab) {
+                        ForEach(JobDetailTab.allCases) { tab in
+                            Text(tab.rawValue).tag(tab)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .frame(width: 220)
+                    .accessibilityIdentifier("detail.view-picker")
+
+                    Spacer()
+                    Label("Local processing", systemImage: "lock.shield")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, 24)
+                .padding(.top, 14)
+            }
+            .fixedSize(horizontal: false, vertical: true)
+
+            Group {
+                switch selectedTab {
+                case .overview:
+                    JobOverviewView(
+                        job: job,
+                        preferences: preferences,
+                        optionsDisabled: job.status.isBusy || isBatchBusy,
+                        onEditWordTraces: onEditWordTraces
+                    )
+                case .preview:
+                    FilePreviewView(job: job)
                 }
             }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .frame(maxWidth: 280)
-            .padding(.top, 14)
-            .accessibilityIdentifier("detail.view-picker")
-
-            switch selectedTab {
-            case .overview:
-                JobOverviewView(
-                    job: job,
-                    preferences: preferences,
-                    optionsDisabled: job.status.isBusy || isBatchBusy
-                )
-            case .preview:
-                FilePreviewView(job: job)
-            }
+            .id(job.id)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .clipped()
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .confirmationDialog(
             "Replace \(job.displayName)?",
             isPresented: $showingReplaceConfirmation,
@@ -60,56 +80,68 @@ struct JobDetailView: View {
     }
 
     private var header: some View {
-        HStack(alignment: .center, spacing: 14) {
-            Image(systemName: job.kind.systemImage)
-                .font(.title2)
-                .foregroundStyle(.secondary)
-                .frame(width: 32, height: 32)
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 14) {
+                CleanerSymbol(systemImage: job.kind.systemImage, size: 48)
 
-            VStack(alignment: .leading, spacing: 3) {
-                Text(job.displayName)
-                    .font(.title3.weight(.semibold))
-                    .lineLimit(1)
-                Button(action: onReveal) {
-                    Text(job.sourceURL.deletingLastPathComponent().path)
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(job.displayName)
+                        .font(.title2.weight(.semibold))
                         .lineLimit(1)
                         .truncationMode(.middle)
+                    Button(action: onReveal) {
+                        Text(job.sourceURL.deletingLastPathComponent().path)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                    }
+                    .buttonStyle(.plain)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .help("Reveal in Finder")
                 }
-                .buttonStyle(.plain)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .help("Reveal in Finder")
-            }
 
-            Spacer()
+                Spacer(minLength: 12)
 
-            StatusBadge(status: job.status)
-                .accessibilityIdentifier("detail.status")
-
-            Button("Inspect", action: onInspect)
-                .disabled(job.status.isBusy || isBatchBusy)
-                .accessibilityIdentifier("detail.inspect")
-
-            Button("Clean", action: onClean)
+                Button(action: onClean) {
+                    Label("Clean", systemImage: "wand.and.stars")
+                }
                 .buttonStyle(.borderedProminent)
                 .disabled(!job.status.canClean || job.status.isBusy || isBatchBusy)
                 .accessibilityIdentifier("detail.clean")
+            }
+            .controlSize(.large)
 
-            if job.canExport {
-                Menu {
-                    Button("Save Cleaned Copy…", action: onExportCopy)
-                    Button("Replace Original and Keep .bak", role: .destructive) {
-                        showingReplaceConfirmation = true
+            HStack(spacing: 10) {
+                StatusBadge(status: job.status)
+                    .accessibilityIdentifier("detail.status")
+                Text(job.kind.displayName)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                Spacer(minLength: 8)
+
+                Button("Inspect", action: onInspect)
+                    .disabled(job.status.isBusy || isBatchBusy)
+                    .accessibilityIdentifier("detail.inspect")
+
+                if job.canExport {
+                    Menu {
+                        Button("Save Cleaned Copy…", action: onExportCopy)
+                        Button("Replace Original and Keep .bak", role: .destructive) {
+                            showingReplaceConfirmation = true
+                        }
+                    } label: {
+                        Label("Export", systemImage: "square.and.arrow.down")
                     }
-                } label: {
-                    Label("Export", systemImage: "square.and.arrow.down")
+                    .menuIndicator(.visible)
+                    .accessibilityIdentifier("detail.export")
                 }
-                .menuIndicator(.visible)
-                .accessibilityIdentifier("detail.export")
             }
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 14)
+        .padding(20)
+        .cleanerSurface()
+        .padding(.horizontal, 24)
+        .padding(.top, 20)
     }
 }
 
@@ -117,12 +149,17 @@ private struct StatusBadge: View {
     let status: CleanerJobStatus
 
     var body: some View {
-        Label(status.label, systemImage: status.systemImage)
+        Label {
+            Text(status.label).foregroundStyle(Color.primary)
+        } icon: {
+            Image(systemName: status.systemImage)
+        }
             .font(.caption.weight(.medium))
+            .foregroundStyle(status.tint)
             .lineLimit(1)
             .padding(.horizontal, 9)
             .padding(.vertical, 5)
-            .background(.quaternary, in: Capsule())
+            .background(status.tint.opacity(0.1), in: Capsule())
     }
 }
 
@@ -130,20 +167,18 @@ private struct JobOverviewView: View {
     let job: CleanerJob
     @Bindable var preferences: AppPreferences
     let optionsDisabled: Bool
+    var onEditWordTraces: () -> Void
     @State private var rawReportExpanded = false
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                CurrentCleaningOptionsCard(preferences: preferences)
-                    .disabled(optionsDisabled)
-
                 if job.sourceURL.pathExtension.lowercased() == "pdf" {
-                    NoticeCard(
-                        title: "PDF embedded-image limitation",
-                        message: "Ghostscript is not bundled. ExifTool and qpdf handle document-level metadata and structural rewrites, but provenance metadata inside some embedded PDF images may remain. Review the result before export.",
-                        systemImage: "exclamationmark.shield"
-                    )
+                    PDFCleaningCard(job: job, preferences: preferences, optionsDisabled: optionsDisabled)
+                }
+
+                if job.sourceURL.pathExtension.lowercased() == "docx" {
+                    WordEditingTracesCard(job: job, preferences: preferences, optionsDisabled: optionsDisabled, onApply: onEditWordTraces)
                 }
 
                 if let options = job.cleaningOptions {
@@ -172,6 +207,9 @@ private struct JobOverviewView: View {
                     )
                 }
 
+                CurrentCleaningOptionsCard(preferences: preferences)
+                    .disabled(optionsDisabled)
+
                 if let cleanReport = job.cleanReport {
                     CleanActionsCard(report: cleanReport)
                 }
@@ -195,14 +233,16 @@ private struct JobOverviewView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.top, 8)
                 }
-                .padding(14)
-                .background(.quaternary.opacity(0.45), in: RoundedRectangle(cornerRadius: 10))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 4)
+                .padding(.vertical, 8)
 
                 Text("A clean report describes only the checks that ran. It is not a universal certificate that no watermark remains.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-            .padding(20)
+            .padding(24)
             .frame(maxWidth: 900, alignment: .leading)
             .frame(maxWidth: .infinity)
         }
@@ -216,19 +256,30 @@ private struct CurrentCleaningOptionsCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Options for the next clean")
-                    .font(.headline)
+                CleanerCardHeading(title: "Options for the next clean", systemImage: "slider.horizontal.3")
                 Spacer()
                 SettingsLink {
                     Text("All Settings")
                 }
                 .font(.caption)
+                .buttonStyle(.link)
             }
 
-            Toggle("Preserve unrelated metadata", isOn: $preferences.keepNonAIMetadata)
-            Text("Keep ordinary author, date, camera, and document metadata while removing recognized provenance fields.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            Divider().opacity(0.5)
+
+            Toggle(isOn: $preferences.keepNonAIMetadata) {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text("Preserve unrelated metadata")
+                        .fontWeight(.medium)
+                    Text("Keep ordinary author, date, camera, and document metadata while removing recognized provenance fields.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .toggleStyle(.switch)
+            .controlSize(.small)
+            .accessibilityLabel("Preserve unrelated metadata")
 
             DisclosureGroup("Advanced", isExpanded: $advancedExpanded) {
                 VStack(alignment: .leading, spacing: 6) {
@@ -239,25 +290,27 @@ private struct CurrentCleaningOptionsCard: View {
                 }
                 .padding(.top, 8)
             }
+            .font(.caption)
+            .foregroundStyle(.secondary)
         }
-        .padding(16)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
-        .overlay {
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(.separator.opacity(0.7), lineWidth: 1)
-        }
+        .padding(20)
+        .cleanerSurface()
     }
 }
 
 private struct ReportCard: View {
     let title: String
     let report: WatermarkReport
+    @State private var notesExpanded = false
+
+    private var reportTint: Color {
+        report.inspectionIncomplete || report.hasActionableFindings ? .orange : .green
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text(title)
-                    .font(.headline)
+                CleanerCardHeading(title: title, systemImage: "doc.text.magnifyingglass", tint: reportTint)
                 Spacer()
                 if report.inspectionIncomplete {
                     Label("Incomplete", systemImage: "questionmark.circle")
@@ -266,11 +319,15 @@ private struct ReportCard: View {
                 } else if report.hasActionableFindings {
                     Label("Actionable findings", systemImage: "exclamationmark.triangle")
                         .font(.caption)
+                        .foregroundStyle(.secondary)
                 } else {
                     Label("No actionable findings", systemImage: "checkmark.circle")
                         .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
             }
+
+            Divider().opacity(0.5)
 
             if report.findings.isEmpty {
                 Text("No confirmed or probable provenance marks were reported by the available checks.")
@@ -279,7 +336,7 @@ private struct ReportCard: View {
                 ForEach(report.findings) { finding in
                     HStack(alignment: .firstTextBaseline, spacing: 9) {
                         Image(systemName: finding.confidence.systemImage)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(finding.confidence <= .probable ? Color.orange : Color.secondary)
                             .frame(width: 16)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(finding.message)
@@ -289,21 +346,26 @@ private struct ReportCard: View {
                                 .foregroundStyle(.secondary)
                         }
                     }
+                    .padding(.vertical, 3)
                 }
             }
 
-            ForEach(report.notes, id: \.self) { note in
-                Label(note, systemImage: "info.circle")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+            if !report.notes.isEmpty {
+                DisclosureGroup("About these checks", isExpanded: $notesExpanded) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        ForEach(report.notes, id: \.self) { note in
+                            Label(note, systemImage: "info.circle")
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                    .padding(.top, 8)
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
             }
         }
-        .padding(16)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
-        .overlay {
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(.separator.opacity(0.7), lineWidth: 1)
-        }
+        .padding(20)
+        .cleanerSurface()
     }
 }
 
@@ -312,8 +374,9 @@ private struct CleanActionsCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Cleaning actions")
-                .font(.headline)
+            CleanerCardHeading(title: "Cleaning actions", systemImage: "checkmark", tint: .green)
+
+            Divider().opacity(0.5)
 
             if report.actions.isEmpty {
                 Text(report.didChange == false ? "The output matched the input." : "The engine returned no action details.")
@@ -325,12 +388,8 @@ private struct CleanActionsCard: View {
                 }
             }
         }
-        .padding(16)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
-        .overlay {
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(.separator.opacity(0.7), lineWidth: 1)
-        }
+        .padding(20)
+        .cleanerSurface()
     }
 }
 
@@ -341,17 +400,17 @@ private struct NoticeCard: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            Image(systemName: systemImage)
-                .font(.title3)
-                .foregroundStyle(.secondary)
+            CleanerSymbol(systemImage: systemImage, tint: .secondary)
             VStack(alignment: .leading, spacing: 4) {
                 Text(title).font(.headline)
-                Text(message).foregroundStyle(.secondary)
+                Text(message)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
-        .background(.quaternary.opacity(0.45), in: RoundedRectangle(cornerRadius: 12))
+        .padding(20)
+        .cleanerSurface()
     }
 }
 
@@ -366,6 +425,7 @@ private extension CleanerJobStatus {
 
 private extension CleaningOptions {
     var summary: String {
+        if let wordTraces { return wordTraces.summary }
         let metadata = stripAllMetadata
             ? "all removable metadata requested"
             : "unrelated metadata preserved"

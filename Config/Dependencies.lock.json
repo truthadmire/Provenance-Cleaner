@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "lockedAt": "2026-08-30",
+  "lockedAt": "2026-09-05",
   "distribution": {
     "minimumMacOS": "14.0",
     "applicationArchitecture": "arm64",
-    "ghostscript": "excluded",
+    "ghostscript": "bundled standalone CLI; corresponding source included with the DMG",
     "notes": "The release bundle contains only deterministic local tooling. CPython and PyInstaller are helper build inputs; they are not staged by fetch_dependencies.sh."
   },
   "components": {
@@ -62,6 +62,22 @@
       "architecture": "arm64",
       "build": "static libqpdf and static libjpeg-turbo; native qpdf crypto; Apple system libz/libSystem remain dynamic",
       "license": "Apache-2.0",
+      "bundled": true
+    },
+    "ghostscript": {
+      "version": "10.07.1",
+      "role": "PDF embedded-image metadata cleanup through the standalone pdfwrite interpreter",
+      "artifact": {
+        "fileName": "ghostscript-10.07.1.tar.xz",
+        "url": "https://github.com/ArtifexSoftware/ghostpdl-downloads/releases/download/gs10071/ghostscript-10.07.1.tar.xz",
+        "sha256": "1cdb766de8db8f1e589c817f09c5855ea5f65dfc8540e465a69ac14c18416025",
+        "sizeBytes": 69012308,
+        "hashAuthority": "official Artifex GitHub release asset SHA-256 digest"
+      },
+      "architecture": "arm64",
+      "build": "script/build_ghostscript.sh; bundled static codecs and compiled-in resources; pdfwrite, png16m and txtwrite devices; system libraries only; no printer, OCR, GUI, or host-font integration",
+      "license": "AGPL-3.0-or-later; included dependencies retain their upstream license notices",
+      "sourceDistribution": "The original source archive and standalone build recipe accompany the DMG under Third-Party Source/Ghostscript.",
       "bundled": true
     },
     "libjpegTurbo": {

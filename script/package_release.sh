@@ -38,7 +38,7 @@ Options:
   -h, --help              Show this help.
 
 The script always builds the helper and app from the clean current HEAD,
-requires all three staged tools, runs the frozen-helper integration matrix,
+requires all four staged tools, runs the frozen-helper integration matrix,
 signs Mach-O files from the inside out with the hardened runtime, creates/signs
 a DMG, optionally notarizes and staples it, and emits source/checksum/report
 artifacts. A helper build requires an exact CPython 3.14.7 interpreter; set
@@ -198,8 +198,10 @@ verify_capabilities_json() {
     die "bundled helper unexpectedly reports network backends"
   [[ "$(/usr/bin/plutil -extract report.execution.c2patoolNetworkPolicy raw -o - "$capabilities_file")" == "deny-all" ]] || \
     die "bundled helper does not report the deny-all c2patool policy"
-  [[ "$(/usr/bin/plutil -extract report.upstream.tools.ghostscript raw -o - "$capabilities_file")" == "false" ]] || \
-    die "bundled helper unexpectedly reports Ghostscript availability"
+  [[ "$(/usr/bin/plutil -extract report.upstream.tools.ghostscript raw -o - "$capabilities_file")" == "true" ]] || \
+    die "bundled helper cannot execute Ghostscript for PDF deep cleaning"
+  [[ "$(/usr/bin/plutil -extract report.wordEditingTraces.available raw -o - "$capabilities_file")" == "true" ]] || \
+    die "bundled helper is missing Word editing-trace support"
 }
 
 verify_helper_capabilities_direct() {
@@ -218,6 +220,11 @@ probe_inherited_helper_capabilities() {
   probe_app="$PROBE_TEMP/ProvenanceReleaseProbe.app"
   probe_executable="$probe_app/Contents/MacOS/provenance-release-probe"
   /bin/mkdir -p "$probe_app/Contents/MacOS" "$probe_app/Contents/Helpers"
+  /bin/mkdir -p "$probe_app/Contents/Resources"
+  /usr/bin/ditto "$ROOT_DIR/Tests/HelperIntegration/Fixtures/embedded-provenance.pdf" \
+    "$probe_app/Contents/Resources/embedded-provenance.pdf"
+  /usr/bin/ditto "$ROOT_DIR/Tests/HelperIntegration/Fixtures/editing-traces.docx" \
+    "$probe_app/Contents/Resources/editing-traces.docx"
   /usr/bin/xcrun swiftc -target arm64-apple-macos14.0 \
     "$RELEASE_PROBE_SOURCE" -o "$probe_executable"
   /usr/bin/ditto "$RELEASE_PROBE_INFO" "$probe_app/Contents/Info.plist"
@@ -229,7 +236,7 @@ probe_inherited_helper_capabilities() {
     --entitlements "$APP_ENTITLEMENTS" \
     --sign "$SIGNING_IDENTITY" "$probe_app"
   /usr/bin/codesign --verify --deep --strict --verbose=4 "$probe_app"
-  "$probe_executable" > "$output_file"
+  "$probe_executable" --pdf-smoke --word-smoke > "$output_file"
   verify_capabilities_json "$output_file"
   [[ "$PROBE_TEMP" == /private/tmp/provenance-release-probe.* ]] || \
     die "refusing to clean an unexpected release-probe path"
@@ -281,6 +288,8 @@ verify_expected_payload() {
   [[ -x "$helper_resources/exiftool/exiftool" ]] || die "missing bundled ExifTool"
   [[ -d "$helper_resources/exiftool/lib" ]] || die "missing bundled ExifTool lib directory"
   [[ -x "$helper_frameworks/qpdf/qpdf" ]] || die "missing bundled qpdf"
+  [[ -x "$helper_frameworks/ghostscript/gs" ]] || die "missing bundled Ghostscript"
+  [[ -d "$helper_resources/ghostscript/notices" ]] || die "missing Ghostscript dependency notices"
   [[ -f "$app/Contents/Resources/THIRD_PARTY_NOTICES.md" ]] || die "missing third-party notices resource"
   [[ -f "$app/Contents/Resources/Dependencies.lock.json" ]] || die "missing dependency lock resource"
   [[ -f "$app/Contents/Resources/UpstreamWatermarksRemover.manifest.sha256" ]] || \
@@ -292,6 +301,8 @@ verify_expected_payload() {
     ExifTool-LICENSE-Artistic-1.0-Perl.txt \
     qpdf-LICENSE-Apache-2.0.txt \
     qpdf-NOTICE.md \
+    Ghostscript-AGPL-3.0.txt \
+    Ghostscript-LICENSE.txt \
     libjpeg-turbo-LICENSE.md \
     CPython-LICENSE-PSF-2.0.txt \
     OpenSSL-NOTICE.txt \
@@ -314,9 +325,12 @@ verify_expected_payload() {
     die "unexpected bundled ExifTool version"
   "$helper_frameworks/qpdf/qpdf" --version | /usr/bin/grep -F '12.4.1' >/dev/null || \
     die "unexpected bundled qpdf version"
-  if /usr/bin/find "$app" \( -iname 'gs' -o -iname 'ghostscript' \) -print | /usr/bin/grep . >/dev/null; then
-    die "Ghostscript is excluded from this release but was found in the app bundle"
-  fi
+  [[ "$("$helper_frameworks/ghostscript/gs" --version)" == "$(/usr/bin/plutil -extract components.ghostscript.version raw -o - "$DEPENDENCY_LOCK")" ]] || \
+    die "unexpected bundled Ghostscript version"
+  [[ "$(cat "$helper_resources/ghostscript/SOURCE.sha256")" == "$(/usr/bin/plutil -extract components.ghostscript.artifact.sha256 raw -o - "$DEPENDENCY_LOCK")" ]] || \
+    die "Ghostscript corresponding-source receipt differs from the lock"
+  /usr/bin/cmp -s "$ROOT_DIR/App/Resources/ThirdPartyLicenses/Ghostscript-AGPL-3.0.txt" \
+    "$helper_resources/ghostscript/AGPL-3.0.txt" || die "Ghostscript AGPL text differs"
 }
 
 while [[ $# -gt 0 ]]; do
@@ -460,14 +474,14 @@ if [[ -n "${PROVENANCE_DYLD_FRAMEWORK_PATH:-}" ]]; then
   if ! PROVENANCE_HELPER_UNDER_TEST="$HELPER_UNDER_TEST" \
     DYLD_FRAMEWORK_PATH="$PROVENANCE_DYLD_FRAMEWORK_PATH" \
     DYLD_LIBRARY_PATH="${PROVENANCE_DYLD_LIBRARY_PATH:-}" \
-    "$HELPER_PYTHON" "$ROOT_DIR/Tests/HelperIntegration/test_provenance_helper.py" \
+    "$HELPER_PYTHON" -m unittest discover -s "$ROOT_DIR/Tests/HelperIntegration" -v \
     >"$HELPER_INTEGRATION_LOG" 2>&1; then
     /bin/cat "$HELPER_INTEGRATION_LOG" >&2
     die "frozen helper integration matrix failed"
   fi
 else
   if ! PROVENANCE_HELPER_UNDER_TEST="$HELPER_UNDER_TEST" \
-    "$HELPER_PYTHON" "$ROOT_DIR/Tests/HelperIntegration/test_provenance_helper.py" \
+    "$HELPER_PYTHON" -m unittest discover -s "$ROOT_DIR/Tests/HelperIntegration" -v \
     >"$HELPER_INTEGRATION_LOG" 2>&1; then
     /bin/cat "$HELPER_INTEGRATION_LOG" >&2
     die "frozen helper integration matrix failed"
@@ -504,6 +518,16 @@ PACKAGE_TEMP="$(/usr/bin/mktemp -d /private/tmp/provenance-release-package.XXXXX
 DMG_STAGE="$PACKAGE_TEMP/dmg-root"
 /bin/mkdir -p "$DMG_STAGE"
 /usr/bin/ditto "$BUILT_APP" "$DMG_STAGE/$PRODUCT_NAME.app"
+GHOSTSCRIPT_SOURCE_NAME="$(/usr/bin/plutil -extract components.ghostscript.artifact.fileName raw -o - "$DEPENDENCY_LOCK")"
+GHOSTSCRIPT_SOURCE_HASH="$(/usr/bin/plutil -extract components.ghostscript.artifact.sha256 raw -o - "$DEPENDENCY_LOCK")"
+GHOSTSCRIPT_SOURCE="$ROOT_DIR/Vendor/Artifacts/downloads/$GHOSTSCRIPT_SOURCE_NAME"
+[[ "$(sha256_of "$GHOSTSCRIPT_SOURCE")" == "$GHOSTSCRIPT_SOURCE_HASH" ]] || die "Ghostscript corresponding source failed its checksum"
+GHOSTSCRIPT_SOURCE_STAGE="$DMG_STAGE/Third-Party Source/Ghostscript"
+/bin/mkdir -p "$GHOSTSCRIPT_SOURCE_STAGE"
+/usr/bin/ditto "$GHOSTSCRIPT_SOURCE" "$GHOSTSCRIPT_SOURCE_STAGE/$GHOSTSCRIPT_SOURCE_NAME"
+/usr/bin/ditto "$ROOT_DIR/script/build_ghostscript.sh" "$GHOSTSCRIPT_SOURCE_STAGE/build_ghostscript.sh"
+/usr/bin/ditto "$ROOT_DIR/Config/Ghostscript-Source.md" "$GHOSTSCRIPT_SOURCE_STAGE/README.md"
+/usr/bin/ditto "$ROOT_DIR/App/Resources/ThirdPartyLicenses/Ghostscript-AGPL-3.0.txt" "$GHOSTSCRIPT_SOURCE_STAGE/COPYING"
 /bin/ln -s /Applications "$DMG_STAGE/Applications"
 DMG_PATH="$OUTPUT_DIR/ProvenanceCleaner-$VERSION.dmg"
 /usr/bin/hdiutil create \
@@ -541,6 +565,10 @@ audit_architectures "$MOUNTED_APP"
 audit_hardened_runtime "$MOUNTED_APP"
 verify_signed_entitlements "$MOUNTED_APP"
 verify_expected_payload "$MOUNTED_APP"
+[[ "$(sha256_of "$MOUNT_POINT/Third-Party Source/Ghostscript/$GHOSTSCRIPT_SOURCE_NAME")" == "$GHOSTSCRIPT_SOURCE_HASH" ]] || \
+  die "mounted Ghostscript source failed its checksum"
+/usr/bin/cmp -s "$ROOT_DIR/script/build_ghostscript.sh" "$MOUNT_POINT/Third-Party Source/Ghostscript/build_ghostscript.sh" || \
+  die "mounted Ghostscript build recipe differs"
 MOUNTED_CAPABILITIES_LOG="$DERIVED_DIR/MountedHelperCapabilities.json"
 probe_inherited_helper_capabilities "$MOUNTED_APP" "$MOUNTED_CAPABILITIES_LOG"
 /usr/bin/cmp -s "$SIGNED_CAPABILITIES_LOG" "$MOUNTED_CAPABILITIES_LOG" || \
@@ -583,10 +611,11 @@ REPORT="$OUTPUT_DIR/RELEASE_REPORT.md"
   echo "- Sandbox: outer app uses App Sandbox + user-selected read/write; nested helper uses App Sandbox + inherit and receives only app-container staged paths"
   echo "- Notarization: $NOTARIZATION_STATUS"
   echo "- Stapling: $([[ -n "$NOTARY_PROFILE" ]] && echo validated || echo not performed)"
-  echo "- Architectures: application, frozen CPython/OpenSSL/zstd, c2patool, and qpdf arm64; qpdf uses static libqpdf+libjpeg"
+  echo "- Architectures: application, frozen CPython/OpenSSL/zstd, c2patool, qpdf and Ghostscript arm64; qpdf and Ghostscript use static bundled codecs"
   echo "- c2patool network policy: all SDK hosts blocked; remote manifests, OCSP, and CAWG identity decoding disabled"
   echo "- ExifTool license option: Artistic-1.0-Perl"
-  echo "- Ghostscript: excluded"
+  echo "- Ghostscript: 10.07.1 bundled as a standalone CLI with compiled-in resources; AGPL-3.0-or-later notices and corresponding source included"
+  echo "- Ghostscript corresponding-source SHA-256: $GHOSTSCRIPT_SOURCE_HASH"
   echo "- Dependency lock SHA-256: $(sha256_of "$DEPENDENCY_LOCK")"
   echo "- Pinned upstream tree manifest SHA-256: $(sha256_of "$UPSTREAM_MANIFEST")"
   echo "- PyInstaller requirements lock SHA-256: $(sha256_of "$PYINSTALLER_LOCK")"
@@ -603,7 +632,7 @@ REPORT="$OUTPUT_DIR/RELEASE_REPORT.md"
   echo "- linked-library relocation audit: passed"
   echo "- arm64-only Mach-O audit: passed"
   echo "- required helper/tool payload audit: passed"
-  echo "- helper capability audit before signing and through a disposable signed sandbox parent after signing and after DMG mounting: CPython/OpenSSL versions, pinned commit, offline mode, c2patool deny-all, no network backend, and Ghostscript exclusion passed"
+  echo "- helper capability audit before signing and through a disposable signed sandbox parent after signing and after DMG mounting: CPython/OpenSSL versions, pinned commit, offline mode, c2patool deny-all, no network backend, Ghostscript availability, and sandboxed PDF/Word smoke checks passed"
   echo "- frozen helper integration matrix: passed against the exact frozen payload before applying its inherit-only sandbox signature (see FROZEN_HELPER_INTEGRATION_TESTS.txt)"
   echo "- DMG filesystem verification, mounted-app strict signature, architecture, linked-library, and helper capability checks: passed"
   if [[ -z "$NOTARY_PROFILE" ]]; then

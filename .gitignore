@@ -3,6 +3,7 @@
 build/
 DerivedData/
 dist/
+outputs/
 *.xcarchive
 *.dmg
 *.zip

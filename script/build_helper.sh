@@ -85,6 +85,7 @@ fi
 if [[ "$IF_NEEDED" -eq 1 && -x "$OUTPUT_BINARY" ]]; then
   WATCH_PATHS=(
     "$SOURCE"
+    "$HELPER_DIR/word_editing_traces.py"
     "$SPEC"
     "$UPSTREAM_DIR"
     "$HELPER_DIR/requirements-build.txt"
@@ -279,7 +280,8 @@ FOUND_TOOL=0
 for TOOL_PATH in \
   "$C2PATOOL_BINARY" \
   "$EXIFTOOL_BINARY" \
-  "$BUILT_APP/Contents/Frameworks/tools/qpdf/qpdf"; do
+  "$BUILT_APP/Contents/Frameworks/tools/qpdf/qpdf" \
+  "$BUILT_APP/Contents/Frameworks/tools/ghostscript/gs"; do
   if [[ -x "$TOOL_PATH" ]]; then
     FOUND_TOOL=1
   fi

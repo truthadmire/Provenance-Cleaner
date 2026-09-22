@@ -20,7 +20,7 @@ struct FilePreviewView: View {
                 QuickLookComparisonPreview(originalURL: job.sourceURL, cleanedURL: job.stagedOutputURL)
             }
         }
-        .padding(20)
+        .padding(24)
     }
 }
 
@@ -155,9 +155,9 @@ private struct TextComparisonPreview: View {
             Text(attributedText(for: segments))
                 .font(.system(.body, design: .monospaced))
                 .textSelection(.enabled)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .padding(12)
+                .padding(16)
         }
+        .defaultScrollAnchor(.topLeading)
         .background(.background)
     }
 
@@ -293,19 +293,25 @@ private struct PreviewPane<Content: View>: View {
     @ViewBuilder var content: Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(title)
-                .font(.headline)
-                .accessibilityIdentifier("preview.pane.\(title.lowercased())")
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                Image(systemName: title == "Cleaned" ? "checkmark.circle" : "doc.text")
+                    .foregroundStyle(title == "Cleaned" ? Color.green : Color.secondary)
+                Text(title)
+                    .font(.headline)
+                    .accessibilityIdentifier("preview.pane.\(title.lowercased())")
+            }
             content
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .clipShape(RoundedRectangle(cornerRadius: 9))
+                .clipShape(RoundedRectangle(cornerRadius: 10))
                 .overlay {
-                    RoundedRectangle(cornerRadius: 9)
-                        .stroke(.separator.opacity(0.7), lineWidth: 1)
+                    RoundedRectangle(cornerRadius: 10)
+                        .strokeBorder(Color.primary.opacity(0.06), lineWidth: 1)
                 }
         }
+        .padding(16)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .cleanerSurface()
     }
 }
 

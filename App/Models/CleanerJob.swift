@@ -8,6 +8,7 @@ enum CleanerJobStatus: Equatable, Sendable {
     case inspectionIncomplete(Int)
     case cleaning
     case readyToExport(residualCount: Int)
+    case editingTracesReady(residualCount: Int)
     case cleanedInspectionIncomplete
     case cancelled
     case exported(URL)
@@ -27,6 +28,8 @@ enum CleanerJobStatus: Equatable, Sendable {
             residualCount > 0
                 ? "Cleaned — residual risk (\(residualCount))"
                 : "Cleaned — findings removed"
+        case let .editingTracesReady(residualCount):
+            residualCount > 0 ? "Metadata updated — other findings remain" : "Editing traces updated"
         case .cleanedInspectionIncomplete: "Cleaned — inspection incomplete"
         case .cancelled: "Cancelled"
         case let .exported(url): "Exported to \(url.lastPathComponent)"
@@ -42,7 +45,7 @@ enum CleanerJobStatus: Equatable, Sendable {
         case .inspectedClean: "checkmark.circle"
         case .findings: "exclamationmark.triangle"
         case .inspectionIncomplete, .cleanedInspectionIncomplete: "questionmark.circle"
-        case .readyToExport: "square.and.arrow.down"
+        case .readyToExport, .editingTracesReady: "square.and.arrow.down"
         case .cancelled: "stop.circle"
         case .exported: "checkmark.seal"
         case .unsupported: "nosign"
@@ -52,7 +55,7 @@ enum CleanerJobStatus: Equatable, Sendable {
 
     var canClean: Bool {
         switch self {
-        case .inspectedClean, .findings, .inspectionIncomplete, .readyToExport,
+        case .inspectedClean, .findings, .inspectionIncomplete, .readyToExport, .editingTracesReady,
              .cleanedInspectionIncomplete, .cancelled, .exported:
             true
         default:

@@ -1,9 +1,96 @@
 ## Test and Compatibility Evidence
 
-This evidence records what was directly verified for the 0.1.0 release
-candidate. It is intentionally narrower than the complete acceptance matrix.
+This evidence separates the current development checks from the original
+0.1.0 release-candidate checks. Neither section claims the complete acceptance
+matrix.
 
-### Automated verification
+### Detail scrolling layout verification — 2026-09-05
+
+- Replaced the detail header's scroll-view safe-area inset with a separate
+  fixed-height layout section above a clipped content viewport. Queue selection
+  changes recreate the content view so scroll offsets do not carry between files.
+- The Debug app rebuilt and passed launch verification. Manual native checks in
+  Dark appearance covered the user's long DOCX report at the original reported
+  scroll position, middle and bottom positions, an enlarged window and its
+  restored size, and switching between two queue items. Report content remained
+  below the header and tabs in every checked state.
+- The selected original DOCX retained its SHA-256 before and after verification.
+  No result was exported or used to replace the original. This layout-only change
+  was verified by build and native UI checks; helper suites were not rerun.
+
+### Word editing traces development verification — 2026-09-05
+
+- Implemented separate DOCX editing-metadata inspection and rewriting in the
+  app-owned helper module; the pinned upstream source remains unchanged.
+- The helper test suite passes **35 tests** with the source helper and **35
+  tests** with the packaged helper selected. Each run includes 26 protocol
+  integration tests and nine direct metadata-module tests. The frozen run's
+  protocol tests exercise the packaged executable; its nine direct tests still
+  exercise the source module.
+- Coverage checks consistent fresh RSIDs, distinct dates in chronological order,
+  equal instants expressed in different time zones, removal, unchanged visible
+  text and revision contents, preserved comments and unrelated package parts,
+  no-op byte identity, invalid ranges/dates, DTD refusal, unsupported encodings,
+  signed-document refusal, and existing-output preservation after failure.
+- Swift unit suite: **38 passed, 0 failed**. Added checks cover persisted Word
+  options, date-range validation and JSON transport, plus the dedicated action
+  staging output and queuing export review with an editing-traces status.
+- Built and launched the production-sandboxed Debug app. Manual Dark-appearance
+  checks exercised inspection, date-range controls, RSID/date randomization,
+  archive timestamp reset, the export-review prompt, and before/after values.
+  The native result reported 13 processed metadata fields and nine ZIP dates
+  reset for the synthetic fixture. No original document was replaced.
+- Microsoft Word opened the rewritten corrected fixture without a repair prompt.
+  Native read-back showed its bold heading, original text, insertion, tracked
+  deletion, comment, and randomized dates. An earlier synthetic fixture lacked
+  a binary content-type declaration and extension-compatibility declaration;
+  those fixture declarations were corrected before the final compatibility check.
+- The corrected checked-in fixture has SHA-256
+  `d9c6afa3288bbbf6b413ade7ca1b4e122e310cf6fed62605aeedce06b6c12a93`.
+- No new DMG or notarization result was produced. The existing complete upstream
+  and XCUITest results below remain historical; neither full suite was rerun.
+
+### Deep PDF cleaning development verification — 2026-09-05
+
+- Built the pinned Ghostscript 10.07.1 source for Apple silicon with a macOS 14
+  deployment target. The executable links only to system libraries, includes its
+  initialization resources, and reports the locked version. Dependency receipt,
+  source SHA-256, licenses, and executable architecture checks passed.
+- Source helper integration suite under CPython 3.14.7: **23 passed, 0 failed**
+  in 18.596 seconds. The same suite against the frozen arm64 helper: **23 passed,
+  0 failed** in 19.810 seconds.
+- The vendored upstream PDF image and structural rewrite suites:
+  **22 passed, 0 failed**. The complete upstream suite was not rerun for this
+  change; its earlier results are recorded below.
+- Swift unit suite with the `DebugTests` host: **36 passed, 0 failed**. Added
+  coverage checks lossless-mode persistence and transport, and incomplete PDF
+  cleaning retaining a reviewable output with an incomplete status.
+- PDF integration coverage exercises all four modes, embedded provenance and
+  ordinary camera metadata, unchanged source bytes, and matching rendered page
+  pixels. It also verifies refusal of malformed PDFs, reporting of Ghostscript
+  failures, ignored inherited `GS_*` configuration, and cancellation terminating
+  the running Ghostscript child together with the helper.
+- The production-sandboxed Debug app built and passed launch verification.
+  A strictly verified, ad-hoc-signed sandboxed release probe launched the
+  inherited-sandbox frozen helper, reported Ghostscript available and offline
+  mode enabled, and successfully cleaned the embedded-image PDF fixture.
+- Manual native UI verification in Dark appearance covered import, the embedded
+  provenance finding, the four-mode picker, Automatic and Lossless cleaning,
+  review-before-export, the actual pass result, and readable original/cleaned
+  PDF previews. Automatic was restored as the default. No export was performed.
+- The checked-in PDF fixture remained byte-identical after native verification:
+  SHA-256 `56e69aaa9c4c4f0aa79da8868aa906de7e6ad550a37fab2cece42ec916c78d18`.
+- The release script now includes the matching Ghostscript source archive,
+  build recipe, and licenses in the DMG, and runs the sandboxed PDF smoke check.
+  No new release DMG or notarization result was produced during this change.
+- The native XCUITest runner timed out enabling automation before executing
+  tests during the current work. The manual native checks above and the 36
+  Swift unit tests are the current evidence; the seven UI tests below are
+  historical results.
+
+### Original 0.1.0 release-candidate evidence
+
+#### Automated verification
 
 - Host: Apple silicon (`arm64`), macOS 26.5.1 (25F80), Xcode 26.4 (17E192).
 - Vendored upstream commit: `3f84d3e3964368b82172112b09ef3e7c02b25749`.
@@ -26,7 +113,7 @@ candidate. It is intentionally narrower than the complete acceptance matrix.
   WAV, MP4, malformed and unsupported input, the 256 MiB limit, forced helper
   failure, cancellation/restart, and original-byte preservation.
 
-### Native application verification
+#### Native application verification
 
 - The production-sandboxed Debug application built outside the iCloud-backed
   workspace, passed its launch verification, and remained running.

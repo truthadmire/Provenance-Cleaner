@@ -6,9 +6,7 @@ struct OwnershipNoticeView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             HStack(spacing: 14) {
-                Image(systemName: "hand.raised.fill")
-                    .font(.system(size: 34))
-                    .foregroundStyle(.secondary)
+                CleanerSymbol(systemImage: "hand.raised", size: 54)
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Use content responsibly")
                         .font(.title2.weight(.semibold))
@@ -34,6 +32,8 @@ struct OwnershipNoticeView: View {
                     message: "A clean report covers the checks that were available; it does not certify that every possible watermark is gone."
                 )
             }
+            .padding(20)
+            .cleanerSurface()
 
             Button("I Understand and Want to Continue", action: onAccept)
                 .buttonStyle(.borderedProminent)
@@ -42,6 +42,7 @@ struct OwnershipNoticeView: View {
         }
         .padding(28)
         .frame(width: 590)
+        .background { CleanerCanvas() }
     }
 }
 

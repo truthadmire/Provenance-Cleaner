@@ -21,6 +21,7 @@ struct ContentView: View {
                         selectedTab: $selectedDetailTab,
                         onInspect: { Task { await store.inspect(jobID: job.id) } },
                         onClean: { Task { await store.clean(jobID: job.id) } },
+                        onEditWordTraces: { Task { await store.applyWordEditingTraces(jobID: job.id) } },
                         onExportCopy: { exportSelectedCopy(job) },
                         onReplaceOriginal: { Task { await store.replaceSelectedOriginal() } },
                         onReveal: { FilePanelService.reveal(job.sourceURL) }
@@ -30,6 +31,7 @@ struct ContentView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { CleanerCanvas() }
         }
         .toolbar {
             ToolbarItemGroup {
@@ -74,6 +76,9 @@ struct ContentView: View {
                 .accessibilityIdentifier("toolbar.export")
             }
         }
+        // Keep macOS from placing the toolbar backdrop over the first report
+        // when the empty state is replaced by the custom file header.
+        .toolbarBackground(.hidden, for: .windowToolbar)
         .dropDestination(for: URL.self) { urls, _ in
             Task { await store.addAndInspect(urls) }
             return true
@@ -239,24 +244,5 @@ struct ContentView: View {
             message += " At least one result used Strip All Metadata, so ordinary author, date, camera, location, copyright, and descriptive fields may also have been removed."
         }
         return message
-    }
-}
-
-private struct EmptyQueueView: View {
-    var onAddFiles: () -> Void
-
-    var body: some View {
-        ContentUnavailableView {
-            Label("Drop files to begin", systemImage: "square.and.arrow.down.on.square")
-        } description: {
-            Text("Inspect first, review exact findings, then create cleaned copies without sending content off this Mac.")
-        } actions: {
-            Button("Add Files…", action: onAddFiles)
-                .buttonStyle(.borderedProminent)
-                .accessibilityIdentifier("empty-state.add-files")
-            SettingsLink {
-                Text("Cleaning Settings")
-            }
-        }
     }
 }

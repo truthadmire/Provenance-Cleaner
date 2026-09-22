@@ -5,6 +5,9 @@ import io
 import json
 import os
 import platform
+import shutil
+import shlex
+import signal
 import select
 import struct
 import subprocess
@@ -175,6 +178,72 @@ def _isobmff_box(fourcc: bytes, payload: bytes) -> bytes:
     return struct.pack(">I", len(payload) + 8) + fourcc + payload
 
 
+def _pdf_with_embedded_jpeg(jpeg: bytes) -> bytes:
+    content = b"q 48 0 0 48 24 15 cm /Im0 Do Q BT /F1 12 Tf 24 80 Td (Owned document) Tj ET"
+    return _assemble_pdf([
+        b"<< /Type /Catalog /Pages 2 0 R >>",
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 100] "
+        b"/Resources << /XObject << /Im0 5 0 R >> /Font << /F1 6 0 R >> >> /Contents 4 0 R >>",
+        b"<< /Length %d >>\nstream\n" % len(content) + content + b"\nendstream",
+        b"<< /Type /XObject /Subtype /Image /Width 1 /Height 1 "
+        b"/ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length %d >>\nstream\n"
+        % len(jpeg) + jpeg + b"\nendstream",
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    ])
+
+
+def _ghostscript() -> Path:
+    if PACKAGED_HELPER:
+        return Path(PACKAGED_HELPER).resolve().parents[1] / "Frameworks/tools/ghostscript/gs"
+    return ROOT / "Vendor/Artifacts/staged/ghostscript/gs"
+
+
+def _helper_with_test_ghostscript(root: Path, script: str) -> Path:
+    if PACKAGED_HELPER:
+        bundle = root / "ProvenanceEngine.app"
+        shutil.copytree(Path(PACKAGED_HELPER).resolve().parents[2], bundle, symlinks=True)
+        test_helper = bundle / "Contents/MacOS/provenance-engine"
+        test_gs = bundle / "Contents/Frameworks/tools/ghostscript/gs"
+    else:
+        (root / "Helper").mkdir()
+        test_helper = root / "Helper/provenance_helper.py"
+        shutil.copyfile(HELPER, test_helper)
+        shutil.copyfile(ROOT / "Helper/word_editing_traces.py", test_helper.parent / "word_editing_traces.py")
+        (root / "Vendor").mkdir()
+        (root / "Vendor/watermarks-remover").symlink_to(ROOT / "Vendor/watermarks-remover", target_is_directory=True)
+        staging = root / "Vendor/Artifacts/staged"
+        staging.mkdir(parents=True)
+        for name in ("c2patool", "qpdf", "exiftool"):
+            (staging / name).symlink_to(ROOT / "Vendor/Artifacts/staged" / name, target_is_directory=True)
+        test_gs = staging / "ghostscript/gs"
+        test_gs.parent.mkdir()
+    # Replace only the test copy's dependency, never the working bundle.
+    test_gs.write_text(script)
+    test_gs.chmod(0o755)
+    return test_helper
+
+
+def _rendered_pdf_pixels(pdf: Path) -> tuple[bytes, bytes]:
+    png = pdf.with_suffix(".png")
+    subprocess.run([
+        str(_ghostscript()), "-q", "-dSAFER", "-dBATCH", "-dNOPAUSE",
+        "-sDEVICE=png16m", "-r72", f"-sOutputFile={png}", str(pdf),
+    ], check=True, capture_output=True, timeout=30)
+    data = png.read_bytes()
+    offset, header, pixels = 8, b"", b""
+    while offset < len(data):
+        length = struct.unpack(">I", data[offset:offset + 4])[0]
+        kind = data[offset + 4:offset + 8]
+        payload = data[offset + 8:offset + 8 + length]
+        if kind == b"IHDR":
+            header = payload
+        elif kind == b"IDAT":
+            pixels += payload
+        offset += 12 + length
+    return header, zlib.decompress(pixels)
+
+
 def _provenance_mp4() -> bytes:
     file_type = _isobmff_box(
         b"ftyp", b"isom" + struct.pack(">I", 0) + b"isomiso2mp41"
@@ -211,7 +280,7 @@ CONSERVATIVE_OPTIONS: dict[str, Any] = {
 
 
 class HelperProcess:
-    def __init__(self) -> None:
+    def __init__(self, helper_path: Path | None = None) -> None:
         self.stderr_text = ""
         environment = os.environ.copy()
         environment.update(
@@ -225,6 +294,9 @@ class HelperProcess:
                 "MARKDIFFUSION_DIR": "/must/not/be/used",
                 "REVERSE_SYNTHID_DIR": "/must/not/be/used",
                 "C2PATOOL_SETTINGS": "/must/not/be/used.toml",
+                "GS_OPTIONS": "-sDEVICE=must-not-be-used -dNOSAFER",
+                "GS_LIB": "/must/not/be/used",
+                "GS_FONTPATH": "/must/not/be/used",
             }
         )
         command = (
@@ -232,6 +304,8 @@ class HelperProcess:
             if PACKAGED_HELPER
             else [sys.executable, str(HELPER)]
         )
+        if helper_path is not None:
+            command = [sys.executable, str(helper_path)] if helper_path.suffix == ".py" else [str(helper_path)]
         self.process = subprocess.Popen(
             command,
             cwd=ROOT,
@@ -325,6 +399,7 @@ class ProvenanceHelperIntegrationTests(unittest.TestCase):
         self.assertIs(report["execution"]["offline"], True)
         self.assertIs(report["execution"]["networkBackends"], False)
         self.assertIs(report["execution"]["heavyModelBackends"], False)
+        self.assertIs(report["upstream"]["tools"]["ghostscript"], True)
         self.assertIn(
             report["execution"]["c2patoolNetworkPolicy"],
             {"deny-all", "disabled"},
@@ -680,7 +755,7 @@ class ProvenanceHelperIntegrationTests(unittest.TestCase):
             self.assertNotIn("OpenAI", app)
             self.assertEqual(input_path.read_bytes(), source_bytes)
 
-    def test_pdf_document_metadata_is_structurally_removed_and_ghostscript_gap_reported(
+    def test_pdf_document_metadata_is_structurally_removed_and_deep_pass_runs(
         self,
     ) -> None:
         source_bytes = _provenance_pdf()
@@ -717,15 +792,130 @@ class ProvenanceHelperIntegrationTests(unittest.TestCase):
             self.assertNotIn(b"Claude", result_bytes)
             self.assertNotIn(b"Anthropic", result_bytes)
             self.assertIs(cleaned["report"]["meta"]["structural_rewrite"], True)
-            self.assertIs(cleaned["report"]["meta"]["deep_image_pass"], False)
+            self.assertIs(cleaned["report"]["meta"]["deep_image_pass"], True)
+            self.assertIs(cleaned["report"]["pdf_deep_clean_incomplete"], False)
             self.assertTrue(
                 any(
-                    "install ghostscript" in action.lower()
-                    and "embedded images" in action.lower()
+                    "ghostscript pdfwrite deep image pass" in action.lower()
                     for action in cleaned["report"]["actions"]
                 )
             )
             self.assertEqual(input_path.read_bytes(), source_bytes)
+
+    def test_pdf_modes_reach_embedded_provenance_and_preserve_page_content(self) -> None:
+        jpeg = _jpeg_with_segments((0xEB, b"JP\x00\x01\x00\x00\x00\x01jumbc2pa contentauth"))
+        original = _pdf_with_embedded_jpeg(jpeg)
+        with tempfile.TemporaryDirectory(prefix="provenance-pdf-deep-") as temp:
+            source = Path(temp) / "embedded.pdf"
+            source.write_bytes(original)
+            reference_pixels = _rendered_pdf_pixels(source)
+            with HelperProcess() as helper:
+                inspection = helper.exchange({"requestID": "embedded-inspect", "operation": "inspect", "inputPath": str(source)}, timeout=60)
+                self.assertTrue(any("embedded PDF image" in f for f in inspection["report"]["findings"]))
+                for mode in ("never", "auto", "lossless", "always"):
+                    with self.subTest(mode=mode):
+                        output = Path(temp) / f"{mode}.pdf"
+                        options = {**CONSERVATIVE_OPTIONS, "deepImages": mode}
+                        result = helper.exchange({"requestID": mode, "operation": "clean", "inputPath": str(source), "outputPath": str(output), "options": options}, timeout=90)
+                        self.assertIs(result["ok"], True, result)
+                        report = result["report"]
+                        self.assertIs(report["meta"]["deep_image_pass"], mode != "never")
+                        self.assertIs(report["pdf_deep_clean_incomplete"], False)
+                        after = output.read_bytes()
+                        if mode == "never":
+                            self.assertIn(jpeg, after)
+                            self.assertTrue(any("embedded PDF image" in f for f in report["post_findings"]))
+                        elif mode in ("auto", "always"):
+                            self.assertNotIn(b"contentauth", after)
+                        if mode == "lossless":
+                            self.assertIs(report["meta"]["images_reencoded"], False)
+                        self.assertEqual(_rendered_pdf_pixels(output), reference_pixels)
+                        self.assertEqual(source.read_bytes(), original)
+
+    def test_pdf_auto_preserves_ordinary_image_metadata_and_always_removes_it(self) -> None:
+        camera = b"Ordinary Camera\x00"
+        tiff = b"II" + struct.pack("<HIHHHIII", 42, 8, 1, 0x010F, 2, len(camera), 26, 0) + camera
+        jpeg = _jpeg_with_segments((0xE1, b"Exif\x00\x00" + tiff))
+        with tempfile.TemporaryDirectory(prefix="provenance-pdf-camera-") as temp:
+            source = Path(temp) / "camera.pdf"
+            original = _pdf_with_embedded_jpeg(jpeg)
+            source.write_bytes(original)
+            with HelperProcess() as helper:
+                for mode in ("auto", "always"):
+                    output = Path(temp) / f"{mode}.pdf"
+                    result = helper.exchange({"requestID": mode, "operation": "clean", "inputPath": str(source), "outputPath": str(output), "options": {**CONSERVATIVE_OPTIONS, "deepImages": mode}}, timeout=90)
+                    self.assertIs(result["ok"], True, result)
+                    self.assertIs(result["report"]["meta"]["deep_image_pass"], mode == "always")
+                    if mode == "auto":
+                        self.assertIn(jpeg, output.read_bytes())
+                    else:
+                        self.assertNotIn(camera, output.read_bytes())
+            self.assertEqual(source.read_bytes(), original)
+
+    def test_pdf_failed_deep_pass_is_marked_incomplete(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="provenance-pdf-failure-") as temp:
+            root = Path(temp)
+            test_helper = _helper_with_test_ghostscript(root, "#!/bin/sh\nexit 1\n")
+            source = Path(temp) / "broken.pdf"
+            source.write_bytes(_provenance_pdf())
+            with HelperProcess(helper_path=test_helper) as helper:
+                result = helper.exchange({"requestID": "broken-pdf", "operation": "clean", "inputPath": str(source), "outputPath": str(Path(temp) / "output.pdf"), "options": {**CONSERVATIVE_OPTIONS, "deepImages": "always"}}, timeout=90)
+            self.assertIs(result["ok"], True, result)
+            self.assertIs(result["report"]["pdf_deep_clean_incomplete"], True)
+            self.assertIs(result["report"]["meta"]["deep_image_pass"], False)
+
+    def test_pdf_deep_clean_refuses_unparseable_input_without_creating_output(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="provenance-pdf-invalid-") as temp:
+            source = Path(temp) / "invalid.pdf"
+            output = Path(temp) / "output.pdf"
+            original = b"%PDF-1.7\nnot a valid page tree\n%%EOF\n"
+            source.write_bytes(original)
+            with HelperProcess() as helper:
+                result = helper.exchange({"requestID": "invalid-pdf", "operation": "clean", "inputPath": str(source), "outputPath": str(output), "options": {**CONSERVATIVE_OPTIONS, "deepImages": "auto"}}, timeout=60)
+            self.assertIs(result["ok"], False)
+            self.assertEqual(result["kind"], "invalid_pdf")
+            self.assertFalse(output.exists())
+            self.assertEqual(source.read_bytes(), original)
+
+    def test_pdf_cancellation_terminates_the_active_ghostscript_child(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="provenance-pdf-cancel-") as temp:
+            root = Path(temp)
+            marker = root / "gs.pid"
+            test_helper = _helper_with_test_ghostscript(root, "#!/bin/sh\n"
+                'if [ "$1" = "--version" ]; then echo 10.07.1; exit 0; fi\n'
+                f"printf '%s' $$ > {shlex.quote(str(marker))}\nexec /bin/sleep 120\n")
+            source = root / "input.pdf"
+            source.write_bytes(_provenance_pdf())
+            helper = HelperProcess(helper_path=test_helper)
+            child_pid = None
+            try:
+                request = {"requestID": "cancel-pdf", "operation": "clean", "inputPath": str(source), "outputPath": str(root / "output.pdf"), "options": {**CONSERVATIVE_OPTIONS, "deepImages": "always"}}
+                helper.process.stdin.write(json.dumps(request) + "\n")
+                helper.process.stdin.flush()
+                deadline = time.monotonic() + 10
+                while not marker.exists() and time.monotonic() < deadline:
+                    time.sleep(0.05)
+                self.assertTrue(marker.exists(), "Ghostscript should start before cancellation")
+                child_pid = int(marker.read_text())
+                helper.process.terminate()
+                helper.process.wait(timeout=5)
+                deadline = time.monotonic() + 3
+                while time.monotonic() < deadline:
+                    try:
+                        os.kill(child_pid, 0)
+                    except ProcessLookupError:
+                        child_pid = None
+                        break
+                    time.sleep(0.05)
+                self.assertIsNone(child_pid, "the cancelled PDF process must not outlive its helper")
+                self.assertFalse((root / "output.pdf").exists())
+            finally:
+                if child_pid is not None:
+                    try:
+                        os.kill(child_pid, signal.SIGTERM)
+                    except ProcessLookupError:
+                        pass
+                helper.close(force=True)
 
     def test_wav_ai_metadata_is_removed_without_changing_audio_samples(self) -> None:
         source_bytes, samples = _provenance_wav()

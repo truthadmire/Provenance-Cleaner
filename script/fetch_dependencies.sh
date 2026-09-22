@@ -13,7 +13,7 @@ usage() {
 usage: ./script/fetch_dependencies.sh [fetch|build|verify]
 
   fetch   Download and SHA-256 verify the locked runtime artifacts.
-  build   Fetch, stage c2patool/ExifTool, build arm64 static qpdf, verify all.
+  build   Fetch, stage c2patool/ExifTool, build arm64 qpdf/Ghostscript, verify all.
   verify  Verify already-staged tools and emit their versions/hashes.
 
 CPython and PyInstaller are intentionally not installed here. They are pinned
@@ -195,16 +195,26 @@ build_qpdf() {
   replace_stage_dir "$prepared" "$STAGED_DIR/qpdf"
 }
 
+build_ghostscript() {
+  local archive prepared
+  archive="$DOWNLOADS_DIR/$(lock_value ghostscript artifact.fileName)"
+  prepared="$SCRATCH_DIR/ghostscript-stage"
+  "$ROOT_DIR/script/build_ghostscript.sh" "$archive" "$prepared" "$(lock_value ghostscript version)"
+  replace_stage_dir "$prepared" "$STAGED_DIR/ghostscript"
+}
+
 verify_staged() {
-  local c2pa c2pa_settings c2pa_smoke c2pa_smoke_status exiftool qpdf arches linked receipt
+  local c2pa c2pa_settings c2pa_smoke c2pa_smoke_status exiftool qpdf gs arches linked gs_linked receipt
   c2pa="$STAGED_DIR/c2patool/c2patool"
   c2pa_settings="$STAGED_DIR/c2patool/offline.toml"
   exiftool="$STAGED_DIR/exiftool/exiftool"
   qpdf="$STAGED_DIR/qpdf/qpdf"
+  gs="$STAGED_DIR/ghostscript/gs"
   [[ -x "$c2pa" ]] || die "missing staged c2patool; run $0 build"
   [[ -f "$c2pa_settings" ]] || die "missing staged c2patool offline settings; run $0 build"
   [[ -x "$exiftool" ]] || die "missing staged ExifTool; run $0 build"
   [[ -x "$qpdf" ]] || die "missing staged qpdf; run $0 build"
+  [[ -x "$gs" ]] || die "missing staged Ghostscript; run $0 build"
   [[ -x /usr/bin/perl ]] || die "/usr/bin/perl is required by the pinned ExifTool distribution"
   /usr/bin/cmp -s "$ROOT_DIR/App/Resources/c2patool-offline.toml" "$c2pa_settings" || \
     die "staged c2patool settings differ from the reviewed offline policy"
@@ -252,7 +262,22 @@ verify_staged() {
     echo "$linked" >&2
     die "qpdf has a non-relocatable or non-static qpdf/libjpeg dependency"
   fi
-  [[ ! -e "$STAGED_DIR/ghostscript" ]] || die "Ghostscript must not be staged"
+  [[ "$("$gs" --version)" == "$(lock_value ghostscript version)" ]] || die "unexpected Ghostscript version"
+  [[ "$(/usr/bin/lipo -archs "$gs")" == "arm64" ]] || die "staged Ghostscript is not arm64"
+  gs_linked="$(/usr/bin/otool -L "$gs")"
+  if printf '%s\n' "$gs_linked" | tail -n +2 | awk '{print $1}' | grep -Ev '^(/usr/lib/|/System/Library/)'; then
+    die "Ghostscript has a non-system linked library"
+  fi
+  "$gs" -h | grep -F 'pdfwrite' >/dev/null || die "Ghostscript pdfwrite device is missing"
+  "$gs" -h | grep -F 'Initialization files are compiled into the executable.' >/dev/null || \
+    die "Ghostscript resources must be compiled in"
+  [[ "$(cat "$STAGED_DIR/ghostscript/SOURCE.sha256")" == "$(lock_value ghostscript artifact.sha256)" ]] || \
+    die "Ghostscript source receipt differs from the lock"
+  verify_hash "$DOWNLOADS_DIR/$(lock_value ghostscript artifact.fileName)" "$(lock_value ghostscript artifact.sha256)"
+  /usr/bin/cmp -s "$ROOT_DIR/App/Resources/ThirdPartyLicenses/Ghostscript-AGPL-3.0.txt" \
+    "$STAGED_DIR/ghostscript/AGPL-3.0.txt" || die "Ghostscript AGPL text differs"
+  /usr/bin/cmp -s "$ROOT_DIR/App/Resources/ThirdPartyLicenses/Ghostscript-LICENSE.txt" \
+    "$STAGED_DIR/ghostscript/LICENSE.txt" || die "Ghostscript license notice differs"
 
   receipt="$STAGED_DIR/DEPENDENCY_BUILD_RECEIPT.txt"
   {
@@ -271,7 +296,12 @@ verify_staged() {
     echo "qpdf SHA-256: $(sha256_of "$qpdf")"
     echo "qpdf linked libraries:"
     echo "$linked"
-    echo "Ghostscript: excluded"
+    echo "Ghostscript: $("$gs" --version)"
+    echo "Ghostscript SHA-256: $(sha256_of "$gs")"
+    echo "Ghostscript source SHA-256: $(lock_value ghostscript artifact.sha256)"
+    echo "Ghostscript linked libraries:"
+    echo "$gs_linked"
+    echo "Ghostscript: compiled-in resources; standalone AGPL-3.0-or-later CLI; corresponding source accompanies the DMG"
   } > "$receipt"
   cat "$receipt"
 }
@@ -294,6 +324,7 @@ if [[ "$MODE" == "fetch" || "$MODE" == "build" ]]; then
   fetch_component exiftool
   fetch_component qpdf
   fetch_component libjpegTurbo
+  fetch_component ghostscript
 fi
 
 if [[ "$MODE" == "fetch" ]]; then
@@ -307,6 +338,7 @@ if [[ "$MODE" == "build" ]]; then
   stage_c2patool
   stage_exiftool
   build_qpdf
+  build_ghostscript
 fi
 
 verify_staged

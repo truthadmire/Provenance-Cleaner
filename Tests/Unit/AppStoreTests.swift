@@ -4,6 +4,43 @@ import XCTest
 
 final class AppStoreTests: XCTestCase {
     @MainActor
+    func testWordTraceActionUsesDedicatedOptionsAndQueuesReview() async throws {
+        let fixture = try TemporaryFixture()
+        defer { fixture.remove() }
+        let source = try fixture.write("input.docx", contents: "test document")
+        let engine = RecordingEngine()
+        let preferences = try makePreferences()
+        preferences.wordSessionMode = .remove
+        let store = AppStore(engine: engine, preferences: preferences, stagingRoot: fixture.root.appendingPathComponent("stage"))
+        await store.addAndInspect([source])
+        let id = try XCTUnwrap(store.selectedJobID)
+        await store.applyWordEditingTraces(jobID: id)
+        let options = await engine.receivedOptions()
+        XCTAssertEqual(options.first?.wordTraces?.rsids, .remove)
+        XCTAssertEqual(store.selectedJob?.status, .editingTracesReady(residualCount: 0))
+        XCTAssertEqual(store.pendingExportJobIDs, [id])
+        XCTAssertTrue(store.selectedJob?.canExport == true)
+        XCTAssertEqual(try String(contentsOf: source, encoding: .utf8), "test document")
+    }
+
+    @MainActor
+    func testFailedPDFDeepPassKeepsOutputButShowsIncompleteStatus() async throws {
+        let fixture = try TemporaryFixture()
+        defer { fixture.remove() }
+        let source = try fixture.write("input.pdf", contents: "test input")
+        let store = AppStore(
+            engine: RecordingEngine(pdfDeepCleaningIncomplete: true),
+            preferences: try makePreferences(),
+            stagingRoot: fixture.root.appendingPathComponent("stage")
+        )
+        await store.addAndInspect([source])
+        await store.cleanSelected()
+        XCTAssertEqual(store.selectedJob?.status, .cleanedInspectionIncomplete)
+        XCTAssertTrue(store.selectedJob?.canExport == true)
+        XCTAssertEqual(try String(contentsOf: source, encoding: .utf8), "test input")
+    }
+
+    @MainActor
     func testAddAutomaticallyInspectsAndSelectsFirstItem() async throws {
         let fixture = try TemporaryFixture()
         defer { fixture.remove() }
@@ -222,13 +259,16 @@ private actor RecordingEngine: WatermarkEngine {
     private var maxActiveCleans = 0
     private let cleanDelayNanoseconds: UInt64
     private var cleanOutcomes: [PlannedCleanOutcome]
+    private let pdfDeepCleaningIncomplete: Bool
 
     init(
         cleanDelayNanoseconds: UInt64 = 0,
-        cleanOutcomes: [PlannedCleanOutcome] = []
+        cleanOutcomes: [PlannedCleanOutcome] = [],
+        pdfDeepCleaningIncomplete: Bool = false
     ) {
         self.cleanDelayNanoseconds = cleanDelayNanoseconds
         self.cleanOutcomes = cleanOutcomes
+        self.pdfDeepCleaningIncomplete = pdfDeepCleaningIncomplete
     }
 
     func capabilities() async throws -> EngineCapabilities {
@@ -287,6 +327,7 @@ private actor RecordingEngine: WatermarkEngine {
             report: WatermarkReport(
                 raw: .object([
                     "changed": .bool(true),
+                    "pdf_deep_clean_incomplete": .bool(pdfDeepCleaningIncomplete),
                     "actions": .array([.string("removed invisible Unicode carrier")]),
                 ])
             )

@@ -19,9 +19,9 @@ def staged_tool_files() -> tuple[list[tuple[str, str]], list[tuple[str, str]]]:
 
     binaries: list[tuple[str, str]] = []
     datas: list[tuple[str, str]] = []
-    for tool_name in ("c2patool", "qpdf"):
+    for tool_name, executable_name in (("c2patool", "c2patool"), ("qpdf", "qpdf"), ("ghostscript", "gs")):
         tool_root = STAGED_TOOLS / tool_name
-        executable = tool_root / tool_name
+        executable = tool_root / executable_name
         if executable.is_file():
             binaries.append((str(executable), f"tools/{tool_name}"))
         if tool_root.is_dir():
@@ -45,7 +45,7 @@ TOOL_BINARIES, TOOL_DATAS = staged_tool_files()
 
 a = Analysis(
     [str(SOURCE)],
-    pathex=[str(UPSTREAM)],
+    pathex=[str(SOURCE.parent), str(UPSTREAM)],
     binaries=TOOL_BINARIES,
     datas=TOOL_DATAS,
     hiddenimports=[],
@@ -87,7 +87,7 @@ app = BUNDLE(
     name="ProvenanceEngine.app",
     icon=None,
     bundle_identifier="com.provenancecleaner.mac.engine",
-    version="0.1.0",
+    version="0.2.1",
     info_plist={
         "CFBundleDisplayName": "Provenance Engine",
         "CFBundleName": "ProvenanceEngine",

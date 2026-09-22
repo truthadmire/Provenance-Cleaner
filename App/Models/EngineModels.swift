@@ -34,6 +34,7 @@ struct CleaningOptions: Codable, Equatable, Sendable {
     var stripAllMetadata: Bool
     var alsoLayerAText: Bool
     var deepImages: String
+    var wordTraces: WordTraceOptions? = nil
 
     static let conservative = CleaningOptions(
         normalizeSpaces: false,
@@ -180,6 +181,7 @@ struct WatermarkReport: Equatable, Sendable {
     }
 
     var inspectionIncomplete: Bool {
+        if pdfDeepCleaningIncomplete { return true }
         let diagnosticText = (notes + strings(for: "findings") + postFindings)
             .joined(separator: " ")
             .lowercased()
@@ -192,6 +194,10 @@ struct WatermarkReport: Equatable, Sendable {
         return tools.values.contains { value in
             value.objectValue?["available"]?.boolValue == false
         }
+    }
+
+    var pdfDeepCleaningIncomplete: Bool {
+        raw["pdf_deep_clean_incomplete"]?.boolValue == true
     }
 
     var didChange: Bool? {
@@ -242,4 +248,8 @@ typealias CleanResult = EngineCleanResult
 
 struct EngineCapabilities: Equatable, Sendable {
     var report: WatermarkReport
+
+    var supportsPDFDeepCleaning: Bool {
+        report.raw["upstream"]?["tools"]?["ghostscript"]?.boolValue == true
+    }
 }

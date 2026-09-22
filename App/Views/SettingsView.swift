@@ -32,9 +32,17 @@ struct SettingsView: View {
                             Text(mode.displayName).tag(mode)
                         }
                     }
-                    Text("Ghostscript is intentionally not included. Document-level PDF cleanup uses ExifTool and qpdf, but provenance metadata inside some embedded images may remain. Every PDF result discloses this residual risk.")
+                    Text(preferences.deepImageMode.explanation)
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                    if let capabilities = store.capabilities {
+                        Label(
+                            capabilities.supportsPDFDeepCleaning ? "Embedded-image engine available" : "Embedded-image engine unavailable",
+                            systemImage: capabilities.supportsPDFDeepCleaning ? "checkmark.circle" : "exclamationmark.triangle"
+                        )
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    }
                 }
             }
             .formStyle(.grouped)
