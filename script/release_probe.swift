@@ -103,6 +103,52 @@ do {
         }
         FileHandle.standardError.write(Data("sandboxed Word editing-trace smoke passed\n".utf8))
     }
+    if CommandLine.arguments.contains("--metadata-smoke") {
+        for name in ["editing-traces.docx", "embedded-provenance.pdf"] {
+            let fixture = Bundle.main.bundleURL.appendingPathComponent("Contents/Resources/" + name)
+            let sourceData = try Data(contentsOf: fixture)
+            let staging = FileManager.default.temporaryDirectory.appendingPathComponent("MetadataProbe-\(UUID().uuidString)")
+            try FileManager.default.createDirectory(at: staging, withIntermediateDirectories: true)
+            defer { try? FileManager.default.removeItem(at: staging) }
+            let source = staging.appendingPathComponent(name)
+            let edited = staging.appendingPathComponent("edited." + fixture.pathExtension)
+            try sourceData.write(to: source)
+            _ = try exchange([
+                "requestID": "metadata-smoke", "operation": "clean",
+                "inputPath": source.path, "outputPath": edited.path,
+                "options": ["metadataEdits": ["author": "Release smoke 陈", "title": "Verified copy"]],
+            ])
+            let (_, inspection) = try exchange([
+                "requestID": "metadata-smoke-inspect", "operation": "inspect", "inputPath": edited.path,
+            ])
+            let report = inspection["report"] as? [String: Any]
+            let metadata = report?["metadata"] as? [String: Any]
+            let fields = metadata?["fields"] as? [[String: Any]] ?? []
+            guard fields.first(where: { $0["id"] as? String == "author" })?["value"] as? String == "Release smoke 陈",
+                  try Data(contentsOf: source) == sourceData else {
+                throw NSError(domain: "ReleaseProbe", code: 6, userInfo: [NSLocalizedDescriptionKey: "sandboxed metadata edit/read-back failed for \(name)"])
+            }
+        }
+        FileHandle.standardError.write(Data("sandboxed metadata edit/read-back smoke passed\n".utf8))
+    }
+    if CommandLine.arguments.contains("--c2pa-smoke") {
+        let fixture = Bundle.main.bundleURL.appendingPathComponent("Contents/Resources/signed-c2pa.jpg")
+        let (_, inspection) = try exchange([
+            "requestID": "c2pa-smoke", "operation": "inspect", "inputPath": fixture.path,
+        ])
+        let report = inspection["report"] as? [String: Any]
+        let c2pa = report?["c2pa"] as? [String: Any]
+        let certificates = c2pa?["certificates"] as? [[String: Any]] ?? []
+        guard c2pa?["signature"] as? String == "valid",
+              c2pa?["contentBinding"] as? String == "valid",
+              c2pa?["trust"] as? String == "untrusted",
+              c2pa?["inspectionIncomplete"] as? Bool == false,
+              certificates.count == 2,
+              !(certificates[0]["sha256"] as? String ?? "").isEmpty else {
+            throw NSError(domain: "ReleaseProbe", code: 7, userInfo: [NSLocalizedDescriptionKey: "sandboxed C2PA certificate-chain smoke failed: \(String(describing: c2pa))"])
+        }
+        FileHandle.standardError.write(Data("sandboxed C2PA certificate-chain smoke passed\n".utf8))
+    }
     try input.fileHandleForWriting.close()
     process.waitUntilExit()
     FileHandle.standardOutput.write(capabilities)

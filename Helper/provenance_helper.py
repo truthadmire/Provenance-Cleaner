@@ -28,6 +28,8 @@ from pathlib import Path
 from typing import Any, NoReturn
 
 import word_editing_traces
+import metadata_editor
+import credential_inspection
 
 
 PROTOCOL_VERSION = 1
@@ -112,7 +114,7 @@ def _sanitize_environment() -> None:
     """Disable every upstream environment-controlled remote/heavy backend."""
 
     for key in tuple(os.environ):
-        if key.startswith(("WATERMARKS_", "GS_")) or key in _REMOTE_OR_HEAVY_ENV:
+        if key.startswith(("WATERMARKS_", "GS_", "C2PATOOL_", "C2PA_")) or key in _REMOTE_OR_HEAVY_ENV:
             os.environ.pop(key, None)
 
     # Pin the cap before importing upstream.common, which reads it at import.
@@ -193,6 +195,13 @@ from server import (  # noqa: E402
     _inspect_payload as _upstream_inspect_payload,
     capabilities as _upstream_capabilities,
 )
+
+
+# Replace only optional-tool probing; the locked upstream sources stay intact.
+import image_meta
+import container_meta
+image_meta.run_optional_tools = credential_inspection.run_optional_tools
+container_meta.run_optional_tools = credential_inspection.run_optional_tools
 
 
 def _json_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
@@ -354,7 +363,7 @@ def _clean_options(request: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(options, dict):
         raise ProtocolError("invalid_options", "options must be a JSON object")
 
-    unknown = sorted(set(options) - set(_OPTION_TYPES) - {"wordTraces"})
+    unknown = sorted(set(options) - set(_OPTION_TYPES) - {"wordTraces", "metadataEdits"})
     if unknown:
         raise ProtocolError(
             "invalid_options",
@@ -364,7 +373,7 @@ def _clean_options(request: dict[str, Any]) -> dict[str, Any]:
 
     normalized = dict(_OPTION_DEFAULTS)
     for key, value in options.items():
-        if key == "wordTraces":
+        if key in {"wordTraces", "metadataEdits"}:
             continue
         expected = _OPTION_TYPES[key]
         # bool is a subclass of int, so use exact types for a strict envelope.
@@ -389,6 +398,13 @@ def _clean_options(request: dict[str, Any]) -> dict[str, Any]:
         try:
             result["word_traces"] = word_editing_traces.validate_options(options["wordTraces"])
         except word_editing_traces.WordTraceError as exc:
+            raise ProtocolError("invalid_options", str(exc)) from exc
+    if "metadataEdits" in options:
+        if "wordTraces" in options:
+            raise ProtocolError("invalid_options", "Metadata and editing-trace operations must be applied separately.")
+        try:
+            result["metadata_edits"] = metadata_editor.validate_options(options["metadataEdits"])
+        except metadata_editor.MetadataError as exc:
             raise ProtocolError("invalid_options", str(exc)) from exc
     return result
 
@@ -432,6 +448,8 @@ def _capabilities_response(request_id: str) -> dict[str, Any]:
             "packaged": bool(getattr(sys, "frozen", False)),
         },
         "operations": sorted(_OPERATIONS),
+        "metadataEditing": {"formats": ["docx", "xlsx", "pptx", "pdf", "jpg", "jpeg", "png", "tif", "tiff", "webp"]},
+        "contentCredentials": {"structuredValidation": True, "certificateChain": True, "liveRevocation": False},
         "wordEditingTraces": {"available": True, "dateOrder": "preserved", "contentPreserved": True},
         "limits": {
             "maxInputBytes": MAX_INPUT_BYTES,
@@ -458,6 +476,7 @@ def _capabilities_response(request_id: str) -> dict[str, Any]:
                 "default": "auto",
                 "allowedValues": sorted(_DEEP_IMAGE_MODES),
             },
+            "metadataEdits": {"type": "object", "scope": "Explicit descriptive metadata fields only"},
             "wordTraces": {"type": "object", "scope": "DOCX editing metadata only"},
         },
         "upstream": _safe_upstream_capabilities(),
@@ -481,6 +500,18 @@ def _inspect_response(request_id: str, input_path: Path) -> dict[str, Any]:
         kind = "unknown"
     report = dict(_report_object(result.get("report")))
     report.setdefault("suspicious", bool(result.get("suspicious")))
+    report["metadata"] = metadata_editor.inspect(input_path, data)
+    tool_report = report.get("tools", {}).get("c2patool") or report.get("meta", {}).get("tools", {}).get("c2patool")
+    if tool_report is None and kind == "av":
+        tool_report = credential_inspection.inspect(input_path)
+        report.setdefault("tools", {})["c2patool"] = tool_report
+    if tool_report:
+        report["c2pa"] = tool_report.get("details", {})
+        if tool_report.get("error"):
+            report["c2pa"]["error"] = tool_report["error"]
+        if tool_report.get("has_manifest"):
+            report["has_c2pa"] = True
+        report["c2pa"]["inspectionIncomplete"] = not tool_report.get("ok", False) or bool(report["c2pa"].get("certificateError"))
     if input_path.suffix.lower() == ".docx":
         report["word_editing_traces"] = word_editing_traces.inspect(data)
     if input_path.suffix.lower() == ".pdf" and embedded_provenance_present(data):
@@ -499,6 +530,18 @@ def _clean_response(
 ) -> dict[str, Any]:
     _validate_output(input_path, output_path)
     data = _read_input(input_path)
+    if "metadata_edits" in options:
+        try:
+            cleaned = metadata_editor.rewrite(data, input_path.suffix.lower(), options["metadata_edits"])
+            if len(cleaned) > MAX_OUTPUT_BYTES:
+                raise ProtocolError("output_too_large", "The updated file exceeds the output limit.")
+            _safe_write_bytes(output_path, cleaned)
+        except (metadata_editor.MetadataError, OSError, subprocess.TimeoutExpired) as exc:
+            raise ProtocolError("metadata_edit_failed", str(exc)) from exc
+        return {"requestID": request_id, "ok": True, "kind": "image" if input_path.suffix.lower() in metadata_editor.IMAGES else "container",
+                "outputPath": str(output_path), "report": {"changed": cleaned != data,
+                "actions": [f"{metadata_editor.FIELDS[key][0]} {'updated' if value else 'removed'} and verified." for key, value in options["metadata_edits"].items()],
+                "notes": ["Descriptive metadata was edited. Existing credentials and signatures may no longer validate."]}}
     if "word_traces" in options:
         if input_path.suffix.lower() != ".docx":
             raise ProtocolError("unsupported_format", "Editing-trace changes require a DOCX file.")

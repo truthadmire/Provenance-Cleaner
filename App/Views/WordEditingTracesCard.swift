@@ -28,10 +28,8 @@ struct WordEditingTracesCard: View {
                     modePicker("Session identifiers", selection: $preferences.wordSessionMode, id: "word-traces.sessions")
                     modePicker("Recorded dates", selection: $preferences.wordDateMode, id: "word-traces.dates")
                     if preferences.wordDateMode == .randomize {
-                        DatePicker("From", selection: $preferences.wordDateStart, displayedComponents: [.date, .hourAndMinute])
-                            .accessibilityIdentifier("word-traces.start")
-                        DatePicker("To", selection: $preferences.wordDateEnd, displayedComponents: [.date, .hourAndMinute])
-                            .accessibilityIdentifier("word-traces.end")
+                        dateRow("From", selection: $preferences.wordDateStart, id: "word-traces.start")
+                        dateRow("To", selection: $preferences.wordDateEnd, id: "word-traces.end")
                         Text("Dates stay in chronological order. Equal timestamps stay equal. Range shown in your local time zone.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
@@ -128,12 +126,29 @@ struct WordEditingTracesCard: View {
     }
 
     private func modePicker(_ title: String, selection: Binding<WordTraceMode>, id: String) -> some View {
-        Picker(title, selection: selection) {
-            ForEach(WordTraceMode.allCases) { mode in
-                Text(mode.displayName).tag(mode)
+        HStack(spacing: 12) {
+            Text(title).frame(width: 120, alignment: .leading)
+            Picker(title, selection: selection) {
+                ForEach(WordTraceMode.allCases) { mode in
+                    Text(mode.displayName).tag(mode)
+                }
             }
+            .labelsHidden()
+            .accessibilityLabel(title)
+            .accessibilityIdentifier(id)
+            Spacer(minLength: 0)
         }
-        .accessibilityIdentifier(id)
+    }
+
+    private func dateRow(_ title: String, selection: Binding<Date>, id: String) -> some View {
+        HStack(spacing: 12) {
+            Text(title).frame(width: 120, alignment: .leading)
+            DatePicker(title, selection: selection, displayedComponents: [.date, .hourAndMinute])
+                .labelsHidden()
+                .accessibilityLabel(title)
+                .accessibilityIdentifier(id)
+            Spacer(minLength: 0)
+        }
     }
 
     private func displayDate(_ value: String) -> String {

@@ -35,6 +35,7 @@ struct CleaningOptions: Codable, Equatable, Sendable {
     var alsoLayerAText: Bool
     var deepImages: String
     var wordTraces: WordTraceOptions? = nil
+    var metadataEdits: [String: String]? = nil
 
     static let conservative = CleaningOptions(
         normalizeSpaces: false,
@@ -181,7 +182,7 @@ struct WatermarkReport: Equatable, Sendable {
     }
 
     var inspectionIncomplete: Bool {
-        if pdfDeepCleaningIncomplete { return true }
+        if pdfDeepCleaningIncomplete || raw["c2pa"]?["inspectionIncomplete"]?.boolValue == true || raw["metadata"]?["incomplete"]?.boolValue == true { return true }
         let diagnosticText = (notes + strings(for: "findings") + postFindings)
             .joined(separator: " ")
             .lowercased()
@@ -192,7 +193,7 @@ struct WatermarkReport: Equatable, Sendable {
 
         guard let tools = raw["tools"]?.objectValue else { return false }
         return tools.values.contains { value in
-            value.objectValue?["available"]?.boolValue == false
+            value.objectValue?["available"]?.boolValue == false || value.objectValue?["error"]?.stringValue != nil
         }
     }
 
@@ -218,14 +219,14 @@ struct WatermarkReport: Equatable, Sendable {
 
     private func inferredConfidence(for message: String) -> FindingConfidence {
         let lowered = message.lowercased()
-        if lowered.contains("c2pa") || lowered.contains("manifest") {
-            return .confirmed
+        if lowered.contains("unavailable") || lowered.contains("inconclusive") || lowered.contains("not fully inspected") || lowered.contains("unsupported") {
+            return .informational
         }
         if lowered.contains("byte-scan") {
             return .likelyFalsePositive
         }
-        if lowered.contains("not fully inspected") || lowered.contains("unsupported") {
-            return .informational
+        if lowered.contains("c2pa") || lowered.contains("manifest") {
+            return .probable
         }
         return .probable
     }

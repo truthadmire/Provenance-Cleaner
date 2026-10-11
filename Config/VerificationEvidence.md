@@ -4,6 +4,21 @@ This evidence separates the current development checks from the original
 0.1.0 release-candidate checks. Neither section claims the complete acceptance
 matrix.
 
+### 0.3.0 UI, metadata and certificate validation — 2026-10-11
+
+- UI refresh and metadata/C2PA implementation evidence is detailed in
+  `Config/UIRefreshVerification.md`: 42 Swift tests and 45 helper tests passed.
+  The 45-test matrix was run against source and the frozen executable; direct
+  module tests within that matrix still execute their source modules.
+- The release pipeline rebuilds from a clean local snapshot of the complete
+  current working tree, including the previously uncommitted UI changes.
+- The signed sandbox-parent probe now exercises author edits and read-back in
+  DOCX and PDF, plus a real C2PA JPEG signature, content binding and two-certificate
+  chain. The checks run before DMG creation and again from the mounted DMG.
+- This section documents the verification scope. Actual signing, notarization,
+  mounted-image results and checksums are recorded by the release run in its
+  generated `RELEASE_REPORT.md`; previous release evidence below is historical.
+
 ### Detail scrolling layout verification — 2026-09-05
 
 - Replaced the detail header's scroll-view safe-area inset with a separate

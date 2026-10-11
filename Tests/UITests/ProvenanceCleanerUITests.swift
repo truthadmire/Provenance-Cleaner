@@ -40,6 +40,47 @@ final class ProvenanceCleanerUITests: XCTestCase {
         assertEmptyState(appearance: "dark")
     }
 
+    func testRealMetadataEditorAndCertificateViewsInBothAppearances() throws {
+        let fixtures = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+            .deletingLastPathComponent().appendingPathComponent("HelperIntegration/Fixtures")
+        for appearance in ["light", "dark"] {
+            launch(importing: [fixtures.appendingPathComponent("editing-traces.docx"), fixtures.appendingPathComponent("signed-c2pa.jpg")], appearance: appearance, realEngine: true)
+            let metadataTab = element(identifier: "detail.tab.metadata")
+            XCTAssertTrue(metadataTab.waitForExistence(timeout: 10))
+            metadataTab.click()
+            let author = app.textFields["metadata.author"]
+            XCTAssertTrue(author.waitForExistence(timeout: 20))
+            XCTAssertTrue(waitUntil(timeout: 30) { author.isEnabled })
+            let title = app.textFields["metadata.title"]
+            XCTAssertEqual(author.frame.minX, title.frame.minX, accuracy: 1)
+            XCTAssertEqual(author.frame.width, title.frame.width, accuracy: 1)
+            author.click()
+            app.typeKey("a", modifierFlags: .command)
+            author.typeText("Interface Review")
+            let apply = element(identifier: "metadata.apply")
+            XCTAssertTrue(apply.isEnabled)
+            apply.click()
+            let review = app.buttons["Review Before Export"]
+            XCTAssertTrue(review.waitForExistence(timeout: 30))
+            review.click()
+            element(identifier: "detail.tab.metadata").click()
+            XCTAssertEqual(app.textFields["metadata.author"].value as? String, "Interface Review")
+            let metadataShot = XCTAttachment(screenshot: app.screenshot())
+            metadataShot.name = "metadata-\(appearance)"
+            metadataShot.lifetime = .keepAlways
+            add(metadataShot)
+            element(identifier: "queue.row.signed-c2pa.jpg").click()
+            element(identifier: "detail.tab.overview").click()
+            XCTAssertTrue(element(identifier: "credentials.card").waitForExistence(timeout: 20))
+            XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@ OR value CONTAINS %@", "Not trusted", "Not trusted")).firstMatch.exists)
+            let credentialsShot = XCTAttachment(screenshot: app.screenshot())
+            credentialsShot.name = "credentials-\(appearance)"
+            credentialsShot.lifetime = .keepAlways
+            add(credentialsShot)
+            app.terminate()
+        }
+    }
+
     func testCommandOOpensAddFilesPanel() throws {
         launch()
 
@@ -181,7 +222,8 @@ final class ProvenanceCleanerUITests: XCTestCase {
     private func launch(
         importing urls: [URL] = [],
         appearance: String? = nil,
-        helperMode: String = "normal"
+        helperMode: String = "normal",
+        realEngine: Bool = false
     ) {
         app = XCUIApplication()
         app.launchArguments = ["--ui-testing", "-ApplePersistenceIgnoreState", "YES"]
@@ -202,6 +244,7 @@ final class ProvenanceCleanerUITests: XCTestCase {
                 .map(\.path)
                 .joined(separator: "\n")
         }
+        if realEngine { app.launchEnvironment.removeValue(forKey: "PROVENANCE_CLEANER_HELPER_PATH") }
         app.launch()
         app.activate()
         if !app.windows.firstMatch.waitForExistence(timeout: 1) {

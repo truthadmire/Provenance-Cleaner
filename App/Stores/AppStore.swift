@@ -135,10 +135,24 @@ final class AppStore {
 
         do {
             let result = try await withTrackedRequest(for: jobID) { requestID in
-                try await engine.inspect(fileAt: job.sourceURL, requestID: requestID)
+                try await engine.inspect(fileAt: job.previewURL, requestID: requestID)
             }
             update(jobID) { current in
                 current.kind = result.kind
+                if job.stagedOutputURL != nil {
+                    current.postCleanInspection = result.report
+                    let residual = result.report.hasActionableFindings ? max(1, result.report.findings.count) : 0
+                    if result.report.inspectionIncomplete {
+                        current.status = .cleanedInspectionIncomplete
+                    } else if current.cleaningOptions?.metadataEdits != nil {
+                        current.status = .metadataReady(residualCount: residual)
+                    } else if current.cleaningOptions?.wordTraces != nil {
+                        current.status = .editingTracesReady(residualCount: residual)
+                    } else {
+                        current.status = .readyToExport(residualCount: residual)
+                    }
+                    return
+                }
                 current.inspection = result.report
                 if result.kind == .unknown {
                     current.status = .unsupported("The engine could not classify this file.")
@@ -191,6 +205,14 @@ final class AppStore {
         await clean(jobID: jobID, optionsOverride: options)
     }
 
+    func applyMetadataEdits(jobID: CleanerJob.ID, edits: [String: String]) async {
+        guard !edits.isEmpty, !isBusy else { return }
+        var options = job(withID: jobID)?.cleaningOptions ?? CleaningOptions.conservative
+        options.wordTraces = nil
+        options.metadataEdits = edits
+        await clean(jobID: jobID, optionsOverride: options)
+    }
+
     func clean(jobID: CleanerJob.ID, optionsOverride: CleaningOptions? = nil) async {
         guard let job = job(withID: jobID), job.status.canClean else { return }
         let previousOutputURL = job.stagedOutputURL
@@ -201,9 +223,10 @@ final class AppStore {
             let outputURL = try makeStagingURL(for: job)
             attemptOutputURL = outputURL
             let options = optionsOverride ?? preferences.cleaningOptions
+            let inputURL = options.metadataEdits == nil ? job.sourceURL : (job.stagedOutputURL ?? job.sourceURL)
             let result = try await withTrackedRequest(for: jobID) { requestID in
                 try await engine.clean(
-                    fileAt: job.sourceURL,
+                    fileAt: inputURL,
                     outputURL: outputURL,
                     options: options,
                     requestID: requestID
@@ -239,7 +262,9 @@ final class AppStore {
                 if !postInspectionCompleted || postInspection?.inspectionIncomplete == true || result.report.pdfDeepCleaningIncomplete {
                     current.status = .cleanedInspectionIncomplete
                 } else {
-                    current.status = options.wordTraces == nil
+                    current.status = options.metadataEdits != nil
+                        ? .metadataReady(residualCount: residualCount)
+                        : options.wordTraces == nil
                         ? .readyToExport(residualCount: residualCount)
                         : .editingTracesReady(residualCount: residualCount)
                 }
@@ -263,8 +288,11 @@ final class AppStore {
                 try? fileManager.removeItem(at: attemptOutputURL.deletingLastPathComponent())
             }
             update(jobID) { current in
-                current.status = .failed(error.localizedDescription)
+                current.status = optionsOverride?.metadataEdits == nil ? .failed(error.localizedDescription) : job.status
                 current.stagedOutputURL = previousOutputURL
+            }
+            if optionsOverride?.metadataEdits != nil {
+                issue = AppIssue(title: "Could not update metadata", message: error.localizedDescription)
             }
         }
     }

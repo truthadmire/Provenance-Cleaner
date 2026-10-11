@@ -4,6 +4,51 @@ import XCTest
 
 final class AppStoreTests: XCTestCase {
     @MainActor
+    func testMetadataEditsUseCurrentStagedCopyAndRemainExportable() async throws {
+        let fixture = try TemporaryFixture()
+        defer { fixture.remove() }
+        let source = try fixture.write("input.docx", contents: "original")
+        let engine = RecordingEngine()
+        let store = AppStore(engine: engine, preferences: try makePreferences(), stagingRoot: fixture.root.appendingPathComponent("stage"))
+        await store.addAndInspect([source])
+        let id = try XCTUnwrap(store.selectedJobID)
+        await store.clean(jobID: id)
+        let first = try XCTUnwrap(store.selectedJob?.stagedOutputURL)
+        await store.applyMetadataEdits(jobID: id, edits: ["author": "Alice", "title": ""])
+        let names = await engine.cleanedSourceNames()
+        let options = await engine.receivedOptions()
+        XCTAssertEqual(names, ["input.docx", first.lastPathComponent])
+        XCTAssertEqual(options.last?.metadataEdits, ["author": "Alice", "title": ""])
+        XCTAssertEqual(store.selectedJob?.status, .metadataReady(residualCount: 0))
+        XCTAssertTrue(store.selectedJob?.canExport == true)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: first.path))
+        XCTAssertEqual(try String(contentsOf: source, encoding: .utf8), "original")
+        XCTAssertEqual(store.pendingExportJobIDs, [id])
+        await store.inspect(jobID: id)
+        let inspectedNames = await engine.allInspectedSourceNames()
+        XCTAssertEqual(inspectedNames.last, store.selectedJob?.stagedOutputURL?.lastPathComponent)
+        XCTAssertEqual(store.selectedJob?.status, .metadataReady(residualCount: 0))
+    }
+
+    @MainActor
+    func testFailedMetadataEditPreservesPriorResultAndAllowsRetry() async throws {
+        let fixture = try TemporaryFixture()
+        defer { fixture.remove() }
+        let source = try fixture.write("input.docx", contents: "original")
+        let engine = RecordingEngine(cleanOutcomes: [.success("copy"), .failure("unsupported field")])
+        let store = AppStore(engine: engine, preferences: try makePreferences(), stagingRoot: fixture.root.appendingPathComponent("stage"))
+        await store.addAndInspect([source])
+        let id = try XCTUnwrap(store.selectedJobID)
+        await store.clean(jobID: id)
+        let previous = try XCTUnwrap(store.selectedJob?.stagedOutputURL)
+        await store.applyMetadataEdits(jobID: id, edits: ["author": "Alice"])
+        XCTAssertEqual(store.selectedJob?.stagedOutputURL, previous)
+        XCTAssertTrue(store.selectedJob?.status.canClean == true)
+        XCTAssertEqual(store.issue?.title, "Could not update metadata")
+        XCTAssertEqual(try String(contentsOf: previous, encoding: .utf8), "copy")
+    }
+
+    @MainActor
     func testWordTraceActionUsesDedicatedOptionsAndQueuesReview() async throws {
         let fixture = try TemporaryFixture()
         defer { fixture.remove() }
@@ -252,6 +297,7 @@ final class AppStoreTests: XCTestCase {
 }
 
 private actor RecordingEngine: WatermarkEngine {
+    private var allInspections: [String] = []
     private var inspections: [String] = []
     private var cleans: [String] = []
     private var options: [CleaningOptions] = []
@@ -277,6 +323,7 @@ private actor RecordingEngine: WatermarkEngine {
 
     func inspect(_ input: EngineInput) async throws -> InspectionResult {
         let inputURL = input.inputURL
+        allInspections.append(inputURL.lastPathComponent)
         if inputURL.lastPathComponent.hasPrefix("cleaned") {
             return EngineInspection(kind: .text, report: WatermarkReport())
         }
@@ -336,6 +383,7 @@ private actor RecordingEngine: WatermarkEngine {
 
     func cancel(requestID: UUID) async {}
 
+    func allInspectedSourceNames() -> [String] { allInspections }
     func inspectedSourceNames() -> [String] { inspections }
     func cleanedSourceNames() -> [String] { cleans }
     func receivedOptions() -> [CleaningOptions] { options }

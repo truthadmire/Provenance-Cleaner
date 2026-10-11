@@ -1,5 +1,7 @@
 import SwiftUI
 
+enum CleanerLayout { static let contentWidth: CGFloat = 980 }
+
 /// Shared surfaces give content depth while leaving the window and sidebar native.
 private struct CleanerSurface: ViewModifier {
     @Environment(\.colorScheme) private var colorScheme
@@ -31,12 +33,12 @@ private struct CleanerSurface: ViewModifier {
                 )
                 .allowsHitTesting(false)
             }
-            .shadow(color: .black.opacity(colorScheme == .dark ? 0.16 : 0.045), radius: 12, y: 5)
+            .shadow(color: .black.opacity(colorScheme == .dark ? 0.10 : 0.025), radius: 4, y: 2)
     }
 }
 
 extension View {
-    func cleanerSurface(cornerRadius: CGFloat = 16) -> some View {
+    func cleanerSurface(cornerRadius: CGFloat = 12) -> some View {
         modifier(CleanerSurface(cornerRadius: cornerRadius))
     }
 }
@@ -96,7 +98,7 @@ extension CleanerJobStatus {
     var tint: Color {
         switch self {
         case .findings, .inspectionIncomplete, .cleanedInspectionIncomplete: .orange
-        case let .readyToExport(residualCount), let .editingTracesReady(residualCount): residualCount > 0 ? .orange : .green
+        case let .readyToExport(residualCount), let .editingTracesReady(residualCount), let .metadataReady(residualCount): residualCount > 0 ? .orange : .green
         case .inspectedClean, .exported: .green
         case .failed: .red
         case .inspecting, .cleaning: .accentColor

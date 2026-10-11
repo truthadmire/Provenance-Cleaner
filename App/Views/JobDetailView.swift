@@ -2,6 +2,7 @@ import SwiftUI
 
 enum JobDetailTab: String, CaseIterable, Identifiable {
     case overview = "Overview"
+    case metadata = "Metadata"
     case preview = "Preview"
 
     var id: String { rawValue }
@@ -15,11 +16,13 @@ struct JobDetailView: View {
     var onInspect: () -> Void
     var onClean: () -> Void
     var onEditWordTraces: () -> Void
+    var onEditMetadata: ([String: String]) -> Void
     var onExportCopy: () -> Void
     var onReplaceOriginal: () -> Void
     var onReveal: () -> Void
 
     @State private var showingReplaceConfirmation = false
+    @State private var metadataDraft: [String: String] = [:]
 
     var body: some View {
         // The header owns its layout space. An inset on the scroll view lets
@@ -28,24 +31,30 @@ struct JobDetailView: View {
             VStack(spacing: 0) {
                 header
 
-                HStack {
-                    Picker("View", selection: $selectedTab) {
-                        ForEach(JobDetailTab.allCases) { tab in
-                            Text(tab.rawValue).tag(tab)
+                HStack(spacing: 24) {
+                    ForEach(JobDetailTab.allCases) { tab in
+                        Button { selectedTab = tab } label: {
+                            VStack(spacing: 12) {
+                                Text(tab.rawValue)
+                                    .font(.subheadline.weight(selectedTab == tab ? .semibold : .regular))
+                                    .foregroundStyle(selectedTab == tab ? Color.primary : Color.secondary)
+                                Capsule().fill(selectedTab == tab ? Color.accentColor : .clear).frame(height: 2)
+                            }
+                            .fixedSize(horizontal: true, vertical: false)
                         }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("detail.tab.\(tab.rawValue.lowercased())")
                     }
-                    .pickerStyle(.segmented)
-                    .labelsHidden()
-                    .frame(width: 220)
-                    .accessibilityIdentifier("detail.view-picker")
-
                     Spacer()
-                    Label("Local processing", systemImage: "lock.shield")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    Label("On-device", systemImage: "lock.shield")
+                        .font(.caption).foregroundStyle(.secondary)
+                        .padding(.bottom, 12)
                 }
                 .padding(.horizontal, 24)
-                .padding(.top, 14)
+                .padding(.top, 24)
+                .frame(maxWidth: CleanerLayout.contentWidth)
+                Divider()
+
             }
             .fixedSize(horizontal: false, vertical: true)
 
@@ -55,9 +64,12 @@ struct JobDetailView: View {
                     JobOverviewView(
                         job: job,
                         preferences: preferences,
-                        optionsDisabled: job.status.isBusy || isBatchBusy,
-                        onEditWordTraces: onEditWordTraces
+                        optionsDisabled: job.status.isBusy || isBatchBusy
                     )
+                case .metadata:
+                    MetadataEditorView(job: job, preferences: preferences,
+                                       disabled: job.status.isBusy || isBatchBusy, draft: $metadataDraft,
+                                       onApply: onEditMetadata, onEditWordTraces: onEditWordTraces)
                 case .preview:
                     FilePreviewView(job: job)
                 }
@@ -67,6 +79,8 @@ struct JobDetailView: View {
             .clipped()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .onChange(of: job.id) { _, _ in metadataDraft = [:] }
+        .onChange(of: job.stagedOutputURL) { _, _ in metadataDraft = [:] }
         .confirmationDialog(
             "Replace \(job.displayName)?",
             isPresented: $showingReplaceConfirmation,
@@ -82,7 +96,7 @@ struct JobDetailView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 14) {
-                CleanerSymbol(systemImage: job.kind.systemImage, size: 48)
+                CleanerSymbol(systemImage: job.kind.systemImage, size: 44)
 
                 VStack(alignment: .leading, spacing: 5) {
                     Text(job.displayName)
@@ -103,10 +117,11 @@ struct JobDetailView: View {
                 Spacer(minLength: 12)
 
                 Button(action: onClean) {
-                    Label("Clean", systemImage: "wand.and.stars")
+                    Label(job.cleaningOptions?.metadataEdits == nil ? "Clean Copy" : "Clean Original", systemImage: "wand.and.stars")
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(!job.status.canClean || job.status.isBusy || isBatchBusy)
+                .help("Creates a fresh cleaned copy from the original. Clean first, then edit metadata to keep both changes.")
                 .accessibilityIdentifier("detail.clean")
             }
             .controlSize(.large)
@@ -115,6 +130,7 @@ struct JobDetailView: View {
                 StatusBadge(status: job.status)
                     .accessibilityIdentifier("detail.status")
                 Text(job.kind.displayName)
+                    .lineLimit(1)
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
@@ -138,10 +154,9 @@ struct JobDetailView: View {
                 }
             }
         }
-        .padding(20)
-        .cleanerSurface()
         .padding(.horizontal, 24)
-        .padding(.top, 20)
+        .padding(.top, 28)
+        .frame(maxWidth: CleanerLayout.contentWidth)
     }
 }
 
@@ -167,19 +182,13 @@ private struct JobOverviewView: View {
     let job: CleanerJob
     @Bindable var preferences: AppPreferences
     let optionsDisabled: Bool
-    var onEditWordTraces: () -> Void
     @State private var rawReportExpanded = false
+    @State private var settingsExpanded = false
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                if job.sourceURL.pathExtension.lowercased() == "pdf" {
-                    PDFCleaningCard(job: job, preferences: preferences, optionsDisabled: optionsDisabled)
-                }
-
-                if job.sourceURL.pathExtension.lowercased() == "docx" {
-                    WordEditingTracesCard(job: job, preferences: preferences, optionsDisabled: optionsDisabled, onApply: onEditWordTraces)
-                }
+                InspectionSummaryView(job: job)
 
                 if let options = job.cleaningOptions {
                     NoticeCard(
@@ -197,8 +206,8 @@ private struct JobOverviewView: View {
                     )
                 }
 
-                if let report = job.inspection {
-                    ReportCard(title: "Inspection", report: report)
+                if let report = job.currentInspection {
+                    ReportCard(title: job.stagedOutputURL == nil ? "Inspection" : "Result inspection", report: report)
                 } else if !job.status.isBusy {
                     NoticeCard(
                         title: "Not inspected yet",
@@ -207,17 +216,27 @@ private struct JobOverviewView: View {
                     )
                 }
 
-                CurrentCleaningOptionsCard(preferences: preferences)
-                    .disabled(optionsDisabled)
+                if let report = job.currentInspection, report.raw["c2pa"] != nil {
+                    ContentCredentialsCard(report: report)
+                }
+
+                DisclosureGroup("Cleaning settings", isExpanded: $settingsExpanded) {
+                    VStack(spacing: 16) {
+                        CurrentCleaningOptionsCard(preferences: preferences)
+                        if job.sourceURL.pathExtension.lowercased() == "pdf" {
+                            PDFCleaningCard(job: job, preferences: preferences, optionsDisabled: optionsDisabled)
+                        }
+                    }.padding(.top, 12)
+                }
+                .font(.subheadline.weight(.medium))
+                .disabled(optionsDisabled)
 
                 if let cleanReport = job.cleanReport {
                     CleanActionsCard(report: cleanReport)
                 }
 
                 if job.stagedOutputURL != nil {
-                    if let after = job.postCleanInspection {
-                        ReportCard(title: "Post-clean inspection", report: after)
-                    } else {
+                    if job.postCleanInspection == nil {
                         NoticeCard(
                             title: "Post-clean inspection unavailable",
                             message: "A cleaned output was created, but it could not be inspected again. Review the output before export.",
@@ -243,7 +262,7 @@ private struct JobOverviewView: View {
                     .foregroundStyle(.secondary)
             }
             .padding(24)
-            .frame(maxWidth: 900, alignment: .leading)
+            .frame(maxWidth: CleanerLayout.contentWidth, alignment: .leading)
             .frame(maxWidth: .infinity)
         }
     }
@@ -374,7 +393,7 @@ private struct CleanActionsCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            CleanerCardHeading(title: "Cleaning actions", systemImage: "checkmark", tint: .green)
+            CleanerCardHeading(title: "Applied changes", systemImage: "checkmark", tint: .green)
 
             Divider().opacity(0.5)
 
@@ -425,6 +444,7 @@ private extension CleanerJobStatus {
 
 private extension CleaningOptions {
     var summary: String {
+        if let metadataEdits { return "Updated \(metadataEdits.count) descriptive metadata fields on the current copy." }
         if let wordTraces { return wordTraces.summary }
         let metadata = stripAllMetadata
             ? "all removable metadata requested"

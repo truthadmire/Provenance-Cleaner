@@ -9,6 +9,7 @@ enum CleanerJobStatus: Equatable, Sendable {
     case cleaning
     case readyToExport(residualCount: Int)
     case editingTracesReady(residualCount: Int)
+    case metadataReady(residualCount: Int)
     case cleanedInspectionIncomplete
     case cancelled
     case exported(URL)
@@ -30,7 +31,9 @@ enum CleanerJobStatus: Equatable, Sendable {
                 : "Cleaned — findings removed"
         case let .editingTracesReady(residualCount):
             residualCount > 0 ? "Metadata updated — other findings remain" : "Editing traces updated"
-        case .cleanedInspectionIncomplete: "Cleaned — inspection incomplete"
+        case let .metadataReady(residualCount):
+            residualCount > 0 ? "Metadata updated — findings remain" : "Metadata updated"
+        case .cleanedInspectionIncomplete: "Result ready — inspection incomplete"
         case .cancelled: "Cancelled"
         case let .exported(url): "Exported to \(url.lastPathComponent)"
         case .unsupported: "Unsupported"
@@ -45,7 +48,7 @@ enum CleanerJobStatus: Equatable, Sendable {
         case .inspectedClean: "checkmark.circle"
         case .findings: "exclamationmark.triangle"
         case .inspectionIncomplete, .cleanedInspectionIncomplete: "questionmark.circle"
-        case .readyToExport, .editingTracesReady: "square.and.arrow.down"
+        case .readyToExport, .editingTracesReady, .metadataReady: "square.and.arrow.down"
         case .cancelled: "stop.circle"
         case .exported: "checkmark.seal"
         case .unsupported: "nosign"
@@ -55,7 +58,7 @@ enum CleanerJobStatus: Equatable, Sendable {
 
     var canClean: Bool {
         switch self {
-        case .inspectedClean, .findings, .inspectionIncomplete, .readyToExport, .editingTracesReady,
+        case .inspectedClean, .findings, .inspectionIncomplete, .readyToExport, .editingTracesReady, .metadataReady,
              .cleanedInspectionIncomplete, .cancelled, .exported:
             true
         default:
@@ -95,6 +98,11 @@ struct CleanerJob: Identifiable, Equatable, Sendable {
 
     var previewURL: URL {
         stagedOutputURL ?? sourceURL
+    }
+
+    /// Never present an original's validation as the staged result's verdict.
+    var currentInspection: WatermarkReport? {
+        stagedOutputURL == nil ? inspection : postCleanInspection
     }
 
     var canExport: Bool {

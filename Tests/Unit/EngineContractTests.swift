@@ -3,6 +3,24 @@ import XCTest
 @testable import ProvenanceCleaner
 
 final class EngineContractTests: XCTestCase {
+    func testUninspectedResultNeverReusesOriginalCredentialVerdict() {
+        var job = CleanerJob(sourceURL: URL(fileURLWithPath: "/tmp/original.jpg"))
+        job.inspection = WatermarkReport(raw: .object(["has_c2pa": .bool(true)]))
+        XCTAssertNotNil(job.currentInspection)
+        job.stagedOutputURL = URL(fileURLWithPath: "/tmp/result.jpg")
+        XCTAssertNil(job.currentInspection)
+    }
+
+    func testUnverifiedC2PAMentionsDoNotBecomeConfirmedFindings() {
+        let report = WatermarkReport(raw: .object([
+            "findings": .array([.string("C2PA verifier unavailable"), .string("manifest byte-scan")]),
+            "c2pa": .object(["inspectionIncomplete": .bool(true)])
+        ]))
+        XCTAssertFalse(report.hasActionableFindings)
+        XCTAssertTrue(report.inspectionIncomplete)
+        XCTAssertFalse(report.findings.contains { $0.confidence == .confirmed })
+    }
+
     func testCleanRequestEncodesExactJSONLContractKeys() throws {
         let request = HelperRequest(
             requestID: "request-123",

@@ -40,9 +40,47 @@ PDF rewriting may affect interactive features; review the output before export.
 The bundled qpdf validator checks inputs before deep cleaning; an unparseable PDF
 or one that requires a password is refused before the image pass.
 
+## Inspection and editable metadata
+
+The detail workspace separates **Overview**, **Metadata**, and **Preview**, with
+one shared content width and aligned property fields. Overview shows actionable
+findings and the currently staged result's validation. **Inspect** rechecks the
+current copy when a result exists, so an original signature verdict is never
+presented as proof about an edited file.
+
+In **Metadata**, edit author, title, subject, keywords, description, last saved by,
+or copyright where the format supports those fields. Supported formats are DOCX,
+XLSX, PPTX, PDF, JPEG, PNG, TIFF and WebP. Emptying a field removes its mapped values;
+unchanged fields are preserved. **Apply to Copy** edits the current staged result
+(or the original on the first operation), reads the values back, and makes the
+result available for review/export. Ordinary Clean and Word trace operations still
+start from the original. Failed metadata writes preserve the previous result.
+
+Office edits affect `docProps/core.xml`; other package entries retain their
+uncompressed bytes. Comment/revision author names are separate and stay unchanged.
+Signed Office packages are readable but editing is refused. PDF/image edits use
+the bundled ExifTool with explicit field mappings and read-back verification.
+PDF updates are incremental: earlier property values may remain recoverable, so
+this editor is not a secure redaction facility. Metadata changes may invalidate
+existing document signatures or content credentials; the result is re-inspected.
+
+C2PA detection uses structured c2patool JSON instead of keyword matches in error
+messages. The report separates embedded-manifest presence, claim-signature
+validation, content-hash binding, and local certificate trust. The active signing
+chain shows subject, issuer, serial, validity dates and SHA-256 fingerprints.
+Missing/unsupported verifiers, malformed results, timeouts, and certificate
+extraction errors remain explicit rather than becoming a clean verdict. Structural
+markers can be present even when no verifiable manifest can be read.
+
+Verification remains offline: no remote manifest fetch, live OCSP/revocation, or
+CAWG identity checks. Trust is relative to the bundled verifier's local trust
+configuration, not a claim of current public trust. C2PA credentials are evidence
+of provenance, not a verdict about whether the content is true. The implementation
+uses the [official c2patool JSON and certificate interfaces](https://github.com/contentauth/c2patool/blob/main/docs/usage.md).
+
 ## Word editing traces
 
-Import a DOCX and open **Word editing traces** in Overview. Inspection shows
+Import a DOCX and open **Word editing traces** in Metadata. Inspection shows
 session identifiers (RSIDs), recorded revision/comment dates, document dates,
 and the recorded date range. These are editing metadata, not a complete typing
 timeline.

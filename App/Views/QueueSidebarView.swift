@@ -77,8 +77,8 @@ private struct QueueRow: View {
             Image(systemName: job.kind.systemImage)
                 .font(.system(size: 18))
                 .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(.secondary)
-                .frame(width: 17)
+                .foregroundStyle(job.status.tint)
+                .frame(width: 24)
 
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {

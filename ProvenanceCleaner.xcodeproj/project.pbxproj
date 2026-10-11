@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		0B8CD998FB38E55E82FD0E2A /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0495223193DDFEF6ED8D196 /* ContentView.swift */; };
+		1370493D84234BABB54FA416 /* ContentCredentialsCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88147C408C7443995F1723AB /* ContentCredentialsCard.swift */; };
 		1DDF6D8820A7A4E46567575A /* AppStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AF5017F6965080BB7B368DE /* AppStoreTests.swift */; };
 		2146D25D56EB423A80A0F72F /* SupportedFileTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDF8AA75EB5B3B475BAAD016 /* SupportedFileTypes.swift */; };
 		26F81D350600AC8EEC018C20 /* WatermarkEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AD628F5BA7C64DF4D106B8B /* WatermarkEngine.swift */; };
@@ -24,6 +25,7 @@
 		6005CFFF841A668E66EB02F9 /* EmptyQueueView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF2BF3CF573EC5ED7E678ABF /* EmptyQueueView.swift */; };
 		62B4FF92B40D2F2879669019 /* ExifTool-LICENSE-Artistic-1.0-Perl.txt in Resources */ = {isa = PBXBuildFile; fileRef = FF94EF7D97F40F41CAB354DA /* ExifTool-LICENSE-Artistic-1.0-Perl.txt */; };
 		657FD2B6C51D0E2A105923FC /* UITestLaunchConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = D657C56498B592900CC5CFA3 /* UITestLaunchConfiguration.swift */; };
+		75B5EDB3416556FD2CFFB3A2 /* InspectionSummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB2A1652572BFECAE3027B32 /* InspectionSummaryView.swift */; };
 		76EE07A9B27451FC8BB73EF5 /* Dependencies.lock.json in Resources */ = {isa = PBXBuildFile; fileRef = 9DFC20C9B26F7FC13FB24223 /* Dependencies.lock.json */; };
 		78DA7FC5A7A695651FA8ADE0 /* BundledWatermarkEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BB360D8A496EFA6A8A9384B /* BundledWatermarkEngine.swift */; };
 		7B86744A8653ADBD7FD84601 /* Ghostscript-AGPL-3.0.txt in Resources */ = {isa = PBXBuildFile; fileRef = F8D9A6D4F971DE083A364FDD /* Ghostscript-AGPL-3.0.txt */; };
@@ -36,6 +38,7 @@
 		9CA058FAE70C36DA176F0221 /* THIRD_PARTY_NOTICES.md in Resources */ = {isa = PBXBuildFile; fileRef = 65CCEFCD7AE1FE9C80D4662D /* THIRD_PARTY_NOTICES.md */; };
 		9FC2B271E8E538FFAADC87BA /* CleanerJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CA84ABC9BAB7364DADB8079 /* CleanerJob.swift */; };
 		A36F981AC5C35465B5169B63 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53B7165442A09D0827D68BF4 /* SettingsView.swift */; };
+		ACDA7C9BA9D653FED6F7A0D6 /* MetadataEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40D4CF86C105BE3142422D10 /* MetadataEditorView.swift */; };
 		AEC684B1268B93F6D6F2B246 /* CPython-LICENSE-PSF-2.0.txt in Resources */ = {isa = PBXBuildFile; fileRef = C96C23B4E31036F69B3758B9 /* CPython-LICENSE-PSF-2.0.txt */; };
 		B3D3DA822DBDEF2CFD761FDE /* WordEditingTracesCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2185047FA043A597DE8F564 /* WordEditingTracesCard.swift */; };
 		BF0898D29BE0B674D15FBA15 /* FilePreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D45A6A662449B5A70BCAE63 /* FilePreviewView.swift */; };
@@ -85,6 +88,7 @@
 		367022DD73F123BC28251736 /* ProvenanceCleanerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProvenanceCleanerApp.swift; sourceTree = "<group>"; };
 		3A169D5E4A418455D895347A /* PyInstaller-COPYING.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "PyInstaller-COPYING.txt"; sourceTree = "<group>"; };
 		3DB2E61118B8C69FD67690B6 /* FilePanelService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilePanelService.swift; sourceTree = "<group>"; };
+		40D4CF86C105BE3142422D10 /* MetadataEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetadataEditorView.swift; sourceTree = "<group>"; };
 		4453489A591094F7967D3D62 /* PDFCleaningCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFCleaningCard.swift; sourceTree = "<group>"; };
 		445BCF4ECCBBAD18B22C5365 /* AppPreferencesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppPreferencesTests.swift; sourceTree = "<group>"; };
 		51270C1F75137985A0D17ADE /* AppStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStore.swift; sourceTree = "<group>"; };
@@ -93,6 +97,7 @@
 		65CCEFCD7AE1FE9C80D4662D /* THIRD_PARTY_NOTICES.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = THIRD_PARTY_NOTICES.md; sourceTree = "<group>"; };
 		6CA84ABC9BAB7364DADB8079 /* CleanerJob.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CleanerJob.swift; sourceTree = "<group>"; };
 		85151265FEF83417154122F1 /* QueueSidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QueueSidebarView.swift; sourceTree = "<group>"; };
+		88147C408C7443995F1723AB /* ContentCredentialsCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentCredentialsCard.swift; sourceTree = "<group>"; };
 		8D45A6A662449B5A70BCAE63 /* FilePreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilePreviewView.swift; sourceTree = "<group>"; };
 		9A164E14A24045FFE87D2828 /* AppPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppPreferences.swift; sourceTree = "<group>"; };
 		9AD628F5BA7C64DF4D106B8B /* WatermarkEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatermarkEngine.swift; sourceTree = "<group>"; };
@@ -102,6 +107,7 @@
 		9F81FF6B0B7E605CFD9B48FD /* ExifTool-COPYRIGHT-AND-LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "ExifTool-COPYRIGHT-AND-LICENSE.txt"; sourceTree = "<group>"; };
 		A09490140F9DCBC5170407B5 /* SafeFileExporterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafeFileExporterTests.swift; sourceTree = "<group>"; };
 		A4925813553CA144C2A12F74 /* ProvenanceCleanerUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ProvenanceCleanerUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		AB2A1652572BFECAE3027B32 /* InspectionSummaryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InspectionSummaryView.swift; sourceTree = "<group>"; };
 		B0495223193DDFEF6ED8D196 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		B1A38F63F9A57BA6F3FECED6 /* watermarks-remover-LICENSE-MIT.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "watermarks-remover-LICENSE-MIT.txt"; sourceTree = "<group>"; };
 		B4B4EC56644F562604ED817D /* ProvenanceCleanerUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProvenanceCleanerUITests.swift; sourceTree = "<group>"; };
@@ -253,10 +259,13 @@
 			isa = PBXGroup;
 			children = (
 				BB059B4086581C9F16A1969A /* CleanerStyle.swift */,
+				88147C408C7443995F1723AB /* ContentCredentialsCard.swift */,
 				B0495223193DDFEF6ED8D196 /* ContentView.swift */,
 				BF2BF3CF573EC5ED7E678ABF /* EmptyQueueView.swift */,
 				8D45A6A662449B5A70BCAE63 /* FilePreviewView.swift */,
+				AB2A1652572BFECAE3027B32 /* InspectionSummaryView.swift */,
 				5CFB2A0CDC0DBE48E2DE54E6 /* JobDetailView.swift */,
+				40D4CF86C105BE3142422D10 /* MetadataEditorView.swift */,
 				B50A792AEF5BACE406963647 /* OwnershipNoticeView.swift */,
 				4453489A591094F7967D3D62 /* PDFCleaningCard.swift */,
 				85151265FEF83417154122F1 /* QueueSidebarView.swift */,
@@ -473,13 +482,16 @@
 				78DA7FC5A7A695651FA8ADE0 /* BundledWatermarkEngine.swift in Sources */,
 				9FC2B271E8E538FFAADC87BA /* CleanerJob.swift in Sources */,
 				2D585E399094C4EC10265BA3 /* CleanerStyle.swift in Sources */,
+				1370493D84234BABB54FA416 /* ContentCredentialsCard.swift in Sources */,
 				0B8CD998FB38E55E82FD0E2A /* ContentView.swift in Sources */,
 				6005CFFF841A668E66EB02F9 /* EmptyQueueView.swift in Sources */,
 				26FCCFC94ACF736F92927DDC /* EngineModels.swift in Sources */,
 				490DBB4EEF2018A5FB12A7EC /* FilePanelService.swift in Sources */,
 				BF0898D29BE0B674D15FBA15 /* FilePreviewView.swift in Sources */,
+				75B5EDB3416556FD2CFFB3A2 /* InspectionSummaryView.swift in Sources */,
 				F28834F827B49BFAC111886F /* JSONValue.swift in Sources */,
 				F6FF1D3AD3A1308666C37E5B /* JobDetailView.swift in Sources */,
+				ACDA7C9BA9D653FED6F7A0D6 /* MetadataEditorView.swift in Sources */,
 				8E0DBA83DA781186C030A958 /* OwnershipNoticeView.swift in Sources */,
 				4AEB4B238C1060E473EDD70A /* PDFCleaningCard.swift in Sources */,
 				CD289DDBE5AFCB4199A178BA /* ProvenanceCleanerApp.swift in Sources */,
@@ -556,7 +568,7 @@
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = "";
 				ENABLE_APP_SANDBOX = YES;
@@ -574,7 +586,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.2.1;
+				MARKETING_VERSION = 0.3.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -671,7 +683,7 @@
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_APP_SANDBOX = YES;
@@ -695,7 +707,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.2.1;
+				MARKETING_VERSION = 0.3.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -764,7 +776,7 @@
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_APP_SANDBOX = YES;
@@ -788,7 +800,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.2.1;
+				MARKETING_VERSION = 0.3.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;

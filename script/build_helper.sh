@@ -86,6 +86,8 @@ if [[ "$IF_NEEDED" -eq 1 && -x "$OUTPUT_BINARY" ]]; then
   WATCH_PATHS=(
     "$SOURCE"
     "$HELPER_DIR/word_editing_traces.py"
+    "$HELPER_DIR/metadata_editor.py"
+    "$HELPER_DIR/credential_inspection.py"
     "$SPEC"
     "$UPSTREAM_DIR"
     "$HELPER_DIR/requirements-build.txt"

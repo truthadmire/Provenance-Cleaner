@@ -1,0 +1,4 @@
+C.jpg from contentauth/c2pa-rs, SDK test fixture (MIT/Apache-2.0).
+https://github.com/contentauth/c2pa-rs/blob/main/sdk/tests/fixtures/C.jpg
+Retrieved 2026-10-10. Test certificate only; not a trusted production credential.
+SHA-256: a2d14755db55de67a47c04090340d8266e892367be4104a45626d7a6fa6e9ffd

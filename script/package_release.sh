@@ -202,6 +202,10 @@ verify_capabilities_json() {
     die "bundled helper cannot execute Ghostscript for PDF deep cleaning"
   [[ "$(/usr/bin/plutil -extract report.wordEditingTraces.available raw -o - "$capabilities_file")" == "true" ]] || \
     die "bundled helper is missing Word editing-trace support"
+  [[ "$(/usr/bin/plutil -extract report.contentCredentials.structuredValidation raw -o - "$capabilities_file")" == "true" ]] || \
+    die "bundled helper is missing structured C2PA validation"
+  [[ "$(/usr/bin/plutil -extract report.contentCredentials.certificateChain raw -o - "$capabilities_file")" == "true" ]] || \
+    die "bundled helper is missing certificate-chain inspection"
 }
 
 verify_helper_capabilities_direct() {
@@ -225,6 +229,8 @@ probe_inherited_helper_capabilities() {
     "$probe_app/Contents/Resources/embedded-provenance.pdf"
   /usr/bin/ditto "$ROOT_DIR/Tests/HelperIntegration/Fixtures/editing-traces.docx" \
     "$probe_app/Contents/Resources/editing-traces.docx"
+  /usr/bin/ditto "$ROOT_DIR/Tests/HelperIntegration/Fixtures/signed-c2pa.jpg" \
+    "$probe_app/Contents/Resources/signed-c2pa.jpg"
   /usr/bin/xcrun swiftc -target arm64-apple-macos14.0 \
     "$RELEASE_PROBE_SOURCE" -o "$probe_executable"
   /usr/bin/ditto "$RELEASE_PROBE_INFO" "$probe_app/Contents/Info.plist"
@@ -236,7 +242,7 @@ probe_inherited_helper_capabilities() {
     --entitlements "$APP_ENTITLEMENTS" \
     --sign "$SIGNING_IDENTITY" "$probe_app"
   /usr/bin/codesign --verify --deep --strict --verbose=4 "$probe_app"
-  "$probe_executable" --pdf-smoke --word-smoke > "$output_file"
+  "$probe_executable" --pdf-smoke --word-smoke --metadata-smoke --c2pa-smoke > "$output_file"
   verify_capabilities_json "$output_file"
   [[ "$PROBE_TEMP" == /private/tmp/provenance-release-probe.* ]] || \
     die "refusing to clean an unexpected release-probe path"
@@ -632,7 +638,7 @@ REPORT="$OUTPUT_DIR/RELEASE_REPORT.md"
   echo "- linked-library relocation audit: passed"
   echo "- arm64-only Mach-O audit: passed"
   echo "- required helper/tool payload audit: passed"
-  echo "- helper capability audit before signing and through a disposable signed sandbox parent after signing and after DMG mounting: CPython/OpenSSL versions, pinned commit, offline mode, c2patool deny-all, no network backend, Ghostscript availability, and sandboxed PDF/Word smoke checks passed"
+  echo "- helper capability audit before signing and through a disposable signed sandbox parent after signing and after DMG mounting: CPython/OpenSSL versions, pinned commit, offline mode, c2patool deny-all, no network backend, Ghostscript availability, and sandboxed PDF/Word/metadata/C2PA smoke checks passed"
   echo "- frozen helper integration matrix: passed against the exact frozen payload before applying its inherit-only sandbox signature (see FROZEN_HELPER_INTEGRATION_TESTS.txt)"
   echo "- DMG filesystem verification, mounted-app strict signature, architecture, linked-library, and helper capability checks: passed"
   if [[ -z "$NOTARY_PROFILE" ]]; then

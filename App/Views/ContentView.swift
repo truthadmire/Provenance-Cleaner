@@ -10,18 +10,19 @@ struct ContentView: View {
     var body: some View {
         NavigationSplitView {
             QueueSidebarView(store: store)
-                .navigationSplitViewColumnWidth(min: 245, ideal: 285, max: 360)
+                .navigationSplitViewColumnWidth(min: 220, ideal: 250, max: 320)
         } detail: {
             Group {
                 if let job = store.selectedJob {
                     JobDetailView(
                         job: job,
                         preferences: store.preferences,
-                        isBatchBusy: store.isCleaningSequentially,
+                        isBatchBusy: store.isBusy,
                         selectedTab: $selectedDetailTab,
                         onInspect: { Task { await store.inspect(jobID: job.id) } },
                         onClean: { Task { await store.clean(jobID: job.id) } },
                         onEditWordTraces: { Task { await store.applyWordEditingTraces(jobID: job.id) } },
+                        onEditMetadata: { edits in Task { await store.applyMetadataEdits(jobID: job.id, edits: edits) } },
                         onExportCopy: { exportSelectedCopy(job) },
                         onReplaceOriginal: { Task { await store.replaceSelectedOriginal() } },
                         onReveal: { FilePanelService.reveal(job.sourceURL) }

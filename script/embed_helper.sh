@@ -25,7 +25,7 @@ if [[ -d "$PACKAGED_HELPER" ]]; then
 elif [[ -x "$DEV_LAUNCHER" ]]; then
   mkdir -p "$EMBEDDED_HELPER/Contents/MacOS" "$EMBEDDED_HELPER/Contents/Resources/upstream"
   cp "$DEV_LAUNCHER" "$EMBEDDED_HELPER/Contents/MacOS/provenance-engine"
-  cp "$ROOT_DIR/Helper/provenance_helper.py" "$EMBEDDED_HELPER/Contents/Resources/provenance_helper.py"
+  cp "$ROOT_DIR"/Helper/*.py "$EMBEDDED_HELPER/Contents/Resources/"
   cp -R "$ROOT_DIR/Vendor/watermarks-remover/service/scripts/." "$EMBEDDED_HELPER/Contents/Resources/upstream/"
   /usr/bin/plutil -create xml1 "$EMBEDDED_HELPER/Contents/Info.plist"
   /usr/bin/plutil -insert CFBundleIdentifier -string com.provenancecleaner.mac.engine "$EMBEDDED_HELPER/Contents/Info.plist"
