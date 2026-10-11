@@ -72,6 +72,23 @@ Missing/unsupported verifiers, malformed results, timeouts, and certificate
 extraction errors remain explicit rather than becoming a clean verdict. Structural
 markers can be present even when no verifiable manifest can be read.
 
+Version 0.3.1 uses c2patool 0.27.22 to validate DOCX/OOXML credentials, including
+the package's `META-INF/content_credential.c2pa` manifest and collection hashes.
+Embedded images are verified separately (including image parts declared outside
+the normal media folder). Each image has its own signature, content binding,
+certificate chain and trust result; its credential never authenticates the Word
+document or author. Inspection is read-only.
+
+“No credentials found” means the available document and embedded-media checks
+completed without finding a manifest. “Unable to verify” covers unavailable or
+unsupported verifiers, malformed packages/manifests, extraction errors, timeouts
+and resource limits. “Validation failed” is a completed check that found a
+signature/content validation failure. Partial results remain visible, but never
+become a clean verdict. Limits: 10,000 archive parts, 128 embedded assets, 64 MiB
+per asset, 256 MiB expanded archive size and a 90-second media inspection budget.
+Linked images, adjacent sidecars and remote manifests are outside this inspection
+scope and are not fetched.
+
 Verification remains offline: no remote manifest fetch, live OCSP/revocation, or
 CAWG identity checks. Trust is relative to the bundled verifier's local trust
 configuration, not a claim of current public trust. C2PA credentials are evidence
@@ -120,7 +137,7 @@ the helper and its child metadata tools together; the next request starts a
 fresh helper.
 
 The release helper embeds CPython 3.14.7 and PyInstaller 6.22.2. Its deterministic
-toolchain also includes c2patool 0.27.16, ExifTool 13.59 with its Perl runtime
+toolchain also includes c2patool 0.27.22, ExifTool 13.59 with its Perl runtime
 files, qpdf 12.4.1, and Ghostscript 10.07.1. Ghostscript is built as a standalone
 arm64 executable with compiled-in fonts/profiles and only system dynamic libraries.
 Exact source URLs and SHA-256 digests are recorded in

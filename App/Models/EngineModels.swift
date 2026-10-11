@@ -197,6 +197,25 @@ struct WatermarkReport: Equatable, Sendable {
         }
     }
 
+    var credentialNeedsAttention: Bool {
+        raw["c2pa"]?["inspectionIncomplete"]?.boolValue == true || raw["c2pa"]?["validationFailed"]?.boolValue == true
+    }
+
+    var credentialSummary: String {
+        Self.credentialSummary(for: raw["c2pa"], markersDetected: raw["has_c2pa"]?.boolValue == true)
+    }
+
+    static func credentialSummary(for value: JSONValue?, markersDetected: Bool = false) -> String {
+        if value?["validationFailed"]?.boolValue == true { return "Validation failed" }
+        if value?["inspectionIncomplete"]?.boolValue == true { return "Unable to verify" }
+        switch value?["state"]?.stringValue {
+        case "present": return "Credentials detected"
+        case "absent": return markersDetected ? "Markers detected" : "No credentials found"
+        case nil: return "Not inspected"
+        default: return "Unable to verify"
+        }
+    }
+
     var pdfDeepCleaningIncomplete: Bool {
         raw["pdf_deep_clean_incomplete"]?.boolValue == true
     }

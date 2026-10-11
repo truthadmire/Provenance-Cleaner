@@ -349,7 +349,11 @@ private struct ReportCard: View {
             Divider().opacity(0.5)
 
             if report.findings.isEmpty {
-                Text("No confirmed or probable provenance marks were reported by the available checks.")
+                Text(report.inspectionIncomplete
+                     ? "Inspection is incomplete. Unchecked items may still contain credentials or provenance metadata."
+                     : report.hasActionableFindings
+                     ? "Provenance indicators were detected. Review the credential details below."
+                     : "No confirmed or probable provenance marks were reported by the available checks.")
                     .foregroundStyle(.secondary)
             } else {
                 ForEach(report.findings) { finding in

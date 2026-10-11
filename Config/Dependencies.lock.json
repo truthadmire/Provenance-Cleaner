@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "lockedAt": "2026-09-05",
+  "lockedAt": "2026-10-11",
   "distribution": {
     "minimumMacOS": "14.0",
     "applicationArchitecture": "arm64",
@@ -20,13 +20,13 @@
       "bundled": true
     },
     "c2patool": {
-      "version": "0.27.16",
-      "role": "C2PA inspection and removal helper",
+      "version": "0.27.22",
+      "role": "Offline C2PA document and media inspection helper",
       "artifact": {
-        "fileName": "c2patool-v0.27.16-universal-apple-darwin.zip",
-        "url": "https://github.com/contentauth/c2pa-rs/releases/download/c2patool-v0.27.16/c2patool-v0.27.16-universal-apple-darwin.zip",
-        "sha256": "2c2cd9f949c7231a71bce26b0d4f7e7b45db2128bf93cd0e3189ad0172e9039e",
-        "sizeBytes": 20263585,
+        "fileName": "c2patool-v0.27.22-universal-apple-darwin.zip",
+        "url": "https://github.com/contentauth/c2pa-rs/releases/download/c2patool-v0.27.22/c2patool-v0.27.22-universal-apple-darwin.zip",
+        "sha256": "d064ca72e599c74e5fdc2ed04b47d6cb62210a2b14db589d078c2ec27c98d3df",
+        "sizeBytes": 20553126,
         "hashAuthority": "GitHub release asset digest"
       },
       "architecture": "universal2 source artifact; arm64 after verified lipo thinning",

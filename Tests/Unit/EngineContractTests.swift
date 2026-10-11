@@ -3,6 +3,30 @@ import XCTest
 @testable import ProvenanceCleaner
 
 final class EngineContractTests: XCTestCase {
+    func testCredentialSummarySeparatesAbsenceFailureAndIncompleteCoverage() {
+        let absent: JSONValue = .object(["state": .string("absent"), "inspectionIncomplete": .bool(false)])
+        XCTAssertEqual(WatermarkReport.credentialSummary(for: absent), "No credentials found")
+        XCTAssertEqual(WatermarkReport.credentialSummary(for: absent, markersDetected: true), "Markers detected")
+        let partial: JSONValue = .object(["state": .string("present"), "inspectionIncomplete": .bool(true)])
+        XCTAssertEqual(WatermarkReport.credentialSummary(for: partial), "Unable to verify")
+        let failed: JSONValue = .object(["state": .string("present"), "validationFailed": .bool(true)])
+        XCTAssertEqual(WatermarkReport.credentialSummary(for: failed), "Validation failed")
+        let untrusted: JSONValue = .object(["state": .string("present"), "trust": .string("untrusted")])
+        XCTAssertEqual(WatermarkReport.credentialSummary(for: untrusted), "Credentials detected")
+        XCTAssertEqual(WatermarkReport.credentialSummary(for: .object(["state": .string("unsupported")])), "Unable to verify")
+        XCTAssertEqual(WatermarkReport.credentialSummary(for: nil), "Not inspected")
+    }
+
+    func testPartialOfficeInspectionNeverHasACleanVerdict() {
+        let report = WatermarkReport(raw: .object([
+            "has_c2pa": .bool(false),
+            "c2pa": .object(["state": .string("inconclusive"), "inspectionIncomplete": .bool(true)])
+        ]))
+        XCTAssertTrue(report.inspectionIncomplete)
+        XCTAssertTrue(report.credentialNeedsAttention)
+        XCTAssertEqual(report.credentialSummary, "Unable to verify")
+    }
+
     func testUninspectedResultNeverReusesOriginalCredentialVerdict() {
         var job = CleanerJob(sourceURL: URL(fileURLWithPath: "/tmp/original.jpg"))
         job.inspection = WatermarkReport(raw: .object(["has_c2pa": .bool(true)]))

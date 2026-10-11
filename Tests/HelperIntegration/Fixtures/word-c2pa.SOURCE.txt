@@ -1,0 +1,19 @@
+Word C2PA fixtures for 0.3.1
+
+signed-c2pa.docx: generated locally from the project-owned editing-traces.docx,
+with word/media/keep.bin omitted and entries stored uncompressed, then signed
+by official c2patool 0.27.22 using its built-in PUBLIC DEVELOPMENT test key and
+certificate. It is deliberately untrusted; no production key was used or saved.
+Command: c2patool stored.docx --settings App/Resources/c2patool-offline.toml
+--config '{"title":"Signed Word test","assertions":[{"label":"c2pa.actions",
+"data":{"actions":[{"action":"c2pa.created","digitalSourceType":
+"http://cv.iptc.org/newscodes/digitalsourcetype/digitalCapture"}]}}]}'
+--output signed-c2pa.docx
+
+embedded-c2pa.docx: unsigned project-owned Word specimen with the existing
+signed-c2pa.jpg fixture stored unchanged at word/media/signed.jpg. See
+signed-c2pa.SOURCE.txt for the image's upstream source and license.
+These packages are inspection fixtures, not examples of verified authorship.
+
+a0c5c49044448e025749e68345ac834ecdc39a2aa3bbff68f0a2693cb3c0e444  signed-c2pa.docx
+075161a9e1ba33f3477f76ba817daa6d50fe5615be7106bc73f673dee5193efe  embedded-c2pa.docx

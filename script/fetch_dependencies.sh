@@ -239,7 +239,7 @@ verify_staged() {
   [[ "$arches" == "arm64" ]] || die "staged c2patool is not arm64: $arches"
   arches="$(/usr/bin/lipo -archs "$qpdf")"
   [[ "$arches" == "arm64" ]] || die "staged qpdf is not arm64: $arches"
-  "$c2pa" --version | /usr/bin/grep -F "0.27.16" >/dev/null
+  "$c2pa" --version | /usr/bin/grep -F "0.27.22" >/dev/null
   /usr/bin/grep -F 'allowed_network_hosts = []' "$c2pa_settings" >/dev/null || \
     die "c2patool offline settings do not block all network hosts"
   /usr/bin/grep -F 'decode_identity_assertions = false' "$c2pa_settings" >/dev/null || \

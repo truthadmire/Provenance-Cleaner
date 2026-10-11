@@ -231,6 +231,10 @@ probe_inherited_helper_capabilities() {
     "$probe_app/Contents/Resources/editing-traces.docx"
   /usr/bin/ditto "$ROOT_DIR/Tests/HelperIntegration/Fixtures/signed-c2pa.jpg" \
     "$probe_app/Contents/Resources/signed-c2pa.jpg"
+  /usr/bin/ditto "$ROOT_DIR/Tests/HelperIntegration/Fixtures/signed-c2pa.docx" \
+    "$probe_app/Contents/Resources/signed-c2pa.docx"
+  /usr/bin/ditto "$ROOT_DIR/Tests/HelperIntegration/Fixtures/embedded-c2pa.docx" \
+    "$probe_app/Contents/Resources/embedded-c2pa.docx"
   /usr/bin/xcrun swiftc -target arm64-apple-macos14.0 \
     "$RELEASE_PROBE_SOURCE" -o "$probe_executable"
   /usr/bin/ditto "$RELEASE_PROBE_INFO" "$probe_app/Contents/Info.plist"
@@ -325,7 +329,7 @@ verify_expected_payload() {
   /usr/bin/cmp -s "$ROOT_DIR/App/Resources/c2patool-offline.toml" \
     "$helper_resources/c2patool/offline.toml" || \
     die "bundled c2patool settings do not match the reviewed offline policy"
-  "$helper_frameworks/c2patool/c2patool" --version | /usr/bin/grep -F '0.27.16' >/dev/null || \
+  "$helper_frameworks/c2patool/c2patool" --version | /usr/bin/grep -F '0.27.22' >/dev/null || \
     die "unexpected bundled c2patool version"
   [[ "$("$helper_resources/exiftool/exiftool" -ver)" == "13.59" ]] || \
     die "unexpected bundled ExifTool version"

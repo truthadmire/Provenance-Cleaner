@@ -4,6 +4,19 @@ This evidence separates the current development checks from the original
 0.1.0 release-candidate checks. Neither section claims the complete acceptance
 matrix.
 
+### 0.3.1 Word and embedded-media C2PA — 2026-10-11
+
+- 58 source helper tests and 44 Swift unit tests passed. Detailed scope and
+  native UI verification: `Config/WordC2PAVerification.md`.
+- Official c2patool 0.27.22 is pinned by the GitHub release asset digest. Word
+  credentials use the SDK's ZIP collection-hash validation; embedded media are
+  inspected separately using bounded, generated temporary paths.
+- Release gates rebuild the frozen helper and repeat the complete integration
+  suite, then verify Word and image certificate chains in a signed sandbox
+  parent both before packaging and from the mounted DMG.
+- Signing, Apple notarization, mounted-image checks and final SHA-256 are recorded
+  in the generated release report. Earlier evidence below is historical.
+
 ### 0.3.0 UI, metadata and certificate validation — 2026-10-11
 
 - UI refresh and metadata/C2PA implementation evidence is detailed in

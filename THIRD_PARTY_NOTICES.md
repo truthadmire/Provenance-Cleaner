@@ -10,7 +10,7 @@ App/Resources/ThirdPartyLicenses.
 - **watermarks-remover**, commit
   3f84d3e3964368b82172112b09ef3e7c02b25749, copyright 2026 Guillaume
   Meyer and contributors. Licensed under the MIT License.
-- **c2patool 0.27.16** from the Content Authenticity Initiative. The project
+- **c2patool 0.27.22** from the Content Authenticity Initiative. The project
   is dual-licensed under Apache-2.0 or MIT; this distribution uses the MIT
   option.
 - **ExifTool 13.59**, copyright 2003-2026 Phil Harvey. ExifTool is available

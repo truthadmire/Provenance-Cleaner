@@ -511,7 +511,17 @@ def _inspect_response(request_id: str, input_path: Path) -> dict[str, Any]:
             report["c2pa"]["error"] = tool_report["error"]
         if tool_report.get("has_manifest"):
             report["has_c2pa"] = True
-        report["c2pa"]["inspectionIncomplete"] = not tool_report.get("ok", False) or bool(report["c2pa"].get("certificateError"))
+        report["c2pa"]["inspectionIncomplete"] = report["c2pa"].get("inspectionIncomplete", False) or not tool_report.get("ok", False) or bool(report["c2pa"].get("certificateError"))
+        if report["c2pa"].get("isContainer"):
+            findings = report.setdefault("findings", [])
+            confidences = report.setdefault("findings_confidence", ["informational"] * len(findings))
+            components = [("Document", report["c2pa"]["document"])] + [
+                (asset["path"], asset) for asset in report["c2pa"]["embeddedAssets"]]
+            for label, detail in components:
+                if detail["state"] in {"present", "present_unverified"}:
+                    outcome = "validation failed" if detail.get("validationFailed") else "verification incomplete" if detail.get("inspectionIncomplete") else "see signature, content binding and trust results"
+                    findings.append(f"{label}: C2PA credential detected; {outcome}.")
+                    confidences.append("confirmed" if detail["state"] == "present" else "probable")
     if input_path.suffix.lower() == ".docx":
         report["word_editing_traces"] = word_editing_traces.inspect(data)
     if input_path.suffix.lower() == ".pdf" and embedded_provenance_present(data):

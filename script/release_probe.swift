@@ -148,6 +148,23 @@ do {
             throw NSError(domain: "ReleaseProbe", code: 7, userInfo: [NSLocalizedDescriptionKey: "sandboxed C2PA certificate-chain smoke failed: \(String(describing: c2pa))"])
         }
         FileHandle.standardError.write(Data("sandboxed C2PA certificate-chain smoke passed\n".utf8))
+        for name in ["signed-c2pa.docx", "embedded-c2pa.docx"] {
+            let word = Bundle.main.bundleURL.appendingPathComponent("Contents/Resources/" + name)
+            let (_, response) = try exchange(["requestID": "office-c2pa-smoke", "operation": "inspect", "inputPath": word.path])
+            let report = response["report"] as? [String: Any]
+            let container = report?["c2pa"] as? [String: Any]
+            let document = container?["document"] as? [String: Any]
+            let assets = container?["embeddedAssets"] as? [[String: Any]] ?? []
+            let credential = name == "signed-c2pa.docx" ? document : assets.first
+            guard container?["inspectionIncomplete"] as? Bool == false,
+                  credential?["signature"] as? String == "valid",
+                  credential?["contentBinding"] as? String == "valid",
+                  !(credential?["certificates"] as? [[String: Any]] ?? []).isEmpty,
+                  name == "signed-c2pa.docx" || document?["state"] as? String == "absent" else {
+                throw NSError(domain: "ReleaseProbe", code: 8, userInfo: [NSLocalizedDescriptionKey: "sandboxed Word/container image C2PA smoke failed for \(name): \(response)"])
+            }
+        }
+        FileHandle.standardError.write(Data("sandboxed Word and embedded-image C2PA smoke passed\n".utf8))
     }
     try input.fileHandleForWriting.close()
     process.waitUntilExit()

@@ -55,8 +55,9 @@ class MetadataCredentialTests(unittest.TestCase):
             source.write_bytes(specimen())
             before = self.request(helper, source)
             self.assertTrue(before['report']['metadata']['editable'])
-            self.assertEqual(before['report']['c2pa']['state'], 'not_applicable')
-            self.assertFalse(before['report']['c2pa']['inspectionIncomplete'])
+            self.assertEqual(before['report']['c2pa']['document']['state'], 'absent')
+            # The specimen includes an intentionally unknown word/media/keep.bin.
+            self.assertTrue(before['report']['c2pa']['inspectionIncomplete'])
             result = self.request(helper, source, 'clean', output, {'author': 'Alice', 'title': ''})
             self.assertTrue(result['ok'], result)
             self.assertEqual(source.read_bytes(), specimen())

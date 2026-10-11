@@ -16,13 +16,7 @@ struct InspectionSummaryView: View {
     }
 
     private var credentialLabel: String {
-        switch report?.raw["c2pa"]?["state"]?.stringValue {
-        case "present": "Detected"
-        case "absent": report?.raw["has_c2pa"]?.boolValue == true ? "Markers only" : "None found"
-        case "not_applicable": "Not applicable"
-        case nil: "—"
-        default: "Unresolved"
-        }
+        report?.credentialSummary ?? "Not inspected"
     }
 
     private func metric(_ title: String, value: String, detail: String, color: Color) -> some View {

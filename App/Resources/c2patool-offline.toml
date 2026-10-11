@@ -1,6 +1,6 @@
 # Provenance Cleaner invokes c2patool only for local inspection. Keep all SDK
 # network resolvers fail-closed, do not resolve remote manifests, and skip CAWG
-# identity decoding because c2pa-rs 0.27.16 documents that CAWG validation does
+# identity decoding because c2pa-rs 0.27.22 documents that CAWG validation does
 # not yet honor the allowed-host restriction.
 
 [core]

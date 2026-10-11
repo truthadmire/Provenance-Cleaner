@@ -38,12 +38,13 @@ def summarize(payload: dict) -> dict:
     success = {s["code"] for s in statuses if s["category"] == "success"}
     failure = {s["code"] for s in statuses if s["category"] == "failure"}
     signature_state = "invalid" if any(c.startswith("claimSignature.") for c in failure) else "valid" if "claimSignature.validated" in success else "unknown"
-    binding_state = "invalid" if any("mismatch" in c.lower() and (c.startswith("assertion.") or c.startswith("claim.")) for c in failure) else "valid" if success & {"assertion.dataHash.match", "assertion.bmffHash.match", "assertion.boxesHash.match"} else "unknown"
+    binding_state = "invalid" if any("mismatch" in c.lower() and (c.startswith("assertion.") or c.startswith("claim.")) for c in failure) else "valid" if success & {"assertion.dataHash.match", "assertion.bmffHash.match", "assertion.boxesHash.match", "assertion.collectionHash.match"} else "unknown"
     trust = "untrusted" if "signingCredential.untrusted" in failure else "trusted" if "signingCredential.trusted" in success else "unknown"
     return {
         "state": "present", "manifestCount": len(manifests), "activeManifest": active,
         "validationState": str(payload.get("validation_state", "Unknown")),
         "signature": signature_state, "contentBinding": binding_state, "trust": trust,
+        "validationFailed": bool(failure - {"signingCredential.untrusted"}),
         "signer": str(signature.get("common_name", "")), "issuer": str(signature.get("issuer", "")),
         "algorithm": str(signature.get("alg", "")), "signedAt": str(signature.get("time", "")),
         "serialNumber": str(signature.get("cert_serial_number", "")),
@@ -77,12 +78,13 @@ def certificates(pem: str) -> list[dict]:
 
 
 def inspect(path) -> dict:
-    # c2patool cannot validate an Office/archive/text container itself. Existing
-    # upstream checks still inspect its package metadata and embedded markers.
-    if Path(path).suffix.lower() in {".docx", ".xlsx", ".pptx", ".odt", ".epub", ".html", ".htm", ".md", ".svg"}:
-        return {"available": True, "ok": True, "has_manifest": False,
-                "details": {"state": "not_applicable", "signature": "unknown", "trust": "unknown",
-                            "scope": "Container metadata and markers are scanned; certificates inside embedded assets are not validated."}}
+    if Path(path).suffix.lower() in {".docx", ".xlsx", ".pptx"}:
+        from office_credentials import inspect_office
+        return inspect_office(Path(path), inspect_asset)
+    return inspect_asset(path)
+
+
+def inspect_asset(path, *, timeout=30) -> dict:
     tool = shutil.which("c2patool")
     settings = os.environ.get("C2PATOOL_SETTINGS")
     result = {"available": bool(tool and settings), "ok": False, "has_manifest": False}
@@ -90,9 +92,10 @@ def inspect(path) -> dict:
     result["details"] = details
     if not tool or not settings:
         result["error"] = "Offline C2PA verifier unavailable"
+        details.update(error=result["error"], inspectionIncomplete=True)
         return result
     try:
-        r = _run([tool, str(path), "--settings", settings])
+        r = _run([tool, str(path), "--settings", settings], timeout=timeout)
         result["returncode"] = r.returncode
         try:
             payload = json.loads(r.stdout)
@@ -102,7 +105,7 @@ def inspect(path) -> dict:
             result["details"] = details = summarize(payload)
             result.update(ok=True, has_manifest=True)
             try:
-                cert_result = _run([tool, str(path), "--settings", settings, "--certs"])
+                cert_result = _run([tool, str(path), "--settings", settings, "--certs"], timeout=timeout)
                 if cert_result.returncode != 0:
                     raise ValueError("Verifier could not extract the certificate chain")
                 details["certificates"] = certificates(cert_result.stdout)
@@ -111,7 +114,7 @@ def inspect(path) -> dict:
         else:
             message = (r.stderr + "\n" + r.stdout).strip()[:2000]
             # Match explicit absence, not arbitrary mentions of 'claim/C2PA'.
-            if re.search(r"\b(no claim found|no jumbf (?:data|manifest)(?: found)?|no manifest found)\b", message, re.I):
+            if re.fullmatch(r"(?:Error: )?(?:No claim found|No JUMBF (?:data|manifest)(?: found)?|No manifest found)", message, re.I):
                 details["state"] = "absent"
                 result["ok"] = True
             elif "unsupported" in message.lower():
@@ -123,6 +126,11 @@ def inspect(path) -> dict:
     except (OSError, ValueError, subprocess.TimeoutExpired) as exc:
         details["state"] = "inconclusive"
         result["error"] = str(exc)
+    if result.get("error"):
+        details["error"] = result["error"]
+    details["inspectionIncomplete"] = not result["ok"] or bool(details.get("certificateError")) or (
+        details["state"] == "present" and not details.get("validationFailed") and
+        (details["signature"] == "unknown" or details["contentBinding"] == "unknown"))
     return result
 
 
