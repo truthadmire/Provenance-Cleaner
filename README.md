@@ -19,7 +19,10 @@ default branch at build time.
 - Replacing an original requires confirmation, uses an atomic write, and keeps
   a recoverable `.bak` copy.
 - Space normalization is off by default to preserve typography. Metadata
-  cleaning is selective by default where the file format supports it.
+  cleaning is selective by default where the file format supports it. Office
+  files (DOCX, XLSX, PPTX) always lose author, last saved by, subject, keywords,
+  description and company when provenance is removed; the app says so and
+  lets you set those properties again on the copy.
 - Results describe findings and residual risk. They never claim that a file is
   universally “watermark-free.”
 - The app has no network entitlement, telemetry, updater, or remote/model API.
@@ -40,21 +43,34 @@ PDF rewriting may affect interactive features; review the output before export.
 The bundled qpdf validator checks inputs before deep cleaning; an unparseable PDF
 or one that requires a password is refused before the image pass.
 
-## Inspection and editable metadata
+## Checking, changing and reviewing a file
 
-The detail workspace separates **Overview**, **Metadata**, and **Preview**, with
-one shared content width and aligned property fields. Overview shows actionable
-findings and the currently staged result's validation. **Inspect** rechecks the
-current copy when a result exists, so an original signature verdict is never
-presented as proof about an edited file.
+Each file has three tabs, with one verdict banner above them that says what is
+known and what to do next:
 
-In **Metadata**, edit author, title, subject, keywords, description, last saved by,
-or copyright where the format supports those fields. Supported formats are DOCX,
-XLSX, PPTX, PDF, JPEG, PNG, TIFF and WebP. Emptying a field removes its mapped values;
-unchanged fields are preserved. **Apply to Copy** edits the current staged result
-(or the original on the first operation), reads the values back, and makes the
-result available for review/export. Ordinary Clean and Word trace operations still
-start from the original. Failed metadata writes preserve the previous result.
+- **Findings** describes the original: grouped findings, anything that couldn't
+  be checked (with the reason), content credentials and Word editing history.
+- **Changes** is the plan for the copy: remove provenance markers, set document
+  properties, and (for DOCX) change Word editing history.
+- **Review** describes the copy: what each step changed, the properties that
+  differ from the original, anything still in the copy, its credentials, and a
+  side-by-side comparison. Saving and replacing the original start here.
+
+**Create copy** always builds from the original, in a fixed order: provenance
+cleaning, then Word editing history, then property edits, each step reading the
+previous step's output. Choices can therefore be made in any order without one
+silently undoing another. If any step fails or is stopped, the previous copy is
+kept. Changing a choice or a cleaning setting marks the copy as outdated until
+it is updated. There is no export prompt after a copy is made; the copy waits on
+the Review tab until it is saved. **Check again** re-inspects the original and,
+when one exists, the copy, keeping the two reports separate so an original's
+signature verdict is never presented as proof about an edited file.
+
+Edit author, title, subject, keywords, description, last saved by, or copyright
+where the format supports those fields. Supported formats are DOCX, XLSX, PPTX,
+PDF, JPEG, PNG, TIFF and WebP. Emptying a field removes its mapped values;
+untouched fields are left to the earlier steps. Each edit can be undone on its
+own before the copy is made.
 
 Office edits affect `docProps/core.xml`; other package entries retain their
 uncompressed bytes. Comment/revision author names are separate and stay unchanged.
@@ -97,10 +113,10 @@ uses the [official c2patool JSON and certificate interfaces](https://github.com/
 
 ## Word editing traces
 
-Import a DOCX and open **Word editing traces** in Metadata. Inspection shows
-session identifiers (RSIDs), recorded revision/comment dates, document dates,
-and the recorded date range. These are editing metadata, not a complete typing
-timeline.
+Import a DOCX and turn on **Change Word editing history** on the Changes tab.
+Findings shows session identifiers (RSIDs), recorded revision/comment dates,
+document dates, and the recorded date range. These are editing metadata, not a
+complete typing timeline.
 
 - Session identifiers offer Keep, Randomize (the default), and Remove.
   Randomization uses fresh identifiers consistently throughout the package, so
@@ -113,11 +129,10 @@ timeline.
 - Optional **Reset ZIP entry dates** sets archive timestamps to 1 January 1980
   and removes supported extended ZIP timestamp fields. It does not change
   Finder's filesystem dates or cloud version history.
-- **Apply editing traces** runs a dedicated metadata-only operation on the
-  selected original, then stages a copy for inspection, preview, and export.
-  The ordinary Clean action remains the provenance-cleaning operation; the two
-  operations each start from the original. Review shows the before/after values
-  for up to 200 fields and totals for the complete operation.
+- The editing-history step runs as its own metadata-only operation inside the
+  copy's build, after provenance cleaning and before property edits. Review
+  shows the before/after values for up to 200 fields and totals for the
+  complete operation.
 
 The trace operation preserves text, formatting, revision contents, comments,
 author names, relationships, and embedded files. It validates XML and patches
@@ -130,7 +145,10 @@ OneDrive/SharePoint history or external copies of the document.
 ## Architecture
 
 The SwiftUI application uses `NavigationSplitView`, a queue capped at 50 files,
-and an async `WatermarkEngine` abstraction. A long-lived, arm64 PyInstaller
+and an async `WatermarkEngine` abstraction. The interface follows the Clay design
+system (warm paper grounds, one clay accent, serif headings); its colour, type,
+spacing and component tokens live in `App/Views/ClayTheme.swift` and use system
+fonts from Clay's fallback stacks, so no font files are bundled. A long-lived, arm64 PyInstaller
 `onedir` helper exchanges newline-delimited JSON with the app over standard
 input/output and processes one file at a time. Active cancellation terminates
 the helper and its child metadata tools together; the next request starts a

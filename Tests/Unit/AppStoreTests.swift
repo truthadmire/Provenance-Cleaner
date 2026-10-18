@@ -4,7 +4,42 @@ import XCTest
 
 final class AppStoreTests: XCTestCase {
     @MainActor
-    func testMetadataEditsUseCurrentStagedCopyAndRemainExportable() async throws {
+    func testPropertyEditsRunAfterCleaningInOneCopyFromTheOriginal() async throws {
+        let fixture = try TemporaryFixture()
+        defer { fixture.remove() }
+        let source = try fixture.write("input.docx", contents: "original")
+        let engine = RecordingEngine()
+        let stage = fixture.root.appendingPathComponent("stage")
+        let store = AppStore(engine: engine, preferences: try makePreferences(), stagingRoot: stage)
+        await store.addAndInspect([source])
+        let id = try XCTUnwrap(store.selectedJobID)
+        store.updatePlan(for: id) { $0.propertyEdits = ["author": "Alice", "title": ""] }
+
+        await store.createCopy(jobID: id)
+
+        let names = await engine.cleanedSourceNames()
+        let options = await engine.receivedOptions()
+        XCTAssertEqual(names, ["input.docx", "cleaned.docx"])
+        XCTAssertEqual(options.count, 2)
+        XCTAssertNil(options[0].metadataEdits)
+        XCTAssertEqual(options[1].metadataEdits, ["author": "Alice", "title": ""])
+        XCTAssertEqual(store.selectedJob?.status, .readyToExport(residualCount: 0))
+        XCTAssertEqual(store.selectedJob?.buildSteps.map(\.kind), [.provenance, .properties])
+        XCTAssertEqual(store.selectedJob?.appliedPlan, store.selectedJob?.plan)
+        XCTAssertTrue(store.selectedJob?.canExport == true)
+        XCTAssertEqual(try String(contentsOf: source, encoding: .utf8), "original")
+        // Only the final step's staging directory survives.
+        let jobStage = stage.appendingPathComponent(id.uuidString)
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: jobStage.path).count, 1)
+
+        await store.inspect(jobID: id)
+        let inspectedNames = await engine.allInspectedSourceNames()
+        XCTAssertEqual(inspectedNames.last, store.selectedJob?.stagedOutputURL?.lastPathComponent)
+        XCTAssertEqual(store.selectedJob?.status, .readyToExport(residualCount: 0))
+    }
+
+    @MainActor
+    func testRebuildAlwaysStartsFromTheOriginal() async throws {
         let fixture = try TemporaryFixture()
         defer { fixture.remove() }
         let source = try fixture.write("input.docx", contents: "original")
@@ -12,44 +47,39 @@ final class AppStoreTests: XCTestCase {
         let store = AppStore(engine: engine, preferences: try makePreferences(), stagingRoot: fixture.root.appendingPathComponent("stage"))
         await store.addAndInspect([source])
         let id = try XCTUnwrap(store.selectedJobID)
-        await store.clean(jobID: id)
-        let first = try XCTUnwrap(store.selectedJob?.stagedOutputURL)
-        await store.applyMetadataEdits(jobID: id, edits: ["author": "Alice", "title": ""])
+        await store.createCopy(jobID: id)
+        store.updatePlan(for: id) { $0.propertyEdits = ["author": "Alice"] }
+
+        await store.createCopy(jobID: id)
+
         let names = await engine.cleanedSourceNames()
-        let options = await engine.receivedOptions()
-        XCTAssertEqual(names, ["input.docx", first.lastPathComponent])
-        XCTAssertEqual(options.last?.metadataEdits, ["author": "Alice", "title": ""])
-        XCTAssertEqual(store.selectedJob?.status, .metadataReady(residualCount: 0))
-        XCTAssertTrue(store.selectedJob?.canExport == true)
-        XCTAssertFalse(FileManager.default.fileExists(atPath: first.path))
-        XCTAssertEqual(try String(contentsOf: source, encoding: .utf8), "original")
-        XCTAssertEqual(store.pendingExportJobIDs, [id])
-        await store.inspect(jobID: id)
-        let inspectedNames = await engine.allInspectedSourceNames()
-        XCTAssertEqual(inspectedNames.last, store.selectedJob?.stagedOutputURL?.lastPathComponent)
-        XCTAssertEqual(store.selectedJob?.status, .metadataReady(residualCount: 0))
+        XCTAssertEqual(names, ["input.docx", "input.docx", "cleaned.docx"])
     }
 
     @MainActor
-    func testFailedMetadataEditPreservesPriorResultAndAllowsRetry() async throws {
+    func testFailedStepKeepsPreviousCopyAndAllowsRetry() async throws {
         let fixture = try TemporaryFixture()
         defer { fixture.remove() }
         let source = try fixture.write("input.docx", contents: "original")
-        let engine = RecordingEngine(cleanOutcomes: [.success("copy"), .failure("unsupported field")])
+        let engine = RecordingEngine(cleanOutcomes: [.success("copy"), .success("second"), .failure("unsupported field")])
         let store = AppStore(engine: engine, preferences: try makePreferences(), stagingRoot: fixture.root.appendingPathComponent("stage"))
         await store.addAndInspect([source])
         let id = try XCTUnwrap(store.selectedJobID)
-        await store.clean(jobID: id)
+        await store.createCopy(jobID: id)
         let previous = try XCTUnwrap(store.selectedJob?.stagedOutputURL)
-        await store.applyMetadataEdits(jobID: id, edits: ["author": "Alice"])
+        store.updatePlan(for: id) { $0.propertyEdits = ["author": "Alice"] }
+
+        await store.createCopy(jobID: id)
+
         XCTAssertEqual(store.selectedJob?.stagedOutputURL, previous)
+        XCTAssertEqual(store.selectedJob?.status, .failed("Update document properties failed: unsupported field"))
         XCTAssertTrue(store.selectedJob?.status.canClean == true)
-        XCTAssertEqual(store.issue?.title, "Could not update metadata")
+        XCTAssertTrue(store.selectedJob?.canExport == true)
         XCTAssertEqual(try String(contentsOf: previous, encoding: .utf8), "copy")
     }
 
     @MainActor
-    func testWordTraceActionUsesDedicatedOptionsAndQueuesReview() async throws {
+    func testWordTracesRunAfterCleaningWithTheirOwnOptions() async throws {
         let fixture = try TemporaryFixture()
         defer { fixture.remove() }
         let source = try fixture.write("input.docx", contents: "test document")
@@ -59,13 +89,77 @@ final class AppStoreTests: XCTestCase {
         let store = AppStore(engine: engine, preferences: preferences, stagingRoot: fixture.root.appendingPathComponent("stage"))
         await store.addAndInspect([source])
         let id = try XCTUnwrap(store.selectedJobID)
-        await store.applyWordEditingTraces(jobID: id)
+        store.updatePlan(for: id) { $0.changeWordTraces = true }
+
+        await store.createCopy(jobID: id)
+
         let options = await engine.receivedOptions()
-        XCTAssertEqual(options.first?.wordTraces?.rsids, .remove)
-        XCTAssertEqual(store.selectedJob?.status, .editingTracesReady(residualCount: 0))
-        XCTAssertEqual(store.pendingExportJobIDs, [id])
+        XCTAssertEqual(options.count, 2)
+        XCTAssertNil(options[0].wordTraces)
+        XCTAssertEqual(options[1].wordTraces?.rsids, .remove)
+        XCTAssertEqual(store.selectedJob?.status, .readyToExport(residualCount: 0))
         XCTAssertTrue(store.selectedJob?.canExport == true)
         XCTAssertEqual(try String(contentsOf: source, encoding: .utf8), "test document")
+    }
+
+    @MainActor
+    func testWordTracesAreIgnoredForOtherFormats() async throws {
+        let fixture = try TemporaryFixture()
+        defer { fixture.remove() }
+        let source = try fixture.write("notes.txt", contents: "text\u{200B}")
+        let engine = RecordingEngine()
+        let store = AppStore(engine: engine, preferences: try makePreferences(), stagingRoot: fixture.root.appendingPathComponent("stage"))
+        await store.addAndInspect([source])
+        let id = try XCTUnwrap(store.selectedJobID)
+        store.updatePlan(for: id) { $0.changeWordTraces = true }
+
+        await store.createCopy(jobID: id)
+
+        let options = await engine.receivedOptions()
+        XCTAssertEqual(options, [.conservative])
+    }
+
+    @MainActor
+    func testEmptyOrInvalidPlanCannotCreateCopy() async throws {
+        let fixture = try TemporaryFixture()
+        defer { fixture.remove() }
+        let source = try fixture.write("input.docx", contents: "original")
+        let engine = RecordingEngine()
+        let store = AppStore(engine: engine, preferences: try makePreferences(), stagingRoot: fixture.root.appendingPathComponent("stage"))
+        await store.addAndInspect([source])
+        let id = try XCTUnwrap(store.selectedJobID)
+
+        store.updatePlan(for: id) { $0.removeProvenance = false }
+        XCTAssertFalse(store.canCreateCopy(try XCTUnwrap(store.selectedJob)))
+        store.updatePlan(for: id) { $0.propertyEdits = ["author": "bad\u{0007}value"] }
+        XCTAssertFalse(store.canCreateCopy(try XCTUnwrap(store.selectedJob)))
+
+        await store.createCopy(jobID: id)
+
+        let names = await engine.cleanedSourceNames()
+        XCTAssertTrue(names.isEmpty)
+        XCTAssertNil(store.selectedJob?.stagedOutputURL)
+    }
+
+    @MainActor
+    func testCopyNeedsUpdateAfterPlanOrSettingsChange() async throws {
+        let fixture = try TemporaryFixture()
+        defer { fixture.remove() }
+        let source = try fixture.write("input.docx", contents: "original")
+        let preferences = try makePreferences()
+        let store = AppStore(engine: RecordingEngine(), preferences: preferences, stagingRoot: fixture.root.appendingPathComponent("stage"))
+        await store.addAndInspect([source])
+        let id = try XCTUnwrap(store.selectedJobID)
+        await store.createCopy(jobID: id)
+        XCTAssertFalse(store.copyNeedsUpdate(try XCTUnwrap(store.selectedJob)))
+
+        store.updatePlan(for: id) { $0.propertyEdits = ["title": "Report"] }
+        XCTAssertTrue(store.copyNeedsUpdate(try XCTUnwrap(store.selectedJob)))
+        store.updatePlan(for: id) { $0.propertyEdits = [:] }
+        XCTAssertFalse(store.copyNeedsUpdate(try XCTUnwrap(store.selectedJob)))
+
+        preferences.normalizeSpaces = true
+        XCTAssertTrue(store.copyNeedsUpdate(try XCTUnwrap(store.selectedJob)))
     }
 
     @MainActor
@@ -79,7 +173,7 @@ final class AppStoreTests: XCTestCase {
             stagingRoot: fixture.root.appendingPathComponent("stage")
         )
         await store.addAndInspect([source])
-        await store.cleanSelected()
+        await store.createCopyForSelected()
         XCTAssertEqual(store.selectedJob?.status, .cleanedInspectionIncomplete)
         XCTAssertTrue(store.selectedJob?.canExport == true)
         XCTAssertEqual(try String(contentsOf: source, encoding: .utf8), "test input")
@@ -126,7 +220,7 @@ final class AppStoreTests: XCTestCase {
         )
         await store.addAndInspect([firstURL, secondURL])
 
-        await store.cleanAllSequentially()
+        await store.createAllCopies()
 
         let maximumConcurrentCleans = await engine.maximumConcurrentCleans()
         let cleanedNames = await engine.cleanedSourceNames()
@@ -158,7 +252,7 @@ final class AppStoreTests: XCTestCase {
         )
         await store.addAndInspect([firstURL, secondURL])
 
-        await store.cleanAllSequentially()
+        await store.createAllCopies()
 
         let cleanedNames = await engine.cleanedSourceNames()
         XCTAssertEqual(cleanedNames, ["fails.txt", "succeeds.txt"])
@@ -175,7 +269,6 @@ final class AppStoreTests: XCTestCase {
             try String(contentsOf: XCTUnwrap(store.jobs[1].stagedOutputURL), encoding: .utf8),
             "second-clean"
         )
-        XCTAssertEqual(store.pendingExportJobIDs, [store.jobs[1].id])
     }
 
     @MainActor
@@ -201,34 +294,6 @@ final class AppStoreTests: XCTestCase {
     }
 
     @MainActor
-    func testSuccessfulCleansQueueOneExportPromptPerJobInCompletionOrder() async throws {
-        let fixture = try TemporaryFixture()
-        defer { fixture.remove() }
-        let firstURL = try fixture.write("first.txt", contents: "first\u{200B}")
-        let secondURL = try fixture.write("second.txt", contents: "second\u{200B}")
-        let store = AppStore(
-            engine: RecordingEngine(),
-            preferences: try makePreferences(),
-            stagingRoot: fixture.root.appendingPathComponent("stage")
-        )
-        await store.addAndInspect([firstURL, secondURL])
-
-        await store.cleanAllSequentially()
-
-        let jobIDs = store.jobs.map(\.id)
-        XCTAssertEqual(store.pendingExportJobIDs, jobIDs)
-        XCTAssertEqual(store.pendingExportJob?.id, jobIDs[0])
-
-        store.acknowledgePendingExport(for: jobIDs[0])
-        XCTAssertEqual(store.pendingExportJobIDs, [jobIDs[1]])
-        XCTAssertEqual(store.pendingExportJob?.id, jobIDs[1])
-
-        store.acknowledgePendingExport(for: jobIDs[1])
-        XCTAssertTrue(store.pendingExportJobIDs.isEmpty)
-        XCTAssertNil(store.pendingExportJob)
-    }
-
-    @MainActor
     func testFailedRecleanPreservesPreviousStagedResult() async throws {
         let fixture = try TemporaryFixture()
         defer { fixture.remove() }
@@ -244,11 +309,11 @@ final class AppStoreTests: XCTestCase {
         )
         await store.addAndInspect([sourceURL])
         let jobID = try XCTUnwrap(store.jobs.first?.id)
-        await store.clean(jobID: jobID)
+        await store.createCopy(jobID: jobID)
         let previousOutputURL = try XCTUnwrap(store.jobs.first?.stagedOutputURL)
         XCTAssertEqual(try String(contentsOf: previousOutputURL, encoding: .utf8), "first-clean")
 
-        await store.clean(jobID: jobID)
+        await store.createCopy(jobID: jobID)
 
         XCTAssertEqual(store.jobs.first?.stagedOutputURL, previousOutputURL)
         XCTAssertEqual(try String(contentsOf: previousOutputURL, encoding: .utf8), "first-clean")
@@ -275,10 +340,10 @@ final class AppStoreTests: XCTestCase {
         )
         await store.addAndInspect([sourceURL])
         let jobID = try XCTUnwrap(store.jobs.first?.id)
-        await store.clean(jobID: jobID)
+        await store.createCopy(jobID: jobID)
         let previousOutputURL = try XCTUnwrap(store.jobs.first?.stagedOutputURL)
 
-        await store.clean(jobID: jobID)
+        await store.createCopy(jobID: jobID)
 
         XCTAssertEqual(store.jobs.first?.status, .cancelled)
         XCTAssertEqual(store.jobs.first?.stagedOutputURL, previousOutputURL)

@@ -45,9 +45,9 @@ final class ProvenanceCleanerUITests: XCTestCase {
             .deletingLastPathComponent().appendingPathComponent("HelperIntegration/Fixtures")
         for appearance in ["light", "dark"] {
             launch(importing: [fixtures.appendingPathComponent("editing-traces.docx"), fixtures.appendingPathComponent("signed-c2pa.jpg")], appearance: appearance, realEngine: true)
-            let metadataTab = element(identifier: "detail.tab.metadata")
-            XCTAssertTrue(metadataTab.waitForExistence(timeout: 10))
-            metadataTab.click()
+            let changesTab = element(identifier: "detail.tab.changes")
+            XCTAssertTrue(changesTab.waitForExistence(timeout: 10))
+            changesTab.click()
             let author = app.textFields["metadata.author"]
             XCTAssertTrue(author.waitForExistence(timeout: 20))
             XCTAssertTrue(waitUntil(timeout: 30) { author.isEnabled })
@@ -57,22 +57,22 @@ final class ProvenanceCleanerUITests: XCTestCase {
             author.click()
             app.typeKey("a", modifierFlags: .command)
             author.typeText("Interface Review")
-            let apply = element(identifier: "metadata.apply")
-            XCTAssertTrue(apply.isEnabled)
-            apply.click()
-            let review = app.buttons["Review Before Export"]
-            XCTAssertTrue(review.waitForExistence(timeout: 30))
-            review.click()
-            element(identifier: "detail.tab.metadata").click()
+            let create = element(identifier: "detail.clean")
+            XCTAssertTrue(create.isEnabled)
+            create.click()
+            // The copy opens on Review without an export prompt.
+            XCTAssertTrue(element(identifier: "review.properties").waitForExistence(timeout: 60))
+            XCTAssertEqual(app.sheets.count, 0)
+            element(identifier: "detail.tab.changes").click()
             XCTAssertEqual(app.textFields["metadata.author"].value as? String, "Interface Review")
             let metadataShot = XCTAttachment(screenshot: app.screenshot())
             metadataShot.name = "metadata-\(appearance)"
             metadataShot.lifetime = .keepAlways
             add(metadataShot)
             element(identifier: "queue.row.signed-c2pa.jpg").click()
-            element(identifier: "detail.tab.overview").click()
+            element(identifier: "detail.tab.findings").click()
             XCTAssertTrue(element(identifier: "credentials.card").waitForExistence(timeout: 20))
-            XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@ OR value CONTAINS %@", "Not trusted", "Not trusted")).firstMatch.exists)
+            XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@ OR value CONTAINS %@", "Not in local trust list", "Not in local trust list")).firstMatch.exists)
             let credentialsShot = XCTAttachment(screenshot: app.screenshot())
             credentialsShot.name = "credentials-\(appearance)"
             credentialsShot.lifetime = .keepAlways
@@ -129,22 +129,19 @@ final class ProvenanceCleanerUITests: XCTestCase {
         let missing = temporaryDirectory.appendingPathComponent("missing.txt")
         launch(importing: [plain, marked, unsupported, missing])
 
-        assertStatus("No actionable findings", for: plain.lastPathComponent)
+        assertStatus("Nothing found", for: plain.lastPathComponent)
         assertStatus("1 finding", for: marked.lastPathComponent)
-        assertStatus("Unsupported", for: unsupported.lastPathComponent)
+        assertStatus("Not supported", for: unsupported.lastPathComponent)
         assertStatus("Failed", for: missing.lastPathComponent)
-        assertText("Text", identifier: "queue.type.\(plain.lastPathComponent)")
-        assertText("Text", identifier: "queue.type.\(marked.lastPathComponent)")
-        assertText("Unknown", identifier: "queue.type.\(unsupported.lastPathComponent)")
 
         let markedRow = element(identifier: "queue.row.\(marked.lastPathComponent)")
         XCTAssertTrue(markedRow.waitForExistence(timeout: 5))
         markedRow.click()
-        openQuickLookFromMenu()
+        showReviewFromMenu()
         XCTAssertTrue(element(identifier: "preview.pane.original").waitForExistence(timeout: 5))
 
         let requestCountBeforeInspectAll = requestOperations().filter { $0 == "inspect" }.count
-        app.typeKey("i", modifierFlags: [.command, .shift])
+        app.typeKey("r", modifierFlags: [.command, .shift])
         XCTAssertTrue(waitUntil(timeout: 10) {
             self.requestOperations().filter { $0 == "inspect" }.count
                 >= requestCountBeforeInspectAll + 2
@@ -152,31 +149,27 @@ final class ProvenanceCleanerUITests: XCTestCase {
 
         let unsupportedRow = element(identifier: "queue.row.\(unsupported.lastPathComponent)")
         unsupportedRow.click()
-        app.typeKey(.delete, modifierFlags: [])
+        app.typeKey(.delete, modifierFlags: .command)
         XCTAssertTrue(waitUntil(timeout: 5) { !unsupportedRow.exists })
     }
 
-    func testCleanKeyboardCommandPresentsReviewAndExportPrompt() throws {
+    func testCreateCopyCommandOpensReviewWithoutAPrompt() throws {
         let marked = try writeFixture(named: "review.txt", contents: "owned\u{200B}content")
         launch(importing: [marked])
         assertStatus("1 finding", for: marked.lastPathComponent)
 
         app.typeKey(.return, modifierFlags: .command)
 
-        let reviewButton = app.sheets.buttons["Review Before Export"].firstMatch
-        XCTAssertTrue(reviewButton.waitForExistence(timeout: 10))
-        XCTAssertTrue(app.sheets.buttons["Save Cleaned Copy…"].firstMatch.exists)
-        XCTAssertTrue(app.sheets.buttons["Replace Original and Keep .bak"].firstMatch.exists)
-        reviewButton.click()
-
-        assertStatus("Cleaned — findings removed", for: marked.lastPathComponent)
-        openQuickLookFromMenu()
+        assertStatus("Copy ready", for: marked.lastPathComponent)
+        XCTAssertEqual(app.sheets.count, 0, "Creating a copy should not interrupt with an export prompt")
         XCTAssertTrue(element(identifier: "preview.pane.original").waitForExistence(timeout: 5))
         XCTAssertTrue(element(identifier: "preview.pane.cleaned").waitForExistence(timeout: 5))
+        XCTAssertTrue(element(identifier: "review.save").exists)
+        XCTAssertTrue(element(identifier: "review.replace").exists)
 
-        app.typeKey("e", modifierFlags: .command)
+        app.typeKey("s", modifierFlags: .command)
         let cancelButton = app.buttons["Cancel"]
-        XCTAssertTrue(cancelButton.waitForExistence(timeout: 5), "Command-E should open the export save panel")
+        XCTAssertTrue(cancelButton.waitForExistence(timeout: 5), "Command-S should open the save panel")
         app.typeKey(.escape, modifierFlags: [])
         XCTAssertTrue(waitUntil(timeout: 5) { !cancelButton.exists })
     }
@@ -211,9 +204,9 @@ final class ProvenanceCleanerUITests: XCTestCase {
         XCTAssertTrue(stopButton.waitForExistence(timeout: 5))
         app.activate()
         stopButton.click()
-        assertStatus("Cancelled", for: marked.lastPathComponent)
+        assertStatus("Stopped", for: marked.lastPathComponent)
 
-        app.typeKey("i", modifierFlags: [.command, .shift])
+        app.typeKey("r", modifierFlags: [.command, .shift])
         assertStatus("1 finding", for: marked.lastPathComponent)
 
         XCTAssertTrue(waitUntil(timeout: 5) { self.uniqueHelperProcessCount() >= 2 })
@@ -255,8 +248,8 @@ final class ProvenanceCleanerUITests: XCTestCase {
     }
 
     private func assertEmptyState(appearance: String) {
-        XCTAssertTrue(app.staticTexts["Drop files to begin"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["No files"].exists)
+        XCTAssertTrue(app.staticTexts["Drop files here"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["No files yet"].exists)
         XCTAssertTrue(element(identifier: "empty-state.add-files").exists)
 
         let probe = element(identifier: "ui-test.appearance")
@@ -287,24 +280,13 @@ final class ProvenanceCleanerUITests: XCTestCase {
         return element.label
     }
 
-    private func assertText(
-        _ expectedText: String,
-        identifier: String,
-        file: StaticString = #filePath,
-        line: UInt = #line
-    ) {
-        let value = element(identifier: identifier)
-        XCTAssertTrue(value.waitForExistence(timeout: 5), file: file, line: line)
-        XCTAssertEqual(accessibilityText(of: value), expectedText, file: file, line: line)
-    }
-
     private func element(identifier: String) -> XCUIElement {
         app.descendants(matching: .any).matching(identifier: identifier).firstMatch
     }
 
-    private func openQuickLookFromMenu() {
-        app.menuBars.menuBarItems["Process"].click()
-        app.menuItems["Quick Look"].click()
+    private func showReviewFromMenu() {
+        app.menuBars.menuBarItems["View"].click()
+        app.menuItems["Show Review"].click()
     }
 
     @available(macOS 15.0, *)

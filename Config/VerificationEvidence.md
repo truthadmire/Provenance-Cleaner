@@ -4,6 +4,28 @@ This evidence separates the current development checks from the original
 0.1.0 release-candidate checks. Neither section claims the complete acceptance
 matrix.
 
+### Clay interface redesign (development, unreleased) — 2026-10-18
+
+- Rebuilt the interface on the Clay design system and replaced the separate
+  Clean / Apply to Copy / Apply editing traces actions with one copy built from
+  the original in a fixed order. The export prompt after cleaning was removed.
+- 55 Swift unit tests passed (DebugTests). New coverage: step order and inputs,
+  rebuild from the original, failed-step rollback, empty/invalid plans, outdated
+  copies, incomplete-check reasons, informational leftovers, verdict wording.
+- 58 helper tests passed with a rebuilt source venv (`build/python314-test-venv`,
+  CPython 3.14.2). The helper and the upstream snapshot were not changed.
+- The UI test target compiles against the new screens; XCUITests were not run.
+- Manual native checks with the real helper in light and dark appearance:
+  first-run notice, empty state, mixed fixture queue, Findings/Changes/Review for
+  DOCX, JPEG and text, a three-step DOCX copy (cleaning, editing history,
+  title), the text diff, and Settings. No fixture original was exported or
+  replaced.
+- Fixed while verifying: window content drawn under the toolbar (a banner's
+  fixed text height inflated the window's minimum height), and a copy reported
+  as having a remaining marker when only an informational typographic space
+  remained (the same rule existed before the redesign).
+- No helper rebuild, signing, DMG or notarization was performed.
+
 ### 0.3.1 Word and embedded-media C2PA — 2026-10-11
 
 - 58 source helper tests and 44 Swift unit tests passed. Detailed scope and

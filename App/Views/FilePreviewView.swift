@@ -20,7 +20,6 @@ struct FilePreviewView: View {
                 QuickLookComparisonPreview(originalURL: job.sourceURL, cleanedURL: job.stagedOutputURL)
             }
         }
-        .padding(24)
     }
 }
 
@@ -54,7 +53,7 @@ private struct TextComparisonPreview: View {
                             textPane(diff.originalSegments)
                         }
 
-                        PreviewPane(title: "Cleaned") {
+                        PreviewPane(title: "Your copy", identifier: "cleaned") {
                             textPane(diff.cleanedSegments)
                         }
                     }
@@ -81,8 +80,8 @@ private struct TextComparisonPreview: View {
             "Preview limited to the first \(Int64(TextPreviewLoader.maximumBytes).formatted(.byteCount(style: .file)))",
             systemImage: "text.badge.ellipsis"
         )
-        .font(.caption)
-        .foregroundStyle(.secondary)
+        .font(Clay.caption)
+        .foregroundStyle(Clay.inkMuted)
     }
 
     @ViewBuilder
@@ -93,32 +92,32 @@ private struct TextComparisonPreview: View {
                     TextDiffSummary.removedLabel(for: diff.removedCodePointCount),
                     systemImage: "minus.circle.fill"
                 )
-                .foregroundStyle(.red)
+                .foregroundStyle(Clay.danger)
 
                 Label(
                     TextDiffSummary.insertedLabel(for: diff.insertedCodePointCount),
                     systemImage: "plus.circle.fill"
                 )
-                .foregroundStyle(.green)
+                .foregroundStyle(Clay.success)
             } else {
                 Label(
                     diff.wasTruncated
                         ? "No differences in compared prefix"
                         : "No text differences",
-                    systemImage: "checkmark.circle.fill"
+                    systemImage: "checkmark.circle"
                 )
-                    .foregroundStyle(.secondary)
+                .foregroundStyle(Clay.inkMuted)
             }
 
             Spacer(minLength: 8)
 
             if diff.wasTruncated || diff.usedSimplifiedDiff {
                 Label(diffLimitLabel(for: diff), systemImage: "text.badge.ellipsis")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Clay.inkMuted)
                     .help(diffLimitHelp(for: diff))
             }
         }
-        .font(.caption.weight(.medium))
+        .font(Clay.captionMedium)
         .monospacedDigit()
         .accessibilityElement(children: .combine)
     }
@@ -153,12 +152,14 @@ private struct TextComparisonPreview: View {
     private func textPane(_ segments: [TextDiffSegment]) -> some View {
         ScrollView([.horizontal, .vertical]) {
             Text(attributedText(for: segments))
-                .font(.system(.body, design: .monospaced))
+                .font(Clay.code)
+                .foregroundStyle(Clay.ink)
+                .lineSpacing(3)
                 .textSelection(.enabled)
-                .padding(16)
+                .padding(Clay.space4)
         }
         .defaultScrollAnchor(.topLeading)
-        .background(.background)
+        .background(Clay.surface)
     }
 
     private func attributedText(for segments: [TextDiffSegment]) -> AttributedString {
@@ -169,11 +170,12 @@ private struct TextComparisonPreview: View {
             case .unchanged:
                 break
             case .removed:
-                run.foregroundColor = .red
-                run.backgroundColor = .red.opacity(0.16)
+                run.foregroundColor = Clay.danger
+                run.backgroundColor = Clay.dangerSoft
+                run.strikethroughStyle = .single
             case .inserted:
-                run.foregroundColor = .green
-                run.backgroundColor = .green.opacity(0.16)
+                run.foregroundColor = Clay.success
+                run.backgroundColor = Clay.successSoft
             }
             result.append(run)
         }
@@ -249,7 +251,7 @@ private struct ImageComparisonPreview: View {
             }
 
             if let cleanedURL {
-                PreviewPane(title: "Cleaned") {
+                PreviewPane(title: "Your copy", identifier: "cleaned") {
                     image(at: cleanedURL)
                 }
             }
@@ -280,7 +282,7 @@ private struct QuickLookComparisonPreview: View {
             }
 
             if let cleanedURL {
-                PreviewPane(title: "Cleaned") {
+                PreviewPane(title: "Your copy", identifier: "cleaned") {
                     QuickLookPreview(url: cleanedURL)
                 }
             }
@@ -290,28 +292,25 @@ private struct QuickLookComparisonPreview: View {
 
 private struct PreviewPane<Content: View>: View {
     let title: String
+    var identifier = "original"
     @ViewBuilder var content: Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 8) {
-                Image(systemName: title == "Cleaned" ? "checkmark.circle" : "doc.text")
-                    .foregroundStyle(title == "Cleaned" ? Color.green : Color.secondary)
-                Text(title)
-                    .font(.headline)
-                    .accessibilityIdentifier("preview.pane.\(title.lowercased())")
-            }
+        VStack(alignment: .leading, spacing: Clay.space2) {
+            Text(title)
+                .font(Clay.captionMedium)
+                .foregroundStyle(Clay.inkMuted)
+                .accessibilityIdentifier("preview.pane.\(identifier)")
             content
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .background(Clay.surface)
+                .clipShape(RoundedRectangle(cornerRadius: Clay.radiusMedium, style: .continuous))
                 .overlay {
-                    RoundedRectangle(cornerRadius: 10)
-                        .strokeBorder(Color.primary.opacity(0.06), lineWidth: 1)
+                    RoundedRectangle(cornerRadius: Clay.radiusMedium, style: .continuous)
+                        .strokeBorder(Clay.hairline, lineWidth: 1)
                 }
         }
-        .padding(16)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .cleanerSurface()
     }
 }
 
