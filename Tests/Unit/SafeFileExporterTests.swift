@@ -125,6 +125,26 @@ final class SafeFileExporterTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: original.appendingPathExtension("bak").path))
     }
 
+    func testReplaceRechecksTheOriginalAndLeavesAChangedOneAlone() async throws {
+        let fixture = try ExportFixture()
+        defer { fixture.remove() }
+        let original = try fixture.write("draft.txt", "original")
+        let staged = try fixture.write("staged.txt", "cleaned")
+        let expected = try XCTUnwrap(FileFingerprint(url: original))
+        // Edited after the copy was built, but before the replace runs.
+        try Data("edited later, longer".utf8).write(to: original)
+
+        do {
+            _ = try await SafeFileExporter().replaceOriginal(from: staged, originalURL: original, expectedOriginal: expected)
+            XCTFail("Expected the changed original to be left alone")
+        } catch {
+            XCTAssertEqual(error as? FileExportError, .originalChanged)
+        }
+
+        XCTAssertEqual(try String(contentsOf: original, encoding: .utf8), "edited later, longer")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: original.appendingPathExtension("bak").path))
+    }
+
     func testFingerprintNoticesAnEdit() throws {
         let fixture = try ExportFixture()
         defer { fixture.remove() }

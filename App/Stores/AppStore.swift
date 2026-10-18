@@ -404,6 +404,12 @@ final class AppStore {
             return
         }
         guard canSaveCopy(job) else { return }
+        // Save copy is the non-destructive path: it never overwrites an
+        // original in the list or a backup this app made.
+        if let protected = protectedFileName(at: destinationURL) {
+            present(FileExportError.destinationIsProtected(protected), title: "Couldn't save the copy")
+            return
+        }
         isSaving = true
         defer { isSaving = false }
         do {
@@ -494,12 +500,12 @@ final class AppStore {
     /// Replaces one original, refusing if it changed after the copy was made.
     private func replace(_ job: CleanerJob) async throws {
         guard let stagedURL = job.stagedOutputURL else { throw FileExportError.noStagedOutput }
-        if let expected = job.copySourceFingerprint, FileFingerprint(url: job.sourceURL) != expected {
-            throw FileExportError.originalChanged
-        }
+        let expected = job.copySourceFingerprint
         let result: ReplacementResult
         do {
-            result = try await exporter.replaceOriginal(from: stagedURL, originalURL: job.sourceURL)
+            result = try await exporter.replaceOriginal(
+                from: stagedURL, originalURL: job.sourceURL, expectedOriginal: expected
+            )
         } catch where FileExportError.isPermissionDenied(error) {
             // The sandbox granted the file, not its folder, so the .bak beside
             // it was refused before the original was touched. Ask once for the
@@ -513,9 +519,28 @@ final class AppStore {
             }
             _ = granted.startAccessingSecurityScopedResource()
             grantedFolders[key] = granted
-            result = try await exporter.replaceOriginal(from: stagedURL, originalURL: job.sourceURL)
+            result = try await exporter.replaceOriginal(
+                from: stagedURL, originalURL: job.sourceURL, expectedOriginal: expected
+            )
         }
         update(job.id) { $0.replacement = result }
+    }
+
+    /// The name of a queued original or app-made backup at `url`, matched by
+    /// path or, for an existing file, by identity (symlinks, hard links).
+    private func protectedFileName(at url: URL) -> String? {
+        let path = url.resolvingSymlinksInPath().standardizedFileURL.path
+        let target = FileFingerprint(url: url)
+        let protected = jobs.flatMap { job in [job.sourceURL] + [job.replacement?.backupURL].compactMap { $0 } }
+        for candidate in protected {
+            if candidate.resolvingSymlinksInPath().standardizedFileURL.path == path {
+                return candidate.lastPathComponent
+            }
+            if let target, let other = FileFingerprint(url: candidate), target.isSameFile(as: other) {
+                return candidate.lastPathComponent
+            }
+        }
+        return nil
     }
 
     private func reportBatch(

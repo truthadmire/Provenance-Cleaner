@@ -562,6 +562,34 @@ final class AppStoreTests: XCTestCase {
     }
 
     @MainActor
+    func testSaveCopyNeverOverwritesAQueuedOriginalOrBackup() async throws {
+        let fixture = try TemporaryFixture()
+        defer { fixture.remove() }
+        let first = try fixture.write("first.txt", contents: "first\u{200B}")
+        let second = try fixture.write("second.txt", contents: "second\u{200B}")
+        let store = AppStore(engine: RecordingEngine(), preferences: try makePreferences(), stagingRoot: fixture.root.appendingPathComponent("stage"))
+        await store.addAndInspect([first, second])
+        await store.createAllCopies()
+        let ids = store.jobs.map(\.id)
+        let link = fixture.root.appendingPathComponent("alias-to-second.txt")
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: second)
+
+        for destination in [first, second, link] {
+            store.issue = nil
+            await store.saveCopy(jobID: ids[0], to: destination)
+            XCTAssertEqual(store.issue?.title, "Couldn't save the copy", destination.lastPathComponent)
+        }
+        await store.replaceOriginal(jobID: ids[1])
+        store.issue = nil
+        await store.saveCopy(jobID: ids[0], to: second.appendingPathExtension("bak"))
+        XCTAssertEqual(store.issue?.title, "Couldn't save the copy")
+
+        XCTAssertEqual(try String(contentsOf: first, encoding: .utf8), "first\u{200B}")
+        XCTAssertEqual(try String(contentsOf: second.appendingPathExtension("bak"), encoding: .utf8), "second\u{200B}")
+        XCTAssertTrue(store.jobs[0].savedCopies.isEmpty)
+    }
+
+    @MainActor
     private func makePreferences() throws -> AppPreferences {
         let suiteName = "ProvenanceCleanerStoreTests.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))

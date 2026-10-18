@@ -6,6 +6,7 @@ enum FileExportError: LocalizedError, Equatable, Sendable {
     case backupAlreadyExists(URL)
     case originalChanged
     case folderAccessDeclined(URL)
+    case destinationIsProtected(String)
 
     /// True when the file system refused access, as the sandbox does for a
     /// new file beside a file the user granted on its own.
@@ -32,6 +33,8 @@ enum FileExportError: LocalizedError, Equatable, Sendable {
             "A backup already exists at \(url.path). Move it elsewhere before replacing the original."
         case .originalChanged:
             "The original changed after this copy was made. Update the copy, then try again."
+        case let .destinationIsProtected(name):
+            "“\(name)” is an original or a backup in the file list, so Save copy won't overwrite it. Choose another name, or use Replace original, which keeps a backup."
         case let .folderAccessDeclined(folder):
             "A backup can't be written without permission to the folder “\(folder.lastPathComponent)”. Use Save copy instead, or try again and choose Allow."
         }
@@ -88,10 +91,23 @@ actor SafeFileExporter {
         return destination
     }
 
-    func replaceOriginal(from stagedURL: URL, originalURL: URL) throws -> ReplacementResult {
+    /// Replaces the original with the copy, keeping a `.bak`. When
+    /// `expectedOriginal` is given, the original is checked against it right
+    /// before the backup is written and again right before the replace, so
+    /// an edit made after the copy was built is never overwritten.
+    func replaceOriginal(
+        from stagedURL: URL,
+        originalURL: URL,
+        expectedOriginal: FileFingerprint? = nil
+    ) throws -> ReplacementResult {
         let backupURL = originalURL.appendingPathExtension("bak")
         guard !fileManager.fileExists(atPath: backupURL.path) else {
             throw FileExportError.backupAlreadyExists(backupURL)
+        }
+        func ensureOriginalUnchanged() throws {
+            if let expectedOriginal, FileFingerprint(url: originalURL, fileManager: fileManager) != expectedOriginal {
+                throw FileExportError.originalChanged
+            }
         }
 
         // Prepare the copy before touching anything next to the original, so
@@ -99,7 +115,14 @@ actor SafeFileExporter {
         let temporaryURL = try preparedTemporaryCopy(of: stagedURL, appropriateFor: originalURL)
         defer { try? fileManager.removeItem(at: temporaryURL.deletingLastPathComponent()) }
 
+        try ensureOriginalUnchanged()
         try fileManager.copyItem(at: originalURL, to: backupURL)
+        do {
+            try ensureOriginalUnchanged()
+        } catch {
+            try? fileManager.removeItem(at: backupURL)
+            throw error
+        }
         do {
             // Default options keep the original's permissions, dates, tags
             // and comments; only the download source is removed below.
@@ -168,18 +191,26 @@ actor SafeFileExporter {
 }
 
 /// Enough to notice that a file was edited or replaced since it was read:
-/// inode, size and modification date.
+/// volume, inode, size and modification date.
 struct FileFingerprint: Equatable, Sendable {
+    let device: UInt64
     let fileNumber: UInt64
     let size: UInt64
     let modificationDate: Date
 
+    /// Same file on disk, even when reached through a different path.
+    func isSameFile(as other: FileFingerprint) -> Bool {
+        device == other.device && fileNumber == other.fileNumber
+    }
+
     init?(url: URL, fileManager: FileManager = .default) {
         guard let attributes = try? fileManager.attributesOfItem(atPath: url.path),
+              let device = (attributes[.systemNumber] as? NSNumber)?.uint64Value,
               let number = (attributes[.systemFileNumber] as? NSNumber)?.uint64Value,
               let size = (attributes[.size] as? NSNumber)?.uint64Value,
               let date = attributes[.modificationDate] as? Date
         else { return nil }
+        self.device = device
         self.fileNumber = number
         self.size = size
         self.modificationDate = date
