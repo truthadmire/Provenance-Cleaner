@@ -4,6 +4,22 @@ This evidence separates the current development checks from the original
 0.1.0 release-candidate checks. Neither section claims the complete acceptance
 matrix.
 
+### Helper corrections to engine output (development, unreleased) — 2026-10-18
+
+- Fixed: cleaning DOCX/XLSX/PPTX corrupted `docProps/thumbnail.jpeg` (the pinned
+  engine re-encodes every docProps part as UTF-8 text) and left the preview's
+  C2PA/EXIF in place. Reproduced with a C2PA-signed thumbnail: 132,518 bytes in,
+  191,555 bytes of U+FFFD out. After the fix: a valid 2048×1365 JPEG with no
+  C2PA markers. Unstrippable previews are dropped with their relationship and
+  content-type entries.
+- Fixed: inspect/clean reports no longer carry the engine's stylometry score,
+  SynthID/pixel keys or rewrite advice; `suspicious` for text is recomputed from
+  deterministic signals; known engine notes are rewritten in plain language and
+  unknown notes still pass through.
+- 63 helper tests passed (5 new in `test_upstream_fixes.py`; each new test was
+  confirmed to fail with its fix disabled). 55 Swift unit tests passed. The
+  vendored snapshot verified unchanged. The frozen helper was not rebuilt.
+
 ### Clay interface redesign (development, unreleased) — 2026-10-18
 
 - Rebuilt the interface on the Clay design system and replaced the separate

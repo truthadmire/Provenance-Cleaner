@@ -24,6 +24,7 @@ import ssl
 import stat
 import subprocess
 import sys
+import zipfile
 from pathlib import Path
 from typing import Any, NoReturn
 
@@ -202,6 +203,8 @@ import image_meta
 import container_meta
 image_meta.run_optional_tools = credential_inspection.run_optional_tools
 container_meta.run_optional_tools = credential_inspection.run_optional_tools
+
+import upstream_fixes  # noqa: E402  (needs the upstream modules on sys.path)
 
 
 def _json_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
@@ -529,6 +532,7 @@ def _inspect_response(request_id: str, input_path: Path) -> dict[str, Any]:
         confidences = report.setdefault("findings_confidence", ["informational"] * len(findings))
         findings.append("Potential provenance metadata inside an embedded PDF image.")
         confidences.append("probable")
+    upstream_fixes.present_report(report, inspection=True)
     return {"requestID": request_id, "ok": True, "kind": kind, "report": report}
 
 
@@ -606,6 +610,16 @@ def _clean_response(
         cleaned = base64.b64decode(encoded, validate=True)
     except (binascii.Error, ValueError) as exc:
         raise RuntimeError("upstream cleaning returned invalid encoded bytes") from exc
+    preview_actions: list[str] = []
+    preview_residual: list[str] = []
+    preview_parts: list[str] = []
+    if input_path.suffix.lower() in upstream_fixes.OFFICE_SUFFIXES:
+        try:
+            cleaned, preview_actions, preview_residual, preview_parts = (
+                upstream_fixes.repair_office_preview_parts(data, cleaned)
+            )
+        except (zipfile.BadZipFile, ValueError, KeyError) as exc:
+            raise ProtocolError("processing_error", f"Could not rebuild the document's preview image: {exc}") from exc
     if len(cleaned) > MAX_OUTPUT_BYTES:
         raise ProtocolError(
             "output_too_large",
@@ -630,6 +644,12 @@ def _clean_response(
     if not isinstance(kind, str):
         kind = "unknown"
     report = _report_object(result.get("report"))
+    if preview_actions:
+        report["actions"] = list(report.get("actions", [])) + preview_actions
+        report["post_findings"] = upstream_fixes.drop_findings_for_parts(
+            list(report.get("post_findings", [])), preview_parts
+        ) + preview_residual
+    upstream_fixes.present_report(report, inspection=False)
     if input_path.suffix.lower() == ".pdf":
         # Document-level inspection can miss a marker living inside a JPEG.
         # Keep that residual visible after a pass-through-only clean as well.

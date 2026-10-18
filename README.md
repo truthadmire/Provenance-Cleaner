@@ -29,7 +29,14 @@ default branch at build time.
 
 Visible-logo removal, statistical text rewriting, SynthID scoring, CtrlRegen,
 MarkDiffusion, audio-waveform alteration, and image regeneration are outside
-the product scope.
+the product scope. The helper removes the pinned engine's AI-authorship
+(stylometry) score, SynthID/pixel fields and command-line advice from every
+report, and judges text only by deterministic signals.
+
+Office preview images (`docProps/thumbnail.*` in DOCX, XLSX and PPTX) are kept
+with their metadata removed. A preview that can't be cleaned is dropped along
+with its package references. The pinned engine would otherwise corrupt these
+images, so `Helper/upstream_fixes.py` rebuilds them from the original.
 
 PDF cleaning includes ExifTool document metadata stripping, qpdf structural
 rewriting, and Ghostscript 10.07.1 for metadata inside embedded images. Automatic
