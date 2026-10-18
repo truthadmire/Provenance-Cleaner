@@ -4,122 +4,163 @@ import SwiftUI
 struct CredentialVerificationView: View {
     let raw: JSONValue?
     var markersDetected = false
-    @State private var expanded = false
     private var state: String { raw?["state"]?.stringValue ?? "inconclusive" }
     private var certificates: [JSONValue] { raw?["certificates"]?.arrayValue ?? [] }
     private var statuses: [JSONValue] { raw?["statuses"]?.arrayValue ?? [] }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: Clay.space4) {
             if state == "present" {
-                if raw?["validationFailed"]?.boolValue == true {
-                    Label("Validation failed", systemImage: "exclamationmark.triangle.fill").foregroundStyle(.orange)
-                } else if raw?["inspectionIncomplete"]?.boolValue == true {
-                    Label("Unable to complete verification", systemImage: "questionmark.circle").foregroundStyle(.orange)
-                }
-                HStack(alignment: .top, spacing: 0) {
-                    verdict("Signature", key: "signature")
-                    Divider().frame(height: 38).padding(.horizontal, 18)
-                    verdict("Content binding", key: "contentBinding")
-                    Divider().frame(height: 38).padding(.horizontal, 18)
-                    verdict("Certificate trust", key: "trust")
-                }
-                .padding(16)
-                .background(Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 10))
-                Grid(alignment: .leading, horizontalSpacing: 24, verticalSpacing: 10) {
-                    row("Signer", value: raw?["signer"]?.stringValue)
-                    row("Issuer", value: raw?["issuer"]?.stringValue)
-                    row("Algorithm", value: raw?["algorithm"]?.stringValue)
-                    row("Signed at", value: raw?["signedAt"]?.stringValue)
-                    row("Manifests", value: String(Int(raw?["manifestCount"]?.numberValue ?? 0)))
-                }
-                .font(.subheadline)
-                .textSelection(.enabled)
-                DisclosureGroup("Certificate chain & validation details", isExpanded: $expanded) {
-                    VStack(alignment: .leading, spacing: 16) {
-                        ForEach(Array(certificates.enumerated()), id: \.offset) { index, certificate in
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text(index == 0 ? "Signing certificate" : "Certificate \(index + 1)")
-                                    .font(.subheadline.weight(.semibold))
-                                Grid(alignment: .leading, horizontalSpacing: 20, verticalSpacing: 8) {
-                                    row("Subject", value: certificate["subject"]?.stringValue)
-                                    row("Issuer", value: certificate["issuer"]?.stringValue)
-                                    row("Valid from", value: certificate["notBefore"]?.stringValue)
-                                    row("Valid until", value: certificate["notAfter"]?.stringValue)
-                                    row("Serial", value: certificate["serial"]?.stringValue)
-                                    row("SHA-256", value: certificate["sha256"]?.stringValue)
-                                }
-                                .font(.caption).textSelection(.enabled)
-                            }
-                            if index < certificates.count - 1 { Divider() }
-                        }
-                        if let error = raw?["certificateError"]?.stringValue {
-                            Label(error, systemImage: "exclamationmark.triangle").foregroundStyle(.orange)
-                        }
-                        ForEach(Array(statuses.enumerated()), id: \.offset) { _, status in
-                            HStack(alignment: .top, spacing: 8) {
-                                Image(systemName: status["category"]?.stringValue == "success" ? "checkmark.circle" : "info.circle")
-                                    .foregroundStyle(.secondary)
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Text(status["code"]?.stringValue ?? "Validation status").fontWeight(.medium)
-                                    Text(status["message"]?.stringValue ?? "").foregroundStyle(.secondary)
-                                }
-                            }
-                            .font(.caption).textSelection(.enabled)
+                presentBody
+            } else {
+                HStack(alignment: .top, spacing: Clay.space3) {
+                    Image(systemName: state == "absent" && !markersDetected ? "checkmark.circle" : "questionmark.circle")
+                        .foregroundStyle(state == "absent" && !markersDetected ? Clay.success : Clay.warning)
+                        .padding(.top, 2)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(stateDescription)
+                            .font(Clay.body)
+                            .foregroundStyle(Clay.ink)
+                        if let error = raw?["error"]?.stringValue {
+                            Text(error)
+                                .font(Clay.caption)
+                                .foregroundStyle(Clay.inkMuted)
+                                .textSelection(.enabled)
                         }
                     }
-                    .padding(.top, 14)
                 }
-                .font(.caption)
-                Text(raw?["scope"]?.stringValue ?? "Offline verification only.")
-                    .font(.caption).foregroundStyle(.secondary)
-            } else {
-                Label(stateDescription, systemImage: state == "absent" ? "doc.badge.magnifyingglass" : "info.circle")
-                    .foregroundStyle(.secondary)
-                if let error = raw?["error"]?.stringValue {
-                    Text(error).font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
-                }
-                Text(raw?["scope"]?.stringValue ?? "A marker or manifest alone does not prove who created a file or whether its content is true.")
-                    .font(.caption).foregroundStyle(.secondary)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
+    @ViewBuilder
+    private var presentBody: some View {
+        if raw?["validationFailed"]?.boolValue == true {
+            ClayBanner(
+                tone: .danger,
+                title: "Validation failed",
+                message: "The signature or content binding didn't validate. The file may have changed after it was signed."
+            )
+        } else if raw?["inspectionIncomplete"]?.boolValue == true {
+            ClayBanner(
+                tone: .warning,
+                title: "Verification didn't finish",
+                message: "Some of the credential couldn't be checked. Treat the results below as partial."
+            )
+        }
+
+        HStack(alignment: .top, spacing: 0) {
+            verdict("Signature", key: "signature")
+            divider
+            verdict("Content binding", key: "contentBinding")
+            divider
+            verdict("Certificate trust", key: "trust")
+        }
+        .padding(Clay.space4)
+        .background(Clay.sunken, in: RoundedRectangle(cornerRadius: Clay.radiusMedium, style: .continuous))
+
+        Grid(alignment: .leading, horizontalSpacing: Clay.space6, verticalSpacing: Clay.space2) {
+            ClayKeyValueRow(key: "Signed by", value: raw?["signer"]?.stringValue)
+            ClayKeyValueRow(key: "Issued by", value: raw?["issuer"]?.stringValue)
+            ClayKeyValueRow(key: "Signed on", value: raw?["signedAt"]?.stringValue.map(ClayDate.display))
+            ClayKeyValueRow(key: "Made with", value: raw?["generator"]?.stringValue)
+            ClayKeyValueRow(key: "Algorithm", value: raw?["algorithm"]?.stringValue?.uppercased())
+            ClayKeyValueRow(key: "Manifests", value: String(Int(raw?["manifestCount"]?.numberValue ?? 0)))
+        }
+
+        ClayDisclosure(title: "Certificate chain and validation details") {
+            VStack(alignment: .leading, spacing: Clay.space4) {
+                ForEach(Array(certificates.enumerated()), id: \.offset) { index, certificate in
+                    VStack(alignment: .leading, spacing: Clay.space2) {
+                        Text(index == 0 ? "Signing certificate" : "Certificate \(index + 1)")
+                            .font(Clay.captionMedium)
+                            .foregroundStyle(Clay.ink)
+                        Grid(alignment: .leading, horizontalSpacing: Clay.space6, verticalSpacing: 6) {
+                            ClayKeyValueRow(key: "Subject", value: certificate["subject"]?.stringValue)
+                            ClayKeyValueRow(key: "Issuer", value: certificate["issuer"]?.stringValue)
+                            ClayKeyValueRow(key: "Valid from", value: certificate["notBefore"]?.stringValue.map(ClayDate.display))
+                            ClayKeyValueRow(key: "Valid until", value: certificate["notAfter"]?.stringValue.map(ClayDate.display))
+                            ClayKeyValueRow(key: "Serial", value: certificate["serial"]?.stringValue, monospaced: true)
+                            ClayKeyValueRow(key: "SHA-256", value: certificate["sha256"]?.stringValue, monospaced: true)
+                        }
+                    }
+                    if index < certificates.count - 1 {
+                        Rectangle().fill(Clay.hairline).frame(height: 1)
+                    }
+                }
+                if let error = raw?["certificateError"]?.stringValue {
+                    Label(error, systemImage: "exclamationmark.triangle")
+                        .font(Clay.caption)
+                        .foregroundStyle(Clay.warning)
+                }
+                ForEach(Array(statuses.enumerated()), id: \.offset) { _, status in
+                    HStack(alignment: .top, spacing: Clay.space2) {
+                        Image(systemName: status["category"]?.stringValue == "success" ? "checkmark.circle" : "info.circle")
+                            .foregroundStyle(status["category"]?.stringValue == "success" ? Clay.success : Clay.inkMuted)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(status["code"]?.stringValue ?? "Validation status")
+                                .font(Clay.code)
+                                .foregroundStyle(Clay.ink)
+                            Text(status["message"]?.stringValue ?? "")
+                                .font(Clay.caption)
+                                .foregroundStyle(Clay.inkMuted)
+                        }
+                    }
+                    .textSelection(.enabled)
+                }
+            }
+        }
+
+        if let scope = raw?["scope"]?.stringValue {
+            Text(scope)
+                .font(Clay.caption)
+                .foregroundStyle(Clay.inkMuted)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private var divider: some View {
+        Rectangle().fill(Clay.hairline).frame(width: 1, height: 40).padding(.horizontal, Clay.space4)
+    }
+
     private var stateDescription: String {
         switch state {
         case "absent": markersDetected
-            ? "C2PA markers detected; no verifiable manifest found"
-            : "No embedded C2PA manifest found"
-        case "present_unverified": "Credential detected — unable to verify"
-        case "not_applicable": "Unable to verify this format"
-        case "unsupported": "Unable to verify this format"
-        case "unavailable": "Unable to verify — certificate verifier unavailable"
-        case "inconclusive": "Unable to verify — inspection incomplete"
-        default: "C2PA verification has not completed"
+            ? "C2PA markers found, but no credential that can be verified"
+            : "No embedded C2PA credential"
+        case "present_unverified": "Credential found, but it couldn't be verified"
+        case "not_applicable", "unsupported": "This format can't be verified"
+        case "unavailable": "Couldn't verify: the certificate checker isn't available"
+        case "inconclusive": "Couldn't verify: the check didn't finish"
+        default: "Verification hasn't finished"
         }
     }
 
     private func verdict(_ title: String, key: String) -> some View {
         let value = raw?[key]?.stringValue ?? "unknown"
-        let good = value == "valid" || value == "trusted"
-        let label = ["valid": "Verified", "invalid": "Failed", "trusted": "Trusted locally", "untrusted": "Not trusted", "unknown": "Not established"][value] ?? value
-        return VStack(alignment: .leading, spacing: 7) {
-            Text(title).font(.caption).foregroundStyle(.secondary)
-            Label(label, systemImage: good ? "checkmark.circle.fill" : "questionmark.circle")
-                .font(.subheadline.weight(.medium))
-                .foregroundStyle(good ? Color.green : Color.orange)
+        let tone: ClayTone = switch value {
+        case "valid", "trusted": .success
+        case "invalid": .danger
+        default: .warning
+        }
+        let label = [
+            "valid": "Verified",
+            "invalid": "Failed",
+            "trusted": "Trusted locally",
+            "untrusted": "Not in local trust list",
+            "unknown": "Not established",
+        ][value] ?? value
+        return VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(Clay.caption)
+                .foregroundStyle(Clay.inkMuted)
+            Label(label, systemImage: tone.symbol)
+                .font(Clay.label)
+                .foregroundStyle(tone.foreground)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private func row(_ label: String, value: String?) -> some View {
-        GridRow(alignment: .top) {
-            Text(label).foregroundStyle(.secondary).frame(width: 84, alignment: .leading)
-            Text(value?.isEmpty == false ? value! : "Not provided")
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .fixedSize(horizontal: false, vertical: true)
-        }
+        .accessibilityElement(children: .combine)
     }
 }

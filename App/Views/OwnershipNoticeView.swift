@@ -4,45 +4,47 @@ struct OwnershipNoticeView: View {
     var onAccept: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            HStack(spacing: 14) {
-                CleanerSymbol(systemImage: "hand.raised", size: 54)
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("Use content responsibly")
-                        .font(.title2.weight(.semibold))
-                    Text("Provenance Cleaner modifies file metadata and invisible text characters.")
-                        .foregroundStyle(.secondary)
-                }
+        VStack(alignment: .leading, spacing: Clay.space6) {
+            VStack(alignment: .leading, spacing: Clay.space2) {
+                Text("Before you start")
+                    .font(Clay.heading2)
+                    .foregroundStyle(Clay.ink)
+                Text("Provenance Cleaner changes file metadata and removes invisible text characters.")
+                    .font(Clay.body)
+                    .foregroundStyle(Clay.inkMuted)
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: Clay.space4) {
                 NoticePoint(
                     systemImage: "person.crop.circle.badge.checkmark",
-                    title: "Process only authorized content",
-                    message: "Use this app only with files you own or have permission to modify."
+                    title: "Use files you're allowed to change",
+                    message: "Only process files you own or have permission to modify."
                 )
                 NoticePoint(
-                    systemImage: "doc.badge.ellipsis",
-                    title: "Review every result",
-                    message: "Cleaning can remove provenance or metadata that another workflow relies on. Originals are preserved by default."
+                    systemImage: "eye",
+                    title: "Review every copy",
+                    message: "Cleaning can remove information other people or tools rely on. Your originals stay as they are until you save."
                 )
                 NoticePoint(
                     systemImage: "checkmark.seal",
-                    title: "No universal guarantee",
-                    message: "A clean report covers the checks that were available; it does not certify that every possible watermark is gone."
+                    title: "No guarantee",
+                    message: "A clean report covers only the checks that ran. It doesn't prove that every possible watermark is gone."
                 )
             }
-            .padding(20)
-            .cleanerSurface()
+            .clayCard()
 
-            Button("I Understand and Want to Continue", action: onAccept)
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-                .frame(maxWidth: .infinity, alignment: .trailing)
+            HStack {
+                Spacer()
+                Button("I understand, continue", action: onAccept)
+                    .buttonStyle(ClayButtonStyle(kind: .primary, isLarge: true))
+                    .keyboardShortcut(.defaultAction)
+            }
         }
-        .padding(28)
-        .frame(width: 590)
-        .background { CleanerCanvas() }
+        .padding(Clay.space8)
+        .frame(width: 560)
+        .background(Clay.ivory)
+        .tint(Clay.accent)
     }
 }
 
@@ -52,15 +54,23 @@ private struct NoticePoint: View {
     let message: String
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .top, spacing: Clay.space3) {
             Image(systemName: systemImage)
-                .foregroundStyle(.secondary)
+                .font(.system(size: 15, weight: .regular))
+                .foregroundStyle(Clay.inkMuted)
                 .frame(width: 22)
+                .padding(.top, 1)
             VStack(alignment: .leading, spacing: 2) {
-                Text(title).fontWeight(.medium)
+                Text(title)
+                    .font(Clay.bodyMedium)
+                    .foregroundStyle(Clay.ink)
                 Text(message)
-                    .foregroundStyle(.secondary)
+                    .font(Clay.caption)
+                    .foregroundStyle(Clay.inkMuted)
+                    .lineSpacing(2)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
+        .accessibilityElement(children: .combine)
     }
 }

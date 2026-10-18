@@ -2,19 +2,19 @@ import SwiftUI
 
 struct CleanerCommandActions {
     var addFiles: () -> Void
-    var cleanSelected: () -> Void
-    var exportSelected: () -> Void
-    var quickLook: () -> Void
+    var createCopy: () -> Void
+    var saveCopy: () -> Void
+    var showTab: (JobDetailTab) -> Void
     var inspectAll: () -> Void
-    var cleanAll: () -> Void
-    var exportAll: () -> Void
+    var createAllCopies: () -> Void
+    var saveAll: () -> Void
     var removeSelected: () -> Void
     var canInspect: Bool
-    var canCleanSelected: Bool
-    var canExportSelected: Bool
-    var canQuickLook: Bool
-    var canCleanAll: Bool
-    var canExportAll: Bool
+    var canCreateCopy: Bool
+    var canSaveCopy: Bool
+    var canShowTabs: Bool
+    var canCreateAllCopies: Bool
+    var canSaveAll: Bool
     var canRemove: Bool
 }
 
@@ -40,54 +40,61 @@ struct ProvenanceCleanerCommands: Commands {
             .keyboardShortcut("o", modifiers: .command)
         }
 
-        CommandMenu("Process") {
-            Button("Clean Selected") {
-                actions?.cleanSelected()
+        CommandGroup(replacing: .saveItem) {
+            Button("Save Copy…") {
+                actions?.saveCopy()
             }
-            .keyboardShortcut(.return, modifiers: .command)
-            .disabled(actions?.canCleanSelected != true)
+            .keyboardShortcut("s", modifiers: .command)
+            .disabled(actions?.canSaveCopy != true)
 
-            Button("Export Selected…") {
-                actions?.exportSelected()
+            Button("Save All Copies…") {
+                actions?.saveAll()
             }
-            .keyboardShortcut("e", modifiers: .command)
-            .disabled(actions?.canExportSelected != true)
-
-            Button("Quick Look") {
-                actions?.quickLook()
-            }
-            .keyboardShortcut(.space, modifiers: [])
-            .disabled(actions?.canQuickLook != true)
-
-            Divider()
-
-            Button("Inspect All") {
-                actions?.inspectAll()
-            }
-            .keyboardShortcut("i", modifiers: [.command, .shift])
-            .disabled(actions?.canInspect != true)
-
-            Button("Clean All Sequentially") {
-                actions?.cleanAll()
-            }
-            .keyboardShortcut("k", modifiers: [.command, .shift])
-            .disabled(actions?.canCleanAll != true)
-
-            Divider()
-
-            Button("Export Cleaned Files…") {
-                actions?.exportAll()
-            }
-            .keyboardShortcut("e", modifiers: [.command, .shift])
-            .disabled(actions?.canExportAll != true)
+            .keyboardShortcut("s", modifiers: [.command, .shift])
+            .disabled(actions?.canSaveAll != true)
         }
 
-        CommandGroup(after: .pasteboard) {
-            Button("Remove Selected Item") {
+        CommandMenu("Process") {
+            Button("Create Copy") {
+                actions?.createCopy()
+            }
+            .keyboardShortcut(.return, modifiers: .command)
+            .disabled(actions?.canCreateCopy != true)
+
+            Button("Create All Copies") {
+                actions?.createAllCopies()
+            }
+            .keyboardShortcut(.return, modifiers: [.command, .shift])
+            .disabled(actions?.canCreateAllCopies != true)
+
+            Divider()
+
+            Button("Check All Files Again") {
+                actions?.inspectAll()
+            }
+            .keyboardShortcut("r", modifiers: [.command, .shift])
+            .disabled(actions?.canInspect != true)
+
+            Divider()
+
+            // Command-Delete, not bare Delete, so typing in a field never
+            // removes the selected file.
+            Button("Remove from List") {
                 actions?.removeSelected()
             }
-            .keyboardShortcut(.delete, modifiers: [])
+            .keyboardShortcut(.delete, modifiers: .command)
             .disabled(actions?.canRemove != true)
+        }
+
+        CommandGroup(after: .sidebar) {
+            Divider()
+            ForEach(Array(JobDetailTab.allCases.enumerated()), id: \.element) { index, tab in
+                Button("Show \(tab.rawValue)") {
+                    actions?.showTab(tab)
+                }
+                .keyboardShortcut(KeyEquivalent(Character(String(index + 1))), modifiers: .command)
+                .disabled(actions?.canShowTabs != true)
+            }
         }
     }
 }

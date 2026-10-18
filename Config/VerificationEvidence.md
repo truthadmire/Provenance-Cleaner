@@ -4,6 +4,77 @@ This evidence separates the current development checks from the original
 0.1.0 release-candidate checks. Neither section claims the complete acceptance
 matrix.
 
+### Save and replace path (development, unreleased) — 2026-10-18
+
+- Save copy writes exactly the save-panel URL (it used to write `stem 2.ext` after
+  the panel had confirmed an overwrite). Temporary files go in the system's
+  item-replacement folder, not beside the user's file.
+- Replace prepares the copy before writing `.bak`, removes its own `.bak` when
+  the original survives a failed replace, refuses when the original changed
+  after the copy was made, and removes only `kMDItemWhereFroms` from the result.
+  Tags, custom attributes and permissions are kept (unit-tested).
+- Save/replace records live outside the copy's status. A replaced file can't be
+  re-checked, rebuilt or replaced again. Save all and Replace originals skip
+  outdated, already-saved and already-replaced files and report counts.
+  Create all copies rebuilds only missing, outdated, failed or changed copies.
+  Creating a copy re-checks an original that changed since it was checked.
+- 65 Swift unit tests passed (10 new). Native check in the unsandboxed DebugTests
+  build on a scratch fixture: replace produced the `.bak`, the cleaned file lost
+  its download-source attribute, the backup kept it, and the UI showed the
+  locked "Original replaced" state.
+- Sandboxed Debug build, file dragged in from Finder (a per-file grant like the
+  Open panel's): Replace original FAILED before this change with "you don't have
+  permission to access" the folder. The original was untouched and no `.bak` was
+  left. Replace now catches the permission error, asks once per folder with an
+  Open panel titled "Allow backups in this folder", and retries. Verified in the
+  sandbox: the prompt opens on the file's folder. After the folder was granted
+  (dropped onto the app), Replace succeeded: cleaned file in place, `.bak` with
+  the original bytes, "Original replaced" state. Clicking Allow in the prompt
+  itself wasn't automated, because the panel runs in a separate system process.
+- 67 Swift unit tests passed, including prompt-and-retry and decline-once-per-batch
+  tests that use a read-only folder to reproduce the denial.
+- Not verified: Save copy over an existing name in the sandbox (needs the save
+  panel); it now writes only the exact panel URL, using the system's
+  item-replacement folder for temporary data.
+
+### Helper corrections to engine output (development, unreleased) — 2026-10-18
+
+- Fixed: cleaning DOCX/XLSX/PPTX corrupted `docProps/thumbnail.jpeg` (the pinned
+  engine re-encodes every docProps part as UTF-8 text) and left the preview's
+  C2PA/EXIF in place. Reproduced with a C2PA-signed thumbnail: 132,518 bytes in,
+  191,555 bytes of U+FFFD out. After the fix: a valid 2048×1365 JPEG with no
+  C2PA markers. Unstrippable previews are dropped with their relationship and
+  content-type entries.
+- Fixed: inspect/clean reports no longer carry the engine's stylometry score,
+  SynthID/pixel keys or rewrite advice; `suspicious` for text is recomputed from
+  deterministic signals; known engine notes are rewritten in plain language and
+  unknown notes still pass through.
+- 63 helper tests passed (5 new in `test_upstream_fixes.py`; each new test was
+  confirmed to fail with its fix disabled). 55 Swift unit tests passed. The
+  vendored snapshot verified unchanged. The frozen helper was not rebuilt.
+
+### Clay interface redesign (development, unreleased) — 2026-10-18
+
+- Rebuilt the interface on the Clay design system and replaced the separate
+  Clean / Apply to Copy / Apply editing traces actions with one copy built from
+  the original in a fixed order. The export prompt after cleaning was removed.
+- 55 Swift unit tests passed (DebugTests). New coverage: step order and inputs,
+  rebuild from the original, failed-step rollback, empty/invalid plans, outdated
+  copies, incomplete-check reasons, informational leftovers, verdict wording.
+- 58 helper tests passed with a rebuilt source venv (`build/python314-test-venv`,
+  CPython 3.14.2). The helper and the upstream snapshot were not changed.
+- The UI test target compiles against the new screens; XCUITests were not run.
+- Manual native checks with the real helper in light and dark appearance:
+  first-run notice, empty state, mixed fixture queue, Findings/Changes/Review for
+  DOCX, JPEG and text, a three-step DOCX copy (cleaning, editing history,
+  title), the text diff, and Settings. No fixture original was exported or
+  replaced.
+- Fixed while verifying: window content drawn under the toolbar (a banner's
+  fixed text height inflated the window's minimum height), and a copy reported
+  as having a remaining marker when only an informational typographic space
+  remained (the same rule existed before the redesign).
+- No helper rebuild, signing, DMG or notarization was performed.
+
 ### 0.3.1 Word and embedded-media C2PA — 2026-10-11
 
 - 58 source helper tests and 44 Swift unit tests passed. Detailed scope and

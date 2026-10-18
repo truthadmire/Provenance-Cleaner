@@ -15,10 +15,11 @@ final class AppStore {
     var jobs: [CleanerJob] = []
     var selectedJobID: CleanerJob.ID?
     var isCleaningSequentially = false
+    /// A save or replace is writing files.
+    var isSaving = false
     var issue: AppIssue?
     var capabilities: EngineCapabilities?
     var engineAvailabilityMessage: String?
-    var pendingExportJobIDs: [CleanerJob.ID] = []
 
     let preferences: AppPreferences
 
@@ -28,14 +29,22 @@ final class AppStore {
     @ObservationIgnored private let stagingRoot: URL
     @ObservationIgnored private var activeRequestIDs: [CleanerJob.ID: UUID] = [:]
     @ObservationIgnored private var cancellationRequested = false
+    /// Asks the user for write access to a folder; injectable for tests.
+    @ObservationIgnored private let requestFolderAccess: @MainActor (URL) -> URL?
+    /// Folders granted for backups this session, by path.
+    @ObservationIgnored private var grantedFolders: [String: URL] = [:]
+    /// Folders the user declined during the current action, so a batch asks once.
+    @ObservationIgnored private var declinedFolders: Set<String> = []
 
     init(
         engine: (any WatermarkEngine)? = nil,
         preferences: AppPreferences = .shared,
         exporter: SafeFileExporter = SafeFileExporter(),
         fileManager: FileManager = .default,
-        stagingRoot: URL? = nil
+        stagingRoot: URL? = nil,
+        requestFolderAccess: (@MainActor (URL) -> URL?)? = nil
     ) {
+        self.requestFolderAccess = requestFolderAccess ?? { FilePanelService.requestFolderAccess(for: $0) }
         self.engine = engine ?? BundledWatermarkEngine()
         self.preferences = preferences
         self.exporter = exporter
@@ -52,20 +61,19 @@ final class AppStore {
     }
 
     var isBusy: Bool {
-        isCleaningSequentially || jobs.contains { $0.status.isBusy }
+        isCleaningSequentially || isSaving || jobs.contains { $0.status.isBusy }
     }
 
     var hasCleanableJobs: Bool {
-        jobs.contains { $0.status.canClean }
+        jobs.contains(where: needsCopy)
     }
 
     var hasExportableJobs: Bool {
-        jobs.contains(where: \.canExport)
+        !saveAllPlan().ready.isEmpty
     }
 
-    var pendingExportJob: CleanerJob? {
-        guard let first = pendingExportJobIDs.first else { return nil }
-        return job(withID: first)
+    var hasReplaceableJobs: Bool {
+        !replaceAllPlan().ready.isEmpty
     }
 
     func refreshCapabilities() async {
@@ -90,7 +98,7 @@ final class AppStore {
             newURLs = Array(newURLs.prefix(remainingCapacity))
             issue = AppIssue(
                 title: "Queue limit reached",
-                message: "Added \(newURLs.count) items and skipped \(skipped). Provenance Cleaner processes up to \(Self.maximumQueueCount) items at a time."
+                message: "Added \(newURLs.count) and skipped \(skipped). Provenance Cleaner works on up to \(Self.maximumQueueCount) files at a time."
             )
         }
 
@@ -100,7 +108,7 @@ final class AppStore {
             if !fileManager.fileExists(atPath: url.path) {
                 job.status = .failed("The file no longer exists.")
             } else if job.kind == .unknown {
-                job.status = .unsupported("This file type is not supported.")
+                job.status = .unsupported("This file type isn't supported.")
             }
             return job
         }
@@ -129,40 +137,38 @@ final class AppStore {
         }
     }
 
+    /// Re-checks the original and, when a copy exists, the copy as well. The
+    /// two reports stay separate so an original's verdict never describes a copy.
     func inspect(jobID: CleanerJob.ID) async {
-        guard let job = job(withID: jobID), job.kind != .unknown else { return }
+        // After a replace the file on disk is the copy, so re-checking it as
+        // the original would mislabel it.
+        guard let job = job(withID: jobID), job.kind != .unknown, !job.isReplaced else { return }
         update(jobID) { $0.status = .inspecting }
 
         do {
-            let result = try await withTrackedRequest(for: jobID) { requestID in
-                try await engine.inspect(fileAt: job.previewURL, requestID: requestID)
+            let fingerprint = FileFingerprint(url: job.sourceURL)
+            let original = try await withTrackedRequest(for: jobID) { requestID in
+                try await engine.inspect(fileAt: job.sourceURL, requestID: requestID)
             }
             update(jobID) { current in
-                current.kind = result.kind
-                if job.stagedOutputURL != nil {
-                    current.postCleanInspection = result.report
-                    let residual = result.report.hasActionableFindings ? max(1, result.report.findings.count) : 0
-                    if result.report.inspectionIncomplete {
-                        current.status = .cleanedInspectionIncomplete
-                    } else if current.cleaningOptions?.metadataEdits != nil {
-                        current.status = .metadataReady(residualCount: residual)
-                    } else if current.cleaningOptions?.wordTraces != nil {
-                        current.status = .editingTracesReady(residualCount: residual)
-                    } else {
-                        current.status = .readyToExport(residualCount: residual)
-                    }
-                    return
-                }
-                current.inspection = result.report
-                if result.kind == .unknown {
-                    current.status = .unsupported("The engine could not classify this file.")
-                } else if result.report.inspectionIncomplete {
-                    current.status = .inspectionIncomplete(result.report.findings.count)
-                } else if result.report.hasActionableFindings {
-                    current.status = .findings(max(1, result.report.findings.count))
-                } else {
-                    current.status = .inspectedClean
-                }
+                current.kind = original.kind
+                current.inspection = original.report
+                current.inspectedFingerprint = fingerprint
+            }
+            guard let stagedURL = job.stagedOutputURL else {
+                update(jobID) { $0.status = Self.inspectionStatus(kind: original.kind, report: original.report) }
+                return
+            }
+            let copy = try await withTrackedRequest(for: jobID) { requestID in
+                try await engine.inspect(fileAt: stagedURL, requestID: requestID)
+            }
+            update(jobID) { current in
+                current.postCleanInspection = copy.report
+                current.status = Self.resultStatus(
+                    postInspection: copy.report,
+                    postInspectionCompleted: true,
+                    cleanReport: current.cleanReport
+                )
             }
         } catch where isCancellation(error) {
             update(jobID) { $0.status = .cancelled }
@@ -171,21 +177,25 @@ final class AppStore {
         }
     }
 
-    func cleanSelected() async {
-        guard let selectedJobID else { return }
-        await clean(jobID: selectedJobID)
+    func updatePlan(for jobID: CleanerJob.ID, _ mutate: (inout JobPlan) -> Void) {
+        update(jobID) { mutate(&$0.plan) }
     }
 
-    func cleanAllSequentially() async {
+    func createCopyForSelected() async {
+        guard let selectedJobID else { return }
+        await createCopy(jobID: selectedJobID)
+    }
+
+    func createAllCopies() async {
         guard !isCleaningSequentially else { return }
         cancellationRequested = false
         isCleaningSequentially = true
         defer { isCleaningSequentially = false }
 
-        let ids = jobs.filter { $0.status.canClean }.map(\.id)
+        let ids = jobs.filter { needsCopy($0) || originalChangedSinceCopy($0) }.map(\.id)
         for id in ids {
             guard !Task.isCancelled, !cancellationRequested else { break }
-            await clean(jobID: id)
+            await createCopy(jobID: id)
         }
     }
 
@@ -197,148 +207,245 @@ final class AppStore {
         }
     }
 
-    func applyWordEditingTraces(jobID: CleanerJob.ID) async {
-        guard let job = job(withID: jobID), job.sourceURL.pathExtension.lowercased() == "docx",
-              preferences.wordDateRangeValid else { return }
-        var options = CleaningOptions.conservative
-        options.wordTraces = preferences.wordTraceOptions
-        await clean(jobID: jobID, optionsOverride: options)
+    /// The engine steps a plan needs, in the fixed order they run.
+    func buildSteps(for job: CleanerJob) -> [(kind: BuildStepKind, options: CleaningOptions)] {
+        var steps: [(kind: BuildStepKind, options: CleaningOptions)] = []
+        if job.plan.removeProvenance {
+            steps.append((.provenance, preferences.cleaningOptions))
+        }
+        if job.plan.changeWordTraces, job.isWordDocument {
+            var options = CleaningOptions.conservative
+            options.wordTraces = preferences.wordTraceOptions
+            steps.append((.wordTraces, options))
+        }
+        if !job.plan.propertyEdits.isEmpty {
+            var options = CleaningOptions.conservative
+            options.metadataEdits = job.plan.propertyEdits
+            steps.append((.properties, options))
+        }
+        return steps
     }
 
-    func applyMetadataEdits(jobID: CleanerJob.ID, edits: [String: String]) async {
-        guard !edits.isEmpty, !isBusy else { return }
-        var options = job(withID: jobID)?.cleaningOptions ?? CleaningOptions.conservative
-        options.wordTraces = nil
-        options.metadataEdits = edits
-        await clean(jobID: jobID, optionsOverride: options)
+    /// The copy no longer reflects the file's plan or the cleaning settings.
+    func copyNeedsUpdate(_ job: CleanerJob) -> Bool {
+        guard job.stagedOutputURL != nil, let appliedPlan = job.appliedPlan else { return false }
+        if appliedPlan != job.plan { return true }
+        if job.plan.removeProvenance, job.cleaningOptions != preferences.cleaningOptions { return true }
+        if job.plan.changeWordTraces, job.isWordDocument,
+           job.stepResult(.wordTraces)?.options.wordTraces != preferences.wordTraceOptions {
+            return true
+        }
+        return false
     }
 
-    func clean(jobID: CleanerJob.ID, optionsOverride: CleaningOptions? = nil) async {
-        guard let job = job(withID: jobID), job.status.canClean else { return }
+    /// Whether "Create all copies" should (re)build this file: no copy yet,
+    /// an outdated copy, or a failed or stopped attempt.
+    func needsCopy(_ job: CleanerJob) -> Bool {
+        guard canCreateCopy(job) else { return false }
+        if job.stagedOutputURL == nil || copyNeedsUpdate(job) { return true }
+        switch job.status {
+        case .failed, .cancelled: return true
+        default: return false
+        }
+    }
+
+    /// Reads the file system: call at action time, not while drawing.
+    func originalChangedSinceCopy(_ job: CleanerJob) -> Bool {
+        guard job.canExport, !job.isReplaced, let expected = job.copySourceFingerprint else { return false }
+        return FileFingerprint(url: job.sourceURL) != expected
+    }
+
+    func canCreateCopy(_ job: CleanerJob) -> Bool {
+        guard job.status.canClean, job.kind != .unknown, !job.isReplaced, job.plan.propertyEditsAreValid,
+              !buildSteps(for: job).isEmpty else { return false }
+        if job.plan.changeWordTraces, job.isWordDocument, !preferences.wordDateRangeValid { return false }
+        return true
+    }
+
+    /// Builds a new copy from the original: provenance cleaning, then Word
+    /// editing traces, then property edits, each step reading the previous
+    /// step's output. A failed or cancelled build keeps the previous copy.
+    func createCopy(jobID: CleanerJob.ID) async {
+        guard var job = job(withID: jobID), canCreateCopy(job) else { return }
+        // If the original changed since it was checked, check it again first
+        // so Findings describe the bytes the copy is built from.
+        if let checked = job.inspectedFingerprint, FileFingerprint(url: job.sourceURL) != checked {
+            await inspect(jobID: jobID)
+            guard let refreshed = self.job(withID: jobID), canCreateCopy(refreshed) else { return }
+            if case .failed = refreshed.status { return }
+            job = refreshed
+        }
+        let sourceFingerprint = FileFingerprint(url: job.sourceURL)
+        let plan = job.plan
+        let steps = buildSteps(for: job)
         let previousOutputURL = job.stagedOutputURL
-        update(jobID) { $0.status = .cleaning }
+        update(jobID) {
+            $0.status = .cleaning
+            $0.activeStep = steps.first?.kind
+        }
 
-        var attemptOutputURL: URL?
+        var stagingDirectories: [URL] = []
+        var results: [BuildStepResult] = []
+        var currentStep = steps[0].kind
         do {
-            let outputURL = try makeStagingURL(for: job)
-            attemptOutputURL = outputURL
-            let options = optionsOverride ?? preferences.cleaningOptions
-            let inputURL = options.metadataEdits == nil ? job.sourceURL : (job.stagedOutputURL ?? job.sourceURL)
-            let result = try await withTrackedRequest(for: jobID) { requestID in
-                try await engine.clean(
-                    fileAt: inputURL,
-                    outputURL: outputURL,
-                    options: options,
-                    requestID: requestID
-                )
+            var inputURL = job.sourceURL
+            var outputKind = job.kind
+            for step in steps {
+                currentStep = step.kind
+                update(jobID) { $0.activeStep = step.kind }
+                let outputURL = try makeStagingURL(for: job)
+                stagingDirectories.append(outputURL.deletingLastPathComponent())
+                let stepInputURL = inputURL
+                let result = try await withTrackedRequest(for: jobID) { requestID in
+                    try await engine.clean(
+                        fileAt: stepInputURL,
+                        outputURL: outputURL,
+                        options: step.options,
+                        requestID: requestID
+                    )
+                }
+                results.append(BuildStepResult(kind: step.kind, options: step.options, report: result.report))
+                inputURL = result.outputURL
+                outputKind = result.kind
             }
 
+            currentStep = .checking
+            update(jobID) { $0.activeStep = .checking }
+            let finalURL = inputURL
             var postInspection: WatermarkReport?
             var postInspectionCompleted = true
             do {
                 postInspection = try await withTrackedRequest(for: jobID) { requestID in
-                    try await engine.inspect(fileAt: result.outputURL, requestID: requestID).report
+                    try await engine.inspect(fileAt: finalURL, requestID: requestID).report
                 }
             } catch where isCancellation(error) {
                 throw error
             } catch {
                 postInspectionCompleted = false
-                engineAvailabilityMessage = "Cleaned output was created, but post-clean inspection failed: \(error.localizedDescription)"
+                engineAvailabilityMessage = "The copy was created, but checking it failed: \(error.localizedDescription)"
             }
 
-            let residualCount: Int
-            if let postInspection, postInspection.hasActionableFindings {
-                residualCount = max(1, postInspection.findings.count)
-            } else {
-                residualCount = result.report.postFindings.count
-            }
-
+            let cleanStep = results.first { $0.kind == .provenance }
             update(jobID) { current in
-                current.kind = result.kind
-                current.cleanReport = result.report
+                current.kind = outputKind
+                current.cleanReport = cleanStep?.report
+                current.cleaningOptions = cleanStep?.options
+                current.buildSteps = results
+                current.appliedPlan = plan
                 current.postCleanInspection = postInspection
-                current.stagedOutputURL = result.outputURL
-                current.cleaningOptions = options
-                if !postInspectionCompleted || postInspection?.inspectionIncomplete == true || result.report.pdfDeepCleaningIncomplete {
-                    current.status = .cleanedInspectionIncomplete
-                } else {
-                    current.status = options.metadataEdits != nil
-                        ? .metadataReady(residualCount: residualCount)
-                        : options.wordTraces == nil
-                        ? .readyToExport(residualCount: residualCount)
-                        : .editingTracesReady(residualCount: residualCount)
-                }
+                current.stagedOutputURL = finalURL
+                current.activeStep = nil
+                current.resultRevision += 1
+                current.copySourceFingerprint = sourceFingerprint
+                current.savedCopies = []
+                current.status = Self.resultStatus(
+                    postInspection: postInspection,
+                    postInspectionCompleted: postInspectionCompleted,
+                    cleanReport: cleanStep?.report
+                )
             }
-            if let previousOutputURL, previousOutputURL != result.outputURL {
+            // Keep only the final step's directory; earlier steps were inputs.
+            for directory in stagingDirectories.dropLast() {
+                try? fileManager.removeItem(at: directory)
+            }
+            if let previousOutputURL, previousOutputURL != finalURL {
                 try? fileManager.removeItem(at: previousOutputURL.deletingLastPathComponent())
             }
-            if !pendingExportJobIDs.contains(jobID) {
-                pendingExportJobIDs.append(jobID)
-            }
         } catch where isCancellation(error) {
-            if let attemptOutputURL {
-                try? fileManager.removeItem(at: attemptOutputURL.deletingLastPathComponent())
-            }
+            stagingDirectories.forEach { try? fileManager.removeItem(at: $0) }
             update(jobID) { current in
                 current.status = .cancelled
+                current.activeStep = nil
                 current.stagedOutputURL = previousOutputURL
             }
         } catch {
-            if let attemptOutputURL {
-                try? fileManager.removeItem(at: attemptOutputURL.deletingLastPathComponent())
-            }
+            stagingDirectories.forEach { try? fileManager.removeItem(at: $0) }
+            let message = steps.count > 1
+                ? "\(currentStep.title) failed: \(error.localizedDescription)"
+                : error.localizedDescription
             update(jobID) { current in
-                current.status = optionsOverride?.metadataEdits == nil ? .failed(error.localizedDescription) : job.status
+                current.status = .failed(message)
+                current.activeStep = nil
                 current.stagedOutputURL = previousOutputURL
             }
-            if optionsOverride?.metadataEdits != nil {
-                issue = AppIssue(title: "Could not update metadata", message: error.localizedDescription)
-            }
         }
     }
 
-    func acknowledgePendingExport(for jobID: CleanerJob.ID) {
-        pendingExportJobIDs.removeAll { $0 == jobID }
+    /// Copies that "Save all" would write, and why the others are skipped.
+    func saveAllPlan() -> (ready: [CleanerJob], outdated: Int, alreadySaved: Int) {
+        let withCopies = jobs.filter { $0.canExport && !$0.isReplaced && !$0.status.isBusy }
+        let outdated = withCopies.filter(copyNeedsUpdate)
+        let saved = withCopies.filter { $0.isSaved && !copyNeedsUpdate($0) }
+        let ready = withCopies.filter { !$0.isSaved && !copyNeedsUpdate($0) }
+        return (ready, outdated.count, saved.count)
     }
 
-    func exportSelectedCopy(to destinationURL: URL) async {
-        guard let selectedJobID else {
-            present(FileExportError.noStagedOutput, title: "Nothing to export")
-            return
-        }
-
-        await exportCopy(jobID: selectedJobID, to: destinationURL)
+    /// Originals that "Replace originals" would replace, and why the others are skipped.
+    func replaceAllPlan() -> (ready: [CleanerJob], outdated: Int, alreadyReplaced: Int) {
+        let withCopies = jobs.filter { $0.canExport && !$0.status.isBusy }
+        let replaced = withCopies.filter(\.isReplaced)
+        let outdated = withCopies.filter { !$0.isReplaced && copyNeedsUpdate($0) }
+        let ready = withCopies.filter { !$0.isReplaced && !copyNeedsUpdate($0) }
+        return (ready, outdated.count, replaced.count)
     }
 
-    func exportCopy(jobID: CleanerJob.ID, to destinationURL: URL) async {
+    func canSaveCopy(_ job: CleanerJob) -> Bool {
+        job.canExport && !job.isReplaced && !job.status.isBusy && !copyNeedsUpdate(job)
+    }
+
+    func canReplaceOriginal(_ job: CleanerJob) -> Bool {
+        canSaveCopy(job)
+    }
+
+    /// Writes the selected job's copy to the exact file chosen in the save panel.
+    func saveCopy(jobID: CleanerJob.ID, to destinationURL: URL) async {
         guard let job = job(withID: jobID), let stagedURL = job.stagedOutputURL else {
-            present(FileExportError.noStagedOutput, title: "Nothing to export")
+            present(FileExportError.noStagedOutput, title: "Nothing to save")
             return
         }
-
+        guard canSaveCopy(job) else { return }
+        // Save copy is the non-destructive path: it never overwrites an
+        // original in the list or a backup this app made.
+        if let protected = protectedFileName(at: destinationURL) {
+            present(FileExportError.destinationIsProtected(protected), title: "Couldn't save the copy")
+            return
+        }
+        isSaving = true
+        defer { isSaving = false }
         do {
-            let exportedURL = try await exporter.exportCopy(from: stagedURL, to: destinationURL)
-            update(jobID) { $0.status = .exported(exportedURL) }
-            acknowledgePendingExport(for: jobID)
+            let savedURL = try await exporter.saveCopy(from: stagedURL, to: destinationURL)
+            update(jobID) { $0.savedCopies.append(savedURL) }
         } catch {
-            present(error, title: "Could not save the cleaned copy")
+            present(error, title: "Couldn't save the copy")
         }
     }
 
-    func exportAllCopies(to directoryURL: URL) async {
-        for job in jobs where job.canExport {
-            guard let stagedURL = job.stagedOutputURL else { continue }
+    /// Saves every current, unsaved copy into one folder. Outdated and
+    /// already-saved copies are skipped; problems are reported once at the end.
+    func saveAllCopies(to directoryURL: URL) async {
+        cancellationRequested = false
+        isSaving = true
+        defer { isSaving = false }
+        let plan = saveAllPlan()
+        var saved = 0
+        var failures: [String] = []
+        for id in plan.ready.map(\.id) {
+            guard !cancellationRequested else { break }
+            // Re-read the job: it may have changed since the batch started.
+            guard let job = job(withID: id), let stagedURL = job.stagedOutputURL, canSaveCopy(job) else { continue }
             do {
-                let exportedURL = try await exporter.exportCopy(
-                    from: stagedURL,
-                    sourceURL: job.sourceURL,
-                    into: directoryURL
-                )
-                update(job.id) { $0.status = .exported(exportedURL) }
+                let savedURL = try await exporter.exportCopy(from: stagedURL, sourceURL: job.sourceURL, into: directoryURL)
+                update(id) { $0.savedCopies.append(savedURL) }
+                saved += 1
             } catch {
-                update(job.id) { $0.status = .failed(error.localizedDescription) }
+                failures.append("\(job.displayName): \(error.localizedDescription)")
             }
         }
+        reportBatch(
+            verb: "Saved", done: saved, noun: "cop", plural: ("y", "ies"),
+            skipped: [(plan.outdated, "outdated, so not saved; update them first"), (plan.alreadySaved, "already saved")],
+            failures: failures, stopped: cancellationRequested && saved + failures.count < plan.ready.count
+        )
     }
 
     func replaceSelectedOriginal() async {
@@ -346,41 +453,110 @@ final class AppStore {
             present(FileExportError.noStagedOutput, title: "Nothing to replace")
             return
         }
-
         await replaceOriginal(jobID: selectedJobID)
     }
 
     func replaceOriginal(jobID: CleanerJob.ID) async {
-        guard let job = job(withID: jobID), let stagedURL = job.stagedOutputURL else {
+        guard let job = job(withID: jobID), job.canExport else {
             present(FileExportError.noStagedOutput, title: "Nothing to replace")
             return
         }
-
+        guard canReplaceOriginal(job) else { return }
+        isSaving = true
+        declinedFolders = []
+        defer { isSaving = false }
         do {
-            let exportedURL = try await exporter.replaceOriginal(
-                from: stagedURL,
-                originalURL: job.sourceURL
-            )
-            update(jobID) { $0.status = .exported(exportedURL) }
-            acknowledgePendingExport(for: jobID)
+            try await replace(job)
         } catch {
-            present(error, title: "Could not replace the original")
+            present(error, title: "Couldn't replace the original")
         }
     }
 
     func replaceAllOriginals() async {
-        for job in jobs where job.canExport {
-            guard let stagedURL = job.stagedOutputURL else { continue }
+        cancellationRequested = false
+        isSaving = true
+        declinedFolders = []
+        defer { isSaving = false }
+        let plan = replaceAllPlan()
+        var replaced = 0
+        var failures: [String] = []
+        for id in plan.ready.map(\.id) {
+            guard !cancellationRequested else { break }
+            guard let job = job(withID: id), canReplaceOriginal(job) else { continue }
             do {
-                let exportedURL = try await exporter.replaceOriginal(
-                    from: stagedURL,
-                    originalURL: job.sourceURL
-                )
-                update(job.id) { $0.status = .exported(exportedURL) }
+                try await replace(job)
+                replaced += 1
             } catch {
-                update(job.id) { $0.status = .failed(error.localizedDescription) }
+                failures.append("\(job.displayName): \(error.localizedDescription)")
             }
         }
+        reportBatch(
+            verb: "Replaced", done: replaced, noun: "original", plural: ("", "s"),
+            skipped: [(plan.outdated, "outdated, so not used; update them first"), (plan.alreadyReplaced, "already replaced")],
+            failures: failures, stopped: cancellationRequested && replaced + failures.count < plan.ready.count
+        )
+    }
+
+    /// Replaces one original, refusing if it changed after the copy was made.
+    private func replace(_ job: CleanerJob) async throws {
+        guard let stagedURL = job.stagedOutputURL else { throw FileExportError.noStagedOutput }
+        let expected = job.copySourceFingerprint
+        let result: ReplacementResult
+        do {
+            result = try await exporter.replaceOriginal(
+                from: stagedURL, originalURL: job.sourceURL, expectedOriginal: expected
+            )
+        } catch where FileExportError.isPermissionDenied(error) {
+            // The sandbox granted the file, not its folder, so the .bak beside
+            // it was refused before the original was touched. Ask once for the
+            // folder, then try again.
+            let folder = job.sourceURL.deletingLastPathComponent()
+            let key = folder.standardizedFileURL.path
+            guard grantedFolders[key] == nil else { throw error }
+            guard !declinedFolders.contains(key), let granted = requestFolderAccess(folder) else {
+                declinedFolders.insert(key)
+                throw FileExportError.folderAccessDeclined(folder)
+            }
+            _ = granted.startAccessingSecurityScopedResource()
+            grantedFolders[key] = granted
+            result = try await exporter.replaceOriginal(
+                from: stagedURL, originalURL: job.sourceURL, expectedOriginal: expected
+            )
+        }
+        update(job.id) { $0.replacement = result }
+    }
+
+    /// The name of a queued original or app-made backup at `url`, matched by
+    /// path or, for an existing file, by identity (symlinks, hard links).
+    private func protectedFileName(at url: URL) -> String? {
+        let path = url.resolvingSymlinksInPath().standardizedFileURL.path
+        let target = FileFingerprint(url: url)
+        let protected = jobs.flatMap { job in [job.sourceURL] + [job.replacement?.backupURL].compactMap { $0 } }
+        for candidate in protected {
+            if candidate.resolvingSymlinksInPath().standardizedFileURL.path == path {
+                return candidate.lastPathComponent
+            }
+            if let target, let other = FileFingerprint(url: candidate), target.isSameFile(as: other) {
+                return candidate.lastPathComponent
+            }
+        }
+        return nil
+    }
+
+    private func reportBatch(
+        verb: String, done: Int, noun: String, plural: (String, String),
+        skipped: [(Int, String)], failures: [String], stopped: Bool
+    ) {
+        func count(_ n: Int) -> String { "\(n) \(noun)\(n == 1 ? plural.0 : plural.1)" }
+        var lines = skipped.filter { $0.0 > 0 }.map { "\(count($0.0)) \($0.1)." }
+        if stopped { lines.append("Stopped before finishing.") }
+        if !failures.isEmpty {
+            lines.append("\(count(failures.count)) couldn't be done:")
+            lines.append(contentsOf: failures)
+        }
+        // A clean, complete batch needs no alert: each file shows its own state.
+        guard !lines.isEmpty else { return }
+        issue = AppIssue(title: "\(verb) \(count(done))", message: lines.joined(separator: "\n"))
     }
 
     func removeSelected() {
@@ -393,19 +569,43 @@ final class AppStore {
             .filter { jobIDs.contains($0.id) }
             .compactMap(\.stagedOutputURL)
         jobs.removeAll { jobIDs.contains($0.id) }
-        pendingExportJobIDs.removeAll { jobIDs.contains($0) }
         stagedURLs.forEach { try? fileManager.removeItem(at: $0.deletingLastPathComponent()) }
         if let selectedJobID, jobIDs.contains(selectedJobID) {
             self.selectedJobID = jobs.first?.id
         }
     }
 
+    /// Removes files whose copy was saved or whose original was replaced.
     func clearCompleted() {
-        let completed = Set(jobs.compactMap { job -> CleanerJob.ID? in
-            if case .exported = job.status { return job.id }
-            return nil
-        })
-        remove(jobIDs: completed)
+        remove(jobIDs: Set(jobs.filter { $0.isSaved || $0.isReplaced }.map(\.id)))
+    }
+
+    nonisolated static func inspectionStatus(kind: WatermarkKind, report: WatermarkReport) -> CleanerJobStatus {
+        if kind == .unknown {
+            return .unsupported("The engine couldn't classify this file.")
+        }
+        if report.inspectionIncomplete {
+            return .inspectionIncomplete(report.actionableFindings.count)
+        }
+        if report.hasActionableFindings {
+            return .findings(max(1, report.actionableFindings.count))
+        }
+        return .inspectedClean
+    }
+
+    nonisolated static func resultStatus(
+        postInspection: WatermarkReport?,
+        postInspectionCompleted: Bool,
+        cleanReport: WatermarkReport?
+    ) -> CleanerJobStatus {
+        if !postInspectionCompleted || postInspection?.inspectionIncomplete == true
+            || cleanReport?.pdfDeepCleaningIncomplete == true {
+            return .cleanedInspectionIncomplete
+        }
+        if let postInspection, postInspection.hasActionableFindings {
+            return .readyToExport(residualCount: max(1, postInspection.actionableFindings.count))
+        }
+        return .readyToExport(residualCount: cleanReport?.postFindings.count ?? 0)
     }
 
     private func job(withID id: CleanerJob.ID) -> CleanerJob? {

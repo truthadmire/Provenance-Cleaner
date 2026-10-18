@@ -36,6 +36,25 @@ enum FilePanelService {
         return panel.runModal() == .OK ? panel.url : nil
     }
 
+    /// Asks for write access to the folder holding an original, so a `.bak`
+    /// backup can be written beside it. The sandbox grants files one by one,
+    /// and a backup is a new file. Returns nil unless that exact folder is chosen.
+    static func requestFolderAccess(for folderURL: URL) -> URL? {
+        let panel = NSOpenPanel()
+        panel.title = "Allow backups in this folder"
+        panel.prompt = "Allow"
+        panel.message = "To keep a backup beside the original, Provenance Cleaner needs permission to write in “\(folderURL.lastPathComponent)”. Choose Allow to grant it until you quit."
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.canCreateDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.directoryURL = folderURL
+        guard panel.runModal() == .OK, let chosen = panel.url,
+              chosen.standardizedFileURL.path == folderURL.standardizedFileURL.path
+        else { return nil }
+        return chosen
+    }
+
     static func reveal(_ url: URL) {
         NSWorkspace.shared.activateFileViewerSelecting([url])
     }

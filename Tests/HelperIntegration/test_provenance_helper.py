@@ -209,7 +209,7 @@ def _helper_with_test_ghostscript(root: Path, script: str) -> Path:
         (root / "Helper").mkdir()
         test_helper = root / "Helper/provenance_helper.py"
         shutil.copyfile(HELPER, test_helper)
-        for module in ("word_editing_traces.py", "metadata_editor.py", "credential_inspection.py", "office_credentials.py"):
+        for module in ("word_editing_traces.py", "metadata_editor.py", "credential_inspection.py", "office_credentials.py", "upstream_fixes.py"):
             shutil.copyfile(ROOT / "Helper" / module, test_helper.parent / module)
         (root / "Vendor").mkdir()
         (root / "Vendor/watermarks-remover").symlink_to(ROOT / "Vendor/watermarks-remover", target_is_directory=True)
