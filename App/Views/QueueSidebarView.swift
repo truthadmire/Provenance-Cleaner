@@ -4,7 +4,7 @@ struct QueueSidebarView: View {
     @Bindable var store: AppStore
 
     private var hasSavedFiles: Bool {
-        store.jobs.contains { if case .exported = $0.status { true } else { false } }
+        store.jobs.contains { $0.isSaved || $0.isReplaced }
     }
 
     var body: some View {
@@ -96,7 +96,7 @@ private struct QueueRow: View {
                             .frame(width: 6, height: 6)
                             .accessibilityHidden(true)
                     }
-                    Text(job.status.label)
+                    Text(job.queueLabel)
                         .lineLimit(1)
                         .accessibilityIdentifier("queue.status.\(job.displayName)")
                 }

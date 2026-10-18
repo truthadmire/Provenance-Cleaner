@@ -15,7 +15,11 @@ struct FindingsTabView: View {
                 }
 
                 VStack(alignment: .leading, spacing: Clay.space4) {
-                    ClayCardHeader(title: "What we found", subtitle: "In the original file")
+                    ClayCardHeader(
+                        title: "What we found",
+                        subtitle: job.replacement.map { "In the original file, now saved as \($0.backupURL.lastPathComponent)" }
+                            ?? "In the original file"
+                    )
                     if report.findings.isEmpty {
                         Text(report.inspectionIncomplete
                              ? "Nothing found by the checks that ran. Unchecked parts may still contain markers."

@@ -69,7 +69,7 @@ struct ContentView: View {
                         .labelStyle(.titleAndIcon)
                 }
                 .help("Save every copy that's ready")
-                .disabled(!store.hasExportableJobs || store.isBusy)
+                .disabled(!(store.hasExportableJobs || store.hasReplaceableJobs) || store.isBusy)
                 .accessibilityIdentifier("toolbar.export")
             }
         }
@@ -111,11 +111,17 @@ struct ContentView: View {
             isPresented: $showingBatchExportChoices,
             titleVisibility: .visible
         ) {
-            Button("Save copies to a folder…") {
-                saveAllCopies()
+            let saveCount = store.saveAllPlan().ready.count
+            let replaceCount = store.replaceAllPlan().ready.count
+            if saveCount > 0 {
+                Button("Save \(saveCount) cop\(saveCount == 1 ? "y" : "ies") to a folder…") {
+                    saveAllCopies()
+                }
             }
-            Button("Replace originals…", role: .destructive) {
-                showingReplaceAllConfirmation = true
+            if replaceCount > 0 {
+                Button("Replace \(replaceCount) original\(replaceCount == 1 ? "" : "s")…", role: .destructive) {
+                    showingReplaceAllConfirmation = true
+                }
             }
             Button("Cancel", role: .cancel) {}
         } message: {
@@ -127,7 +133,7 @@ struct ContentView: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Each original is first copied to filename.ext.bak. Existing backups are never overwritten.")
+            Text("Each original is first copied to filename.ext.bak next to it. Existing backups are never overwritten, and an original that changed after its copy was made is left alone.")
         }
         .task {
             await store.refreshCapabilities()
@@ -136,7 +142,7 @@ struct ContentView: View {
 
     private var subtitle: String {
         guard !store.jobs.isEmpty else { return "" }
-        let ready = store.jobs.filter(\.canExport).count
+        let ready = store.jobs.filter { $0.canExport && !$0.isSaved && !$0.isReplaced }.count
         let files = "\(store.jobs.count) file\(store.jobs.count == 1 ? "" : "s")"
         return ready > 0 ? "\(files) · \(ready) cop\(ready == 1 ? "y" : "ies") ready" : files
     }
@@ -184,10 +190,10 @@ struct ContentView: View {
             removeSelected: store.removeSelected,
             canInspect: !store.jobs.isEmpty && !store.isBusy,
             canCreateCopy: selected.map(store.canCreateCopy) == true && !store.isBusy,
-            canSaveCopy: selected?.canExport == true && !store.isBusy,
+            canSaveCopy: selected.map(store.canSaveCopy) == true && !store.isBusy,
             canShowTabs: selected != nil,
             canCreateAllCopies: store.hasCleanableJobs && !store.isBusy,
-            canSaveAll: store.hasExportableJobs && !store.isBusy,
+            canSaveAll: (store.hasExportableJobs || store.hasReplaceableJobs) && !store.isBusy,
             canRemove: store.selectedJobID != nil && !store.isBusy
         )
     }
@@ -199,20 +205,35 @@ struct ContentView: View {
     }
 
     private func saveCopy(_ job: CleanerJob) {
-        guard job.canExport, let destination = FilePanelService.chooseCopyDestination(for: job) else { return }
-        Task { await store.exportCopy(jobID: job.id, to: destination) }
+        guard store.canSaveCopy(job), let destination = FilePanelService.chooseCopyDestination(for: job) else { return }
+        Task { await store.saveCopy(jobID: job.id, to: destination) }
     }
 
     private func saveAllCopies() {
         guard let directory = FilePanelService.chooseBatchExportDirectory() else { return }
-        Task { await store.exportAllCopies(to: directory) }
+        Task { await store.saveAllCopies(to: directory) }
     }
 
     private var batchExportDisclosure: String {
-        var message = "Saving copies to a folder is safest. Replacing originals first keeps a .bak backup beside every file."
-        if store.jobs.contains(where: { $0.canExport && $0.cleaningOptions?.stripAllMetadata == true }) {
-            message += " At least one copy had all removable metadata stripped, including author, dates, camera, location and copyright."
+        let save = store.saveAllPlan()
+        let replace = store.replaceAllPlan()
+        var parts = ["Saving copies to a folder is safest. Replacing originals keeps a .bak backup beside every file."]
+        if save.outdated > 0 {
+            parts.append("\(save.outdated) outdated cop\(save.outdated == 1 ? "y is" : "ies are") skipped; update \(save.outdated == 1 ? "it" : "them") first.")
         }
-        return message
+        if save.alreadySaved > 0 {
+            parts.append("\(save.alreadySaved) already saved cop\(save.alreadySaved == 1 ? "y is" : "ies are") skipped.")
+        }
+        if replace.alreadyReplaced > 0 {
+            parts.append("\(replace.alreadyReplaced) original\(replace.alreadyReplaced == 1 ? " was" : "s were") already replaced.")
+        }
+        let warnings = save.ready.filter { $0.status.tone == .warning }.count
+        if warnings > 0 {
+            parts.append("\(warnings) of the copies still \(warnings == 1 ? "has" : "have") markers or an unfinished check; see each file's Review tab.")
+        }
+        if store.jobs.contains(where: { $0.canExport && $0.cleaningOptions?.stripAllMetadata == true }) {
+            parts.append("At least one copy had all removable metadata stripped, including author, dates, camera, location and copyright.")
+        }
+        return parts.joined(separator: " ")
     }
 }

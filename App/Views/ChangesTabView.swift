@@ -7,11 +7,17 @@ struct ChangesTabView: View {
     let job: CleanerJob
 
     private var preferences: AppPreferences { store.preferences }
-    private var disabled: Bool { job.status.isBusy || store.isBusy }
+    private var disabled: Bool { job.status.isBusy || store.isBusy || job.isReplaced }
 
     var body: some View {
         VStack(alignment: .leading, spacing: Clay.space4) {
-            if store.copyNeedsUpdate(job) {
+            if let replacement = job.replacement {
+                ClayBanner(
+                    tone: .neutral,
+                    title: "This file's original was replaced",
+                    message: "Changes can't be applied again: the file on disk is now the copy. The previous version is \(replacement.backupURL.lastPathComponent)."
+                )
+            } else if store.copyNeedsUpdate(job) {
                 ClayBanner(
                     tone: .warning,
                     title: "Your copy doesn't include these changes yet",

@@ -15,9 +15,17 @@ default branch at build time.
 
 - Files are first copied into an app-controlled job directory. Originals are
   unchanged until the user explicitly exports a result.
-- Saving a cleaned copy uses `name.cleaned.ext` with collision-safe numbering.
+- **Save copy** suggests `name.cleaned.ext` and writes exactly the file chosen
+  in the save panel. **Save all** writes into a chosen folder with
+  collision-safe numbering, and skips outdated and already-saved copies,
+  saying how many.
 - Replacing an original requires confirmation, uses an atomic write, and keeps
-  a recoverable `.bak` copy.
+  a recoverable `.bak` copy. It's refused when the original changed after the
+  copy was made, and it doesn't carry the original's download-source record
+  (`kMDItemWhereFroms`) onto the cleaned file. A replaced file is then locked:
+  it isn't checked or rebuilt again as if it were the original.
+- Save and replace records are kept apart from each file's check results, so
+  re-checking never erases them and they never hide a warning about the copy.
 - Space normalization is off by default to preserve typography. Metadata
   cleaning is selective by default where the file format supports it. Office
   files (DOCX, XLSX, PPTX) always lose author, last saved by, subject, keywords,

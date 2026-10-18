@@ -353,6 +353,215 @@ final class AppStoreTests: XCTestCase {
     }
 
     @MainActor
+    func testSaveAllSkipsOutdatedAndAlreadySavedCopiesAndSaysSo() async throws {
+        let fixture = try TemporaryFixture()
+        defer { fixture.remove() }
+        let urls = try ["saved.txt", "outdated.txt", "ready.txt"].map { try fixture.write($0, contents: "text\u{200B}") }
+        let store = AppStore(engine: RecordingEngine(), preferences: try makePreferences(), stagingRoot: fixture.root.appendingPathComponent("stage"))
+        await store.addAndInspect(urls)
+        await store.createAllCopies()
+        let ids = store.jobs.map(\.id)
+        await store.saveCopy(jobID: ids[0], to: fixture.root.appendingPathComponent("chosen.txt"))
+        store.updatePlan(for: ids[1]) { $0.removeProvenance = false; $0.propertyEdits = ["title": "x"] }
+        let folder = fixture.root.appendingPathComponent("out", isDirectory: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+
+        await store.saveAllCopies(to: folder)
+
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: folder.path), ["ready.cleaned.txt"])
+        XCTAssertEqual(store.jobs[0].savedCopies.map(\.lastPathComponent), ["chosen.txt"])
+        XCTAssertTrue(store.jobs[1].savedCopies.isEmpty)
+        XCTAssertEqual(store.jobs[2].savedCopies.map(\.lastPathComponent), ["ready.cleaned.txt"])
+        XCTAssertEqual(store.issue?.title, "Saved 1 copy")
+        XCTAssertEqual(store.issue?.message, "1 copy outdated, so not saved; update them first.\n1 copy already saved.")
+        XCTAssertFalse(store.isBusy)
+    }
+
+    @MainActor
+    func testSaveRecordSurvivesARecheckAndNeverHidesAWarning() async throws {
+        let fixture = try TemporaryFixture()
+        defer { fixture.remove() }
+        let source = try fixture.write("notes.txt", contents: "text\u{200B}")
+        let store = AppStore(engine: RecordingEngine(), preferences: try makePreferences(), stagingRoot: fixture.root.appendingPathComponent("stage"))
+        await store.addAndInspect([source])
+        let id = try XCTUnwrap(store.selectedJobID)
+        await store.createCopy(jobID: id)
+        await store.saveCopy(jobID: id, to: fixture.root.appendingPathComponent("notes.cleaned.txt"))
+        XCTAssertEqual(store.selectedJob?.queueLabel, "Saved")
+
+        await store.inspect(jobID: id)
+
+        XCTAssertTrue(store.selectedJob?.isSaved == true)
+        XCTAssertEqual(store.selectedJob?.queueLabel, "Saved")
+        XCTAssertEqual(JobVerdict(job: try XCTUnwrap(store.selectedJob)).title, "Saved as notes.cleaned.txt")
+        // A new copy replaces the saved one, so its save record starts over.
+        store.updatePlan(for: id) { $0.propertyEdits = ["title": "x"] }
+        await store.createCopy(jobID: id)
+        XCTAssertFalse(store.selectedJob?.isSaved == true)
+    }
+
+    @MainActor
+    func testReplacedOriginalIsNeverCheckedOrRebuiltAsTheOriginal() async throws {
+        let fixture = try TemporaryFixture()
+        defer { fixture.remove() }
+        let source = try fixture.write("draft.txt", contents: "original\u{200B}")
+        let engine = RecordingEngine()
+        let store = AppStore(engine: engine, preferences: try makePreferences(), stagingRoot: fixture.root.appendingPathComponent("stage"))
+        await store.addAndInspect([source])
+        let id = try XCTUnwrap(store.selectedJobID)
+        await store.createCopy(jobID: id)
+
+        await store.replaceOriginal(jobID: id)
+
+        let job = try XCTUnwrap(store.selectedJob)
+        XCTAssertNil(store.issue)
+        XCTAssertEqual(job.replacement?.backupURL.lastPathComponent, "draft.txt.bak")
+        XCTAssertEqual(try String(contentsOf: source, encoding: .utf8), "cleaned")
+        XCTAssertEqual(job.queueLabel, "Original replaced")
+        XCTAssertFalse(store.canCreateCopy(job))
+        XCTAssertFalse(store.canReplaceOriginal(job))
+        let inspectionsBefore = await engine.allInspectedSourceNames()
+        await store.inspect(jobID: id)
+        await store.replaceAllOriginals()
+        let inspectionsAfter = await engine.allInspectedSourceNames()
+        XCTAssertEqual(inspectionsAfter, inspectionsBefore)
+        XCTAssertEqual(try String(contentsOf: source.appendingPathExtension("bak"), encoding: .utf8), "original\u{200B}")
+    }
+
+    @MainActor
+    func testReplaceRefusesWhenTheOriginalChangedAfterTheCopy() async throws {
+        let fixture = try TemporaryFixture()
+        defer { fixture.remove() }
+        let source = try fixture.write("draft.txt", contents: "original\u{200B}")
+        let store = AppStore(engine: RecordingEngine(), preferences: try makePreferences(), stagingRoot: fixture.root.appendingPathComponent("stage"))
+        await store.addAndInspect([source])
+        let id = try XCTUnwrap(store.selectedJobID)
+        await store.createCopy(jobID: id)
+        try Data("edited after the copy was made".utf8).write(to: source)
+
+        await store.replaceOriginal(jobID: id)
+
+        XCTAssertEqual(store.issue?.message, FileExportError.originalChanged.errorDescription)
+        XCTAssertNil(store.selectedJob?.replacement)
+        XCTAssertEqual(try String(contentsOf: source, encoding: .utf8), "edited after the copy was made")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: source.appendingPathExtension("bak").path))
+    }
+
+    @MainActor
+    func testCreateCopyRechecksAnOriginalThatChangedSinceItWasChecked() async throws {
+        let fixture = try TemporaryFixture()
+        defer { fixture.remove() }
+        let source = try fixture.write("draft.txt", contents: "original\u{200B}")
+        let engine = RecordingEngine()
+        let store = AppStore(engine: engine, preferences: try makePreferences(), stagingRoot: fixture.root.appendingPathComponent("stage"))
+        await store.addAndInspect([source])
+        let id = try XCTUnwrap(store.selectedJobID)
+        try Data("a longer, edited original\u{200B}".utf8).write(to: source)
+
+        await store.createCopy(jobID: id)
+
+        let inspected = await engine.inspectedSourceNames()
+        XCTAssertEqual(inspected, ["draft.txt", "draft.txt"], "the original is checked again before building")
+        XCTAssertEqual(store.selectedJob?.inspectedFingerprint, FileFingerprint(url: source))
+        XCTAssertEqual(store.selectedJob?.copySourceFingerprint, FileFingerprint(url: source))
+    }
+
+    @MainActor
+    func testCreateAllCopiesBuildsOnlyMissingOutdatedOrChangedCopies() async throws {
+        let fixture = try TemporaryFixture()
+        defer { fixture.remove() }
+        let urls = try ["current.txt", "missing.txt", "outdated.txt", "changed.txt"].map { try fixture.write($0, contents: "t\u{200B}") }
+        let engine = RecordingEngine()
+        let store = AppStore(engine: engine, preferences: try makePreferences(), stagingRoot: fixture.root.appendingPathComponent("stage"))
+        await store.addAndInspect(urls)
+        let ids = store.jobs.map(\.id)
+        for index in [0, 2, 3] { await store.createCopy(jobID: ids[index]) }
+        store.updatePlan(for: ids[2]) { $0.propertyEdits = ["title": "x"] }
+        try Data("changed on disk".utf8).write(to: urls[3])
+        let cleansBefore = await engine.cleanedSourceNames().count
+
+        await store.createAllCopies()
+
+        let cleaned = await engine.cleanedSourceNames()
+        XCTAssertFalse(cleaned.dropFirst(cleansBefore).contains("current.txt"))
+        XCTAssertTrue(cleaned.dropFirst(cleansBefore).contains("missing.txt"))
+        XCTAssertTrue(cleaned.dropFirst(cleansBefore).contains("outdated.txt"))
+        XCTAssertTrue(cleaned.dropFirst(cleansBefore).contains("changed.txt"))
+    }
+
+    @MainActor
+    func testReplaceAsksForTheFolderWhenTheBackupIsRefusedThenRetries() async throws {
+        let fixture = try TemporaryFixture()
+        let folder = fixture.root.appendingPathComponent("originals", isDirectory: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer {
+            try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: folder.path)
+            fixture.remove()
+        }
+        let source = folder.appendingPathComponent("draft.txt")
+        try Data("original\u{200B}".utf8).write(to: source)
+        var requested: [URL] = []
+        let store = AppStore(
+            engine: RecordingEngine(), preferences: try makePreferences(),
+            stagingRoot: fixture.root.appendingPathComponent("stage"),
+            requestFolderAccess: { folder in
+                requested.append(folder)
+                // Granting access is what makes the folder writable.
+                try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: folder.path)
+                return folder
+            }
+        )
+        await store.addAndInspect([source])
+        let id = try XCTUnwrap(store.selectedJobID)
+        await store.createCopy(jobID: id)
+        // Like the sandbox: the file can be replaced, but no new file can be created beside it.
+        try FileManager.default.setAttributes([.posixPermissions: 0o555], ofItemAtPath: folder.path)
+
+        await store.replaceOriginal(jobID: id)
+
+        XCTAssertEqual(requested.map(\.lastPathComponent), ["originals"])
+        XCTAssertNil(store.issue)
+        XCTAssertNotNil(store.selectedJob?.replacement)
+        XCTAssertEqual(try String(contentsOf: source.appendingPathExtension("bak"), encoding: .utf8), "original\u{200B}")
+    }
+
+    @MainActor
+    func testDecliningFolderAccessLeavesOriginalsAloneAndAsksOncePerBatch() async throws {
+        let fixture = try TemporaryFixture()
+        let folder = fixture.root.appendingPathComponent("originals", isDirectory: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer {
+            try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: folder.path)
+            fixture.remove()
+        }
+        let sources = try ["one.txt", "two.txt"].map { name -> URL in
+            let url = folder.appendingPathComponent(name)
+            try Data("original\u{200B}".utf8).write(to: url)
+            return url
+        }
+        var prompts = 0
+        let store = AppStore(
+            engine: RecordingEngine(), preferences: try makePreferences(),
+            stagingRoot: fixture.root.appendingPathComponent("stage"),
+            requestFolderAccess: { _ in prompts += 1; return nil }
+        )
+        await store.addAndInspect(sources)
+        await store.createAllCopies()
+        try FileManager.default.setAttributes([.posixPermissions: 0o555], ofItemAtPath: folder.path)
+
+        await store.replaceAllOriginals()
+
+        XCTAssertEqual(prompts, 1)
+        XCTAssertTrue(store.jobs.allSatisfy { $0.replacement == nil })
+        XCTAssertEqual(store.issue?.title, "Replaced 0 originals")
+        XCTAssertTrue(store.issue?.message.contains(FileExportError.folderAccessDeclined(folder).errorDescription!) == true)
+        for source in sources {
+            XCTAssertEqual(try String(contentsOf: source, encoding: .utf8), "original\u{200B}")
+            XCTAssertFalse(FileManager.default.fileExists(atPath: source.appendingPathExtension("bak").path))
+        }
+    }
+
+    @MainActor
     private func makePreferences() throws -> AppPreferences {
         let suiteName = "ProvenanceCleanerStoreTests.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))

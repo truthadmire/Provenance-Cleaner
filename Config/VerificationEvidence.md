@@ -4,6 +4,39 @@ This evidence separates the current development checks from the original
 0.1.0 release-candidate checks. Neither section claims the complete acceptance
 matrix.
 
+### Save and replace path (development, unreleased) — 2026-10-18
+
+- Save copy writes exactly the save-panel URL (it used to write `stem 2.ext` after
+  the panel had confirmed an overwrite). Temporary files go in the system's
+  item-replacement folder, not beside the user's file.
+- Replace prepares the copy before writing `.bak`, removes its own `.bak` when
+  the original survives a failed replace, refuses when the original changed
+  after the copy was made, and removes only `kMDItemWhereFroms` from the result.
+  Tags, custom attributes and permissions are kept (unit-tested).
+- Save/replace records live outside the copy's status. A replaced file can't be
+  re-checked, rebuilt or replaced again. Save all and Replace originals skip
+  outdated, already-saved and already-replaced files and report counts.
+  Create all copies rebuilds only missing, outdated, failed or changed copies.
+  Creating a copy re-checks an original that changed since it was checked.
+- 65 Swift unit tests passed (10 new). Native check in the unsandboxed DebugTests
+  build on a scratch fixture: replace produced the `.bak`, the cleaned file lost
+  its download-source attribute, the backup kept it, and the UI showed the
+  locked "Original replaced" state.
+- Sandboxed Debug build, file dragged in from Finder (a per-file grant like the
+  Open panel's): Replace original FAILED before this change with "you don't have
+  permission to access" the folder. The original was untouched and no `.bak` was
+  left. Replace now catches the permission error, asks once per folder with an
+  Open panel titled "Allow backups in this folder", and retries. Verified in the
+  sandbox: the prompt opens on the file's folder. After the folder was granted
+  (dropped onto the app), Replace succeeded: cleaned file in place, `.bak` with
+  the original bytes, "Original replaced" state. Clicking Allow in the prompt
+  itself wasn't automated, because the panel runs in a separate system process.
+- 67 Swift unit tests passed, including prompt-and-retry and decline-once-per-batch
+  tests that use a read-only folder to reproduce the denial.
+- Not verified: Save copy over an existing name in the sandbox (needs the save
+  panel); it now writes only the exact panel URL, using the system's
+  item-replacement folder for temporary data.
+
 ### Helper corrections to engine output (development, unreleased) — 2026-10-18
 
 - Fixed: cleaning DOCX/XLSX/PPTX corrupted `docProps/thumbnail.jpeg` (the pinned

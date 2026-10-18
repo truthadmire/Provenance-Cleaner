@@ -10,7 +10,6 @@ enum CleanerJobStatus: Equatable, Sendable {
     case readyToExport(residualCount: Int)
     case cleanedInspectionIncomplete
     case cancelled
-    case exported(URL)
     case unsupported(String)
     case failed(String)
 
@@ -28,7 +27,6 @@ enum CleanerJobStatus: Equatable, Sendable {
             residualCount > 0 ? "Copy ready · \(residualCount) remain\(residualCount == 1 ? "s" : "")" : "Copy ready"
         case .cleanedInspectionIncomplete: "Copy ready · check incomplete"
         case .cancelled: "Stopped"
-        case let .exported(url): "Saved as \(url.lastPathComponent)"
         case .unsupported: "Not supported"
         case .failed: "Failed"
         }
@@ -38,7 +36,7 @@ enum CleanerJobStatus: Equatable, Sendable {
         switch self {
         case .queued, .cancelled, .unsupported: .neutral
         case .inspecting, .cleaning: .progress
-        case .inspectedClean, .exported: .success
+        case .inspectedClean: .success
         case let .readyToExport(residualCount): residualCount > 0 ? .warning : .success
         case .findings, .inspectionIncomplete, .cleanedInspectionIncomplete: .warning
         case .failed: .danger
@@ -49,7 +47,7 @@ enum CleanerJobStatus: Equatable, Sendable {
     var canClean: Bool {
         switch self {
         case .inspectedClean, .findings, .inspectionIncomplete, .readyToExport,
-             .cleanedInspectionIncomplete, .cancelled, .exported, .failed:
+             .cleanedInspectionIncomplete, .cancelled, .failed:
             true
         default:
             false
@@ -140,6 +138,16 @@ struct CleanerJob: Identifiable, Equatable, Sendable {
     var activeStep: BuildStepKind?
     /// Increments each time a new copy replaces the previous one.
     var resultRevision = 0
+    /// Where the current copy has been saved. Kept apart from `status` so a
+    /// re-check or a failure never erases it, and it never hides a warning.
+    var savedCopies: [URL] = []
+    /// Set once the original has been replaced by a copy. From then on the
+    /// file at `sourceURL` is the cleaned copy, not the original.
+    var replacement: ReplacementResult?
+    /// The original as it was when it was last inspected.
+    var inspectedFingerprint: FileFingerprint?
+    /// The original as it was when the current copy was built from it.
+    var copySourceFingerprint: FileFingerprint?
 
     init(id: UUID = UUID(), sourceURL: URL) {
         self.id = id
@@ -171,6 +179,25 @@ struct CleanerJob: Identifiable, Equatable, Sendable {
 
     var canExport: Bool {
         stagedOutputURL != nil
+    }
+
+    var isReplaced: Bool { replacement != nil }
+    var isSaved: Bool { !savedCopies.isEmpty }
+
+    /// Short label for the queue sidebar, including save state.
+    var queueLabel: String {
+        if isReplaced { return "Original replaced" }
+        guard isSaved, !status.isBusy else { return status.label }
+        switch status {
+        case let .readyToExport(remaining) where remaining > 0:
+            return "Saved · \(remaining) remain\(remaining == 1 ? "s" : "")"
+        case .cleanedInspectionIncomplete:
+            return "Saved · check incomplete"
+        case .readyToExport:
+            return "Saved"
+        default:
+            return status.label
+        }
     }
 
     /// The current copy no longer matches the choices on the Changes tab.

@@ -32,8 +32,12 @@ struct ReviewTabView: View {
                 if let report = job.postCleanInspection, report.raw["c2pa"] != nil {
                     ContentCredentialsCard(report: report, subtitle: "In your copy, checked offline")
                 }
-                previewCard(title: "Compare", subtitle: "Original and your copy, side by side")
-                saveCard
+                if let replacement = job.replacement {
+                    replacedCard(replacement)
+                } else {
+                    previewCard(title: "Compare", subtitle: "Original and your copy, side by side")
+                    saveCard
+                }
             }
         }
     }
@@ -109,22 +113,67 @@ struct ReviewTabView: View {
     }
 
     private var saveCard: some View {
-        VStack(alignment: .leading, spacing: Clay.space3) {
+        let outdated = store.copyNeedsUpdate(job)
+        return VStack(alignment: .leading, spacing: Clay.space3) {
             ClayCardHeader(
                 title: "Save",
-                subtitle: "Saving makes a new file named \(SupportedFileTypes.cleanedFilename(for: job.sourceURL)). Replacing the original keeps the old version as \(job.displayName).bak."
+                subtitle: "Save copy suggests the name \(SupportedFileTypes.cleanedFilename(for: job.sourceURL)). Replacing the original keeps the old version as \(job.displayName).bak, next to it."
             )
+            if outdated {
+                Label("Update the copy before saving it or replacing the original.", systemImage: "exclamationmark.triangle")
+                    .font(Clay.caption)
+                    .foregroundStyle(Clay.warning)
+            }
             HStack(spacing: Clay.space2) {
-                Button("Save copy…", action: onSaveCopy)
+                Button(job.isSaved ? "Save again…" : "Save copy…", action: onSaveCopy)
                     .buttonStyle(.claySecondary)
+                    .disabled(!store.canSaveCopy(job) || store.isBusy)
                     .accessibilityIdentifier("review.save")
                 Button("Replace original…", action: onReplaceOriginal)
                     .buttonStyle(.clayDestructive)
+                    .disabled(!store.canReplaceOriginal(job) || store.isBusy)
                     .accessibilityIdentifier("review.replace")
             }
-            .disabled(store.isBusy)
+            if !job.savedCopies.isEmpty {
+                VStack(alignment: .leading, spacing: Clay.space1) {
+                    ForEach(job.savedCopies, id: \.self) { url in
+                        Button {
+                            FilePanelService.reveal(url)
+                        } label: {
+                            Label("Saved as \(url.lastPathComponent)", systemImage: "checkmark")
+                        }
+                        .buttonStyle(ClayLinkButtonStyle())
+                        .help(url.path)
+                    }
+                }
+            }
         }
         .clayCard()
+    }
+
+    private func replacedCard(_ replacement: ReplacementResult) -> some View {
+        VStack(alignment: .leading, spacing: Clay.space3) {
+            ClayCardHeader(
+                title: "Original replaced",
+                subtitle: "\(job.displayName) now contains this copy. The previous version is \(replacement.backupURL.lastPathComponent), next to it."
+            )
+            if replacement.removedDownloadSource {
+                Text("The original's download-source record (Finder's \"Where from\") was not carried over. Tags, comments and permissions were kept.")
+                    .font(Clay.caption)
+                    .foregroundStyle(Clay.inkMuted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Text("Checking and rebuilding are turned off for this file, because the file on disk is now the copy. To work from the previous version, add \(replacement.backupURL.lastPathComponent) after renaming it back.")
+                .font(Clay.caption)
+                .foregroundStyle(Clay.inkMuted)
+                .fixedSize(horizontal: false, vertical: true)
+            Button("Show backup in Finder") {
+                FilePanelService.reveal(replacement.backupURL)
+            }
+            .buttonStyle(.claySecondary)
+        }
+        .clayCard()
+        .accessibilityIdentifier("review.replaced")
     }
 
     static func mergedReasons(_ reports: WatermarkReport?...) -> [String] {

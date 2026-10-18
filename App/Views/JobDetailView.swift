@@ -105,15 +105,26 @@ struct JobDetailView: View {
             Spacer(minLength: Clay.space4)
 
             HStack(spacing: Clay.space2) {
-                Button(action: inspect) {
-                    Label("Check again", systemImage: "arrow.clockwise")
-                }
-                .buttonStyle(ClayButtonStyle(kind: .secondary, isLarge: true))
-                .disabled(job.status.isBusy || store.isBusy || job.kind == .unknown)
-                .help("Check the original again, and the copy if there is one")
-                .accessibilityIdentifier("detail.inspect")
+                if let replacement = job.replacement {
+                    Button {
+                        FilePanelService.reveal(replacement.backupURL)
+                    } label: {
+                        Label("Show backup", systemImage: "folder")
+                    }
+                    .buttonStyle(ClayButtonStyle(kind: .secondary, isLarge: true))
+                    .help("Show \(replacement.backupURL.lastPathComponent) in Finder")
+                    .accessibilityIdentifier("detail.show-backup")
+                } else {
+                    Button(action: inspect) {
+                        Label("Check again", systemImage: "arrow.clockwise")
+                    }
+                    .buttonStyle(ClayButtonStyle(kind: .secondary, isLarge: true))
+                    .disabled(job.status.isBusy || store.isBusy || job.kind == .unknown)
+                    .help("Check the original again, and the copy if there is one")
+                    .accessibilityIdentifier("detail.inspect")
 
-                primaryAction
+                    primaryAction
+                }
             }
             .fixedSize()
         }
@@ -131,7 +142,7 @@ struct JobDetailView: View {
             .buttonStyle(ClayButtonStyle(kind: .primary, isLarge: true))
             .disabled(true)
         } else if job.canExport, !store.copyNeedsUpdate(job) {
-            Button("Save copy…", action: onSaveCopy)
+            Button(job.isSaved ? "Save again…" : "Save copy…", action: onSaveCopy)
                 .buttonStyle(ClayButtonStyle(kind: .primary, isLarge: true))
                 .disabled(store.isBusy)
                 .help("Save the reviewed copy as a new file. The original isn't changed.")
@@ -181,8 +192,10 @@ struct JobDetailView: View {
     }
 
     private func revealSaved() {
-        if case let .exported(url) = job.status {
-            FilePanelService.reveal(url)
+        if let backup = job.replacement?.backupURL {
+            FilePanelService.reveal(backup)
+        } else if let saved = job.savedCopies.last {
+            FilePanelService.reveal(saved)
         }
     }
 }
@@ -202,7 +215,7 @@ struct JobVerdictBanner: View {
             message: verdict.message,
             showsProgress: job.status.isBusy
         ) {
-            if case .exported = job.status {
+            if !job.status.isBusy, job.isSaved || job.isReplaced {
                 Button("Show in Finder", action: onReveal)
                     .buttonStyle(ClayLinkButtonStyle())
             }
@@ -216,6 +229,29 @@ struct JobVerdict {
     let message: String?
 
     init(job: CleanerJob) {
+        let base = Self(status: job)
+        guard !job.status.isBusy else {
+            self = base
+            return
+        }
+        // A save or replace never hides a warning about the copy itself.
+        let caution = base.tone == .warning ? " Note: \(base.title.prefix(1).lowercased() + base.title.dropFirst())." : ""
+        if let replacement = job.replacement {
+            tone = base.tone == .warning ? .warning : .success
+            title = "Original replaced"
+            message = "The previous version is \(replacement.backupURL.lastPathComponent)."
+                + (replacement.removedDownloadSource ? " Its download-source record was not carried over." : "")
+                + caution
+        } else if let saved = job.savedCopies.last {
+            tone = base.tone == .warning ? .warning : .success
+            title = "Saved as \(saved.lastPathComponent)"
+            message = "The original is unchanged." + caution
+        } else {
+            self = base
+        }
+    }
+
+    private init(status job: CleanerJob) {
         let hasCopy = job.stagedOutputURL != nil
         switch job.status {
         case .queued:
@@ -278,18 +314,6 @@ struct JobVerdict {
                 Self.reasonSentence(ReviewTabView.mergedReasons(job.postCleanInspection, job.cleanReport))
                     ?? "Review the copy carefully before you save it."
             )
-        case let .exported(url):
-            if url.standardizedFileURL == job.sourceURL.standardizedFileURL {
-                (tone, title, message) = (
-                    .success, "Original replaced",
-                    "The previous version was kept as \(url.lastPathComponent).bak."
-                )
-            } else {
-                (tone, title, message) = (
-                    .success, "Saved as \(url.lastPathComponent)",
-                    "The original is unchanged."
-                )
-            }
         }
     }
 
