@@ -241,6 +241,7 @@ struct JobVerdict {
             title = "Original replaced"
             message = "The previous version is \(replacement.backupURL.lastPathComponent)."
                 + (replacement.removedDownloadSource ? " Its download-source record was not carried over." : "")
+                + (replacement.downloadSource.isEmpty ? "" : " Its download source is now the one you set.")
                 + caution
         } else if let saved = job.savedCopies.last {
             tone = base.tone == .warning ? .warning : .success

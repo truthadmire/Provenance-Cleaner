@@ -162,6 +162,12 @@ struct ReviewTabView: View {
                     .font(Clay.caption)
                     .foregroundStyle(Clay.inkMuted)
                     .fixedSize(horizontal: false, vertical: true)
+            } else if !replacement.downloadSource.isEmpty {
+                Text("Finder's \"Where from\" now shows \(replacement.downloadSource.joined(separator: ", ")). Tags, comments and permissions were kept.")
+                    .font(Clay.caption)
+                    .foregroundStyle(Clay.inkMuted)
+                    .textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             Text("Checking and rebuilding are turned off for this file, because the file on disk is now the copy. To work from the previous version, add \(replacement.backupURL.lastPathComponent) after renaming it back.")
                 .font(Clay.caption)

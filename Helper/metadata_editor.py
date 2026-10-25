@@ -15,10 +15,18 @@ OFFICE = {".docx", ".xlsx", ".pptx"}
 IMAGES = {".jpg", ".jpeg", ".png", ".tif", ".tiff", ".webp"}
 CP = "http://schemas.openxmlformats.org/package/2006/metadata/core-properties"
 DC = "http://purl.org/dc/elements/1.1/"
+EP = "http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"
 FIELDS = {"author": ("Author", DC, "creator"), "title": ("Title", DC, "title"),
           "subject": ("Subject", DC, "subject"), "description": ("Description", DC, "description"),
           "keywords": ("Keywords", CP, "keywords"), "lastModifiedBy": ("Last saved by", CP, "lastModifiedBy"),
-          "copyright": ("Copyright", DC, "rights")}
+          "copyright": ("Copyright", DC, "rights"), "revision": ("Revision number", CP, "revision"),
+          "totalTime": ("Total editing time (minutes)", EP, "TotalTime")}
+# Office stores the save count and the editing minutes as whole numbers;
+# TotalTime is an xsd:int in docProps/app.xml.
+NUMERIC = {"revision", "totalTime"}
+INT_MAX = 2**31 - 1
+_TOTAL_TIME = re.compile(rb"<(?:([A-Za-z_][\w.-]*):)?TotalTime\b[^>]*?(?:/>|>[^<]*</(?:[A-Za-z_][\w.-]*:)?TotalTime\s*>)")
+_PROPERTIES_END = re.compile(rb"</(?:([A-Za-z_][\w.-]*):)?Properties\s*>\s*$")
 TAGS = {"author": ["XMP-dc:Creator"], "title": ["XMP-dc:Title"], "subject": ["XMP-dc:Subject"],
         "description": ["XMP-dc:Description"], "keywords": ["XMP-pdf:Keywords"], "copyright": ["XMP-dc:Rights"]}
 
@@ -30,10 +38,12 @@ class MetadataError(ValueError):
 def validate_options(value):
     if not isinstance(value, dict) or not value or set(value) - FIELDS.keys():
         raise MetadataError("Choose at least one supported metadata field.")
-    for text in value.values():
+    for key, text in value.items():
         if not isinstance(text, str) or len(text) > 4096 or any(ord(c) < 32 and c not in "\n\t" for c in text):
             raise MetadataError("Metadata must be text of at most 4,096 characters without control characters.")
-    return value
+        if key in NUMERIC and text and not (text.isascii() and text.isdigit() and int(text) <= INT_MAX):
+            raise MetadataError(f"{FIELDS[key][0]} must be a whole number from 0 to 2,147,483,647.")
+    return {key: str(int(text)) if key in NUMERIC and text else text for key, text in value.items()}
 
 
 def _xml(raw):
@@ -62,6 +72,51 @@ def _office(data):
             return parts, root, signed, archive.comment
     except (zipfile.BadZipFile, RuntimeError, NotImplementedError) as exc:
         raise MetadataError("Office package is damaged, encrypted or unsupported.") from exc
+
+
+def _app(parts):
+    """The extended-properties part and its root, or (None, None) if unusable."""
+    raw = next((raw for info, raw in parts if info.filename == "docProps/app.xml"), None)
+    if raw is None:
+        return None, None
+    try:
+        root = _xml(raw)
+    except MetadataError:
+        return None, None
+    return (raw, root) if root.tag == f"{{{EP}}}Properties" else (None, None)
+
+
+def _without_total_time(root):
+    root = ET.fromstring(ET.tostring(root))
+    for node in root.findall(f"{{{EP}}}TotalTime"):
+        root.remove(node)
+    return ET.tostring(root)
+
+
+def _rewrite_total_time(raw, root, value):
+    # Edit the one element in place: Word's app.xml mixes a default namespace
+    # with unqualified attributes, which ElementTree can't serialize back.
+    matches = list(_TOTAL_TIME.finditer(raw))
+    pieces, position = [], 0
+    for index, match in enumerate(matches):
+        pieces.append(raw[position:match.start()])
+        if value and index == 0:
+            prefix = (match.group(1) + b":") if match.group(1) else b""
+            pieces.append(b"<%sTotalTime>%s</%sTotalTime>" % (prefix, value.encode(), prefix))
+        position = match.end()
+    pieces.append(raw[position:])
+    updated = b"".join(pieces)
+    if value and not matches:
+        end = _PROPERTIES_END.search(updated)
+        if end is None:
+            raise MetadataError("This document's application properties can't be edited.")
+        prefix = (end.group(1) + b":") if end.group(1) else b""
+        updated = updated[:end.start()] + b"<%sTotalTime>%s</%sTotalTime>" % (prefix, value.encode(), prefix) + updated[end.start():]
+    after = _xml(updated)
+    values = [(n.text or "").strip() for n in after.findall(f"{{{EP}}}TotalTime")]
+    if values != ([value] if value else []) or _without_total_time(after) != _without_total_time(root):
+        raise MetadataError("Total editing time verification failed; no result was saved.")
+    return updated
 
 
 def _tags(ext):
@@ -106,9 +161,15 @@ def inspect(path, data=None):
     ext = path.suffix.lower()
     try:
         if ext in OFFICE:
-            _, root, signed, _ = _office(data if data is not None else path.read_bytes())
-            fields = [{"id": key, "label": label, "value": "; ".join(n.text or "" for n in root.findall(f"{{{ns}}}{tag}"))}
-                      for key, (label, ns, tag) in FIELDS.items() if key != "copyright"]
+            parts, root, signed, _ = _office(data if data is not None else path.read_bytes())
+            _, app = _app(parts)
+            fields = []
+            for key, (label, ns, tag) in FIELDS.items():
+                source = app if ns == EP else root
+                if key == "copyright" or source is None:
+                    continue
+                values = [(n.text or "").strip() if key in NUMERIC else n.text or "" for n in source.findall(f"{{{ns}}}{tag}")]
+                fields.append({"id": key, "label": label, "value": "; ".join(values)})
             return {"available": True, "editable": not signed, "fields": fields,
                     "note": "Digitally signed Office packages cannot be edited." if signed else "Document properties only. Comment and revision author names are separate and stay unchanged."}
         if ext not in IMAGES | {".pdf"}:
@@ -132,37 +193,47 @@ def rewrite(data, ext, edits):
             raise MetadataError("This Office package is digitally signed. Use an unsigned copy to edit properties.")
         if "copyright" in edits:
             raise MetadataError("Copyright is not an editable Office core property.")
-        for key, text in edits.items():
-            _, ns, tag = FIELDS[key]
-            expanded = f"{{{ns}}}{tag}"
-            nodes = root.findall(expanded)
-            for node in nodes:
-                root.remove(node)
-            if text:
-                ET.SubElement(root, expanded).text = text
-        original_core = next(raw for info, raw in parts if info.filename == "docProps/core.xml")
-        namespaces = dict(value for _, value in ET.iterparse(io.BytesIO(original_core), events=("start-ns",)))
-        for prefix, uri in namespaces.items():
-            if not re.fullmatch(r"ns\d+", prefix):
-                ET.register_namespace(prefix, uri)
-        encoded = ET.tostring(root, encoding="utf-8", xml_declaration=True)
-        # Preserve prefixes used only inside QName attribute values (e.g.
-        # xsi:type="dcterms:W3CDTF"), which ElementTree cannot track itself.
-        for prefix, uri in namespaces.items():
-            declaration = "xmlns" + (":" + prefix if prefix else "")
-            if (declaration + "=").encode() not in encoded:
-                root.set(declaration, uri)
-        encoded = ET.tostring(root, encoding="utf-8", xml_declaration=True)
-        _xml(encoded)
+        replacements = {}
+        core_edits = {key: text for key, text in edits.items() if FIELDS[key][1] != EP}
+        if core_edits:
+            for key, text in core_edits.items():
+                _, ns, tag = FIELDS[key]
+                expanded = f"{{{ns}}}{tag}"
+                nodes = root.findall(expanded)
+                for node in nodes:
+                    root.remove(node)
+                if text:
+                    ET.SubElement(root, expanded).text = text
+            original_core = next(raw for info, raw in parts if info.filename == "docProps/core.xml")
+            namespaces = dict(value for _, value in ET.iterparse(io.BytesIO(original_core), events=("start-ns",)))
+            for prefix, uri in namespaces.items():
+                if not re.fullmatch(r"ns\d+", prefix):
+                    ET.register_namespace(prefix, uri)
+            encoded = ET.tostring(root, encoding="utf-8", xml_declaration=True)
+            # Preserve prefixes used only inside QName attribute values (e.g.
+            # xsi:type="dcterms:W3CDTF"), which ElementTree cannot track itself.
+            for prefix, uri in namespaces.items():
+                declaration = "xmlns" + (":" + prefix if prefix else "")
+                if (declaration + "=").encode() not in encoded:
+                    root.set(declaration, uri)
+            encoded = ET.tostring(root, encoding="utf-8", xml_declaration=True)
+            _xml(encoded)
+            replacements["docProps/core.xml"] = encoded
+        if "totalTime" in edits:
+            app_raw, app = _app(parts)
+            if app is not None:
+                replacements["docProps/app.xml"] = _rewrite_total_time(app_raw, app, edits["totalTime"])
+            elif edits["totalTime"]:
+                raise MetadataError("This document has no application properties part, so its total editing time can't be set.")
         output = io.BytesIO()
         with zipfile.ZipFile(output, "w") as archive:
             archive.comment = comment
             for info, raw in parts:
-                archive.writestr(info, encoded if info.filename == "docProps/core.xml" else raw)
+                archive.writestr(info, replacements.get(info.filename, raw))
         cleaned = output.getvalue()
         after = inspect(Path("result" + ext), cleaned)
         actual = {f["id"]: f["value"] for f in after["fields"]}
-        if any(actual.get(key) != value for key, value in edits.items()):
+        if any(actual.get(key, "") != value for key, value in edits.items()):
             raise MetadataError("Document property verification failed; no result was saved.")
         return cleaned
     if ext not in IMAGES | {".pdf"} or set(edits) - _tags(ext).keys():

@@ -47,13 +47,12 @@ struct ReplacementResult: Equatable, Sendable {
     /// The original's download-source attribute was carried over by the
     /// replace and has been removed again.
     let removedDownloadSource: Bool
+    /// The download source the replaced file now records: the copy's, when
+    /// the copy was given one.
+    var downloadSource: [String] = []
 }
 
 actor SafeFileExporter {
-    /// Finder's record of where a file was downloaded from. A replace would
-    /// otherwise carry it from the original onto the cleaned file.
-    static let downloadSourceAttribute = "com.apple.metadata:kMDItemWhereFroms"
-
     private let fileManager: FileManager
 
     init(fileManager: FileManager = .default) {
@@ -123,9 +122,12 @@ actor SafeFileExporter {
             try? fileManager.removeItem(at: backupURL)
             throw error
         }
+        // Read before the replace: the copy's own download source, if any,
+        // replaces the original's instead of being dropped with it.
+        let copySource = DownloadSource.read(at: stagedURL)
         do {
             // Default options keep the original's permissions, dates, tags
-            // and comments; only the download source is removed below.
+            // and comments; only the download source is changed below.
             _ = try fileManager.replaceItemAt(
                 originalURL,
                 withItemAt: temporaryURL,
@@ -144,11 +146,19 @@ actor SafeFileExporter {
             throw error
         }
 
-        let removed = originalURL.withUnsafeFileSystemRepresentation { path in
-            guard let path else { return false }
-            return removexattr(path, Self.downloadSourceAttribute, XATTR_NOFOLLOW) == 0
+        guard !copySource.isEmpty else {
+            let removed = DownloadSource.remove(from: originalURL)
+            return ReplacementResult(originalURL: originalURL, backupURL: backupURL, removedDownloadSource: removed)
         }
-        return ReplacementResult(originalURL: originalURL, backupURL: backupURL, removedDownloadSource: removed)
+        // The replace already succeeded, so a failure here is reported in the
+        // result rather than thrown.
+        try? DownloadSource.write(copySource, to: originalURL)
+        return ReplacementResult(
+            originalURL: originalURL,
+            backupURL: backupURL,
+            removedDownloadSource: false,
+            downloadSource: DownloadSource.read(at: originalURL)
+        )
     }
 
     private func preparedTemporaryCopy(of stagedURL: URL, appropriateFor destinationURL: URL) throws -> URL {

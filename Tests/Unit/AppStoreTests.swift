@@ -163,6 +163,81 @@ final class AppStoreTests: XCTestCase {
     }
 
     @MainActor
+    func testDownloadSourceIsSetLastOnACopyOfTheOriginal() async throws {
+        let fixture = try TemporaryFixture()
+        defer { fixture.remove() }
+        let source = try fixture.write("input.docx", contents: "original")
+        try DownloadSource.write(["https://generator.invalid/input.docx"], to: source)
+        let engine = RecordingEngine()
+        let store = AppStore(engine: engine, preferences: try makePreferences(), stagingRoot: fixture.root.appendingPathComponent("stage"))
+        await store.addAndInspect([source])
+        let id = try XCTUnwrap(store.selectedJobID)
+        XCTAssertEqual(store.selectedJob?.originalDownloadSource, ["https://generator.invalid/input.docx"])
+
+        // On its own, with blank and padded rows as typed.
+        store.updatePlan(for: id) {
+            $0.removeProvenance = false
+            $0.downloadSource = [" https://example.invalid/report.docx ", "", "https://example.invalid/"]
+        }
+        await store.createCopy(jobID: id)
+
+        let staged = try XCTUnwrap(store.selectedJob?.stagedOutputURL)
+        let names = await engine.cleanedSourceNames()
+        XCTAssertTrue(names.isEmpty, "no engine step is needed")
+        XCTAssertEqual(store.selectedJob?.buildSteps.map(\.kind), [.downloadSource])
+        XCTAssertEqual(try String(contentsOf: staged, encoding: .utf8), "original")
+        XCTAssertEqual(DownloadSource.read(at: staged), ["https://example.invalid/report.docx", "https://example.invalid/"])
+        XCTAssertEqual(DownloadSource.read(at: source), ["https://generator.invalid/input.docx"], "the original is untouched")
+        XCTAssertEqual(store.selectedJob?.status, .readyToExport(residualCount: 0))
+
+        // After the engine steps, from the original again.
+        store.updatePlan(for: id) { $0.removeProvenance = true }
+        XCTAssertTrue(store.copyNeedsUpdate(try XCTUnwrap(store.selectedJob)))
+        await store.createCopy(jobID: id)
+
+        let rebuilt = try XCTUnwrap(store.selectedJob?.stagedOutputURL)
+        let rebuiltNames = await engine.cleanedSourceNames()
+        XCTAssertEqual(rebuiltNames, ["input.docx"])
+        XCTAssertEqual(store.selectedJob?.buildSteps.map(\.kind), [.provenance, .downloadSource])
+        XCTAssertEqual(try String(contentsOf: rebuilt, encoding: .utf8), "cleaned")
+        XCTAssertEqual(DownloadSource.read(at: rebuilt), ["https://example.invalid/report.docx", "https://example.invalid/"])
+        let jobStage = fixture.root.appendingPathComponent("stage").appendingPathComponent(id.uuidString)
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: jobStage.path).count, 1)
+    }
+
+    @MainActor
+    func testInvalidDownloadSourceOrCountersCannotCreateCopy() async throws {
+        let fixture = try TemporaryFixture()
+        defer { fixture.remove() }
+        let source = try fixture.write("input.docx", contents: "original")
+        let store = AppStore(engine: RecordingEngine(), preferences: try makePreferences(), stagingRoot: fixture.root.appendingPathComponent("stage"))
+        await store.addAndInspect([source])
+        let id = try XCTUnwrap(store.selectedJobID)
+        func canCreate() throws -> Bool { store.canCreateCopy(try XCTUnwrap(store.selectedJob)) }
+
+        store.updatePlan(for: id) { $0.downloadSource = ["https://example.invalid/\u{0007}"] }
+        XCTAssertFalse(try canCreate())
+        store.updatePlan(for: id) { $0.downloadSource = Array(repeating: "https://example.invalid/", count: 9) }
+        XCTAssertFalse(try canCreate())
+        store.updatePlan(for: id) { $0.downloadSource = ["", "  "] }
+        XCTAssertTrue(try canCreate(), "blank rows are ignored")
+        XCTAssertEqual(store.buildSteps(for: try XCTUnwrap(store.selectedJob)).map(\.kind), [.provenance])
+
+        for bad in ["1.5", "-1", "12 ", "2147483648", "\u{0661}\u{0662}", "abc"] {
+            store.updatePlan(for: id) { $0.propertyEdits = ["totalTime": bad] }
+            XCTAssertFalse(try canCreate(), bad)
+            store.updatePlan(for: id) { $0.propertyEdits = ["revision": bad] }
+            XCTAssertFalse(try canCreate(), bad)
+        }
+        store.updatePlan(for: id) { $0.propertyEdits = ["revision": "007", "totalTime": "2147483647"] }
+        XCTAssertTrue(try canCreate())
+        store.updatePlan(for: id) { $0.propertyEdits = ["revision": "", "totalTime": ""] }
+        XCTAssertTrue(try canCreate(), "an empty value removes the property")
+        store.updatePlan(for: id) { $0.propertyEdits = ["title": "1.5"] }
+        XCTAssertTrue(try canCreate(), "only the counters must be numbers")
+    }
+
+    @MainActor
     func testFailedPDFDeepPassKeepsOutputButShowsIncompleteStatus() async throws {
         let fixture = try TemporaryFixture()
         defer { fixture.remove() }

@@ -16,6 +16,30 @@ import metadata_editor as metadata
 from test_provenance_helper import HelperProcess, FIXTURES, _JPEG_1X1, _png_with_text
 from test_word_editing_traces import specimen
 
+# Shaped like Word's own app.xml: a default namespace plus unprefixed attributes.
+WORD_APP = (b'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n'
+            b'<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" '
+            b'xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"><Template>Normal.dotm</Template>'
+            b'<TotalTime>35</TotalTime><Pages>1</Pages><HeadingPairs><vt:vector size="2" baseType="variant"><vt:variant>'
+            b'<vt:lpstr>Title</vt:lpstr></vt:variant><vt:variant><vt:i4>1</vt:i4></vt:variant></vt:vector></HeadingPairs>'
+            b'<AppVersion>16.0000</AppVersion></Properties>')
+
+
+def with_part(data, name, raw):
+    """The package with one part replaced, or removed when raw is None."""
+    output = io.BytesIO()
+    with zipfile.ZipFile(io.BytesIO(data)) as source, zipfile.ZipFile(output, 'w') as archive:
+        for info in source.infolist():
+            if info.filename != name:
+                archive.writestr(info, source.read(info))
+            elif raw is not None:
+                archive.writestr(info, raw)
+    return output.getvalue()
+
+
+def office_values(ext, data):
+    return {f['id']: f['value'] for f in metadata.inspect(Path('result'+ext), data)['fields']}
+
 
 class MetadataCredentialTests(unittest.TestCase):
     def request(self, helper, path, operation='inspect', output=None, edits=None):
@@ -39,6 +63,58 @@ class MetadataCredentialTests(unittest.TestCase):
                 self.assertEqual(values['author'], '陈 & <Editor>')
                 self.assertEqual(values['title'], '测试标题')
                 self.assertEqual(values['lastModifiedBy'], '')
+
+    def test_office_revision_and_total_time_roundtrip_and_clear(self):
+        for ext in ('.docx', '.xlsx', '.pptx'):
+            with self.subTest(ext=ext):
+                source = specimen()
+                self.assertEqual(office_values(ext, source)['totalTime'], '35')
+                self.assertEqual(office_values(ext, source)['revision'], '')
+                output = metadata.rewrite(source, ext, {'revision': '007', 'totalTime': '1440'})
+                with zipfile.ZipFile(io.BytesIO(source)) as before, zipfile.ZipFile(io.BytesIO(output)) as after:
+                    self.assertEqual(before.namelist(), after.namelist())
+                    for name in before.namelist():
+                        if name not in ('docProps/core.xml', 'docProps/app.xml'):
+                            self.assertEqual(before.read(name), after.read(name))
+                    self.assertEqual(after.read('docProps/app.xml'),
+                                     before.read('docProps/app.xml').replace(b'<TotalTime>35</TotalTime>', b'<TotalTime>1440</TotalTime>'))
+                values = office_values(ext, output)
+                self.assertEqual((values['revision'], values['totalTime']), ('7', '1440'))
+                self.assertEqual(values['author'], 'Keep this author')
+                cleared = metadata.rewrite(output, ext, {'revision': '', 'totalTime': ''})
+                with zipfile.ZipFile(io.BytesIO(cleared)) as archive:
+                    self.assertNotIn(b'TotalTime', archive.read('docProps/app.xml'))
+                    self.assertNotIn(b'revision', archive.read('docProps/core.xml'))
+                values = office_values(ext, cleared)
+                self.assertEqual((values['revision'], values['totalTime']), ('', ''))
+
+    def test_word_app_properties_are_edited_in_place(self):
+        source = with_part(specimen(), 'docProps/app.xml', WORD_APP)
+        output = metadata.rewrite(source, '.docx', {'totalTime': '0'})
+        with zipfile.ZipFile(io.BytesIO(output)) as archive:
+            self.assertEqual(archive.read('docProps/app.xml'), WORD_APP.replace(b'>35<', b'>0<'))
+            self.assertEqual(archive.read('docProps/core.xml'), zipfile.ZipFile(io.BytesIO(source)).read('docProps/core.xml'))
+        missing = WORD_APP.replace(b'<TotalTime>35</TotalTime>', b'')
+        output = metadata.rewrite(with_part(specimen(), 'docProps/app.xml', missing), '.docx', {'totalTime': '12'})
+        end = missing.index(b'</Properties>')
+        with zipfile.ZipFile(io.BytesIO(output)) as archive:
+            self.assertEqual(archive.read('docProps/app.xml'), missing[:end] + b'<TotalTime>12</TotalTime>' + missing[end:])
+
+    def test_total_time_needs_application_properties(self):
+        source = with_part(specimen(), 'docProps/app.xml', None)
+        self.assertNotIn('totalTime', office_values('.docx', source))
+        self.assertIn('revision', office_values('.docx', source))
+        with self.assertRaises(metadata.MetadataError):
+            metadata.rewrite(source, '.docx', {'totalTime': '5'})
+
+    def test_revision_and_total_time_must_be_whole_numbers(self):
+        for key in ('revision', 'totalTime'):
+            for bad in ('abc', '-1', '1.5', ' 3', '1e3', '2147483648', '١٢'):
+                with self.subTest(key=key, value=bad), self.assertRaises(metadata.MetadataError):
+                    metadata.validate_options({key: bad})
+            self.assertEqual(metadata.validate_options({key: '2147483647'}), {key: '2147483647'})
+        with self.assertRaises(metadata.MetadataError):
+            metadata.rewrite(_JPEG_1X1, '.jpg', {'revision': '3'})
 
     def test_signed_office_is_readable_but_edit_refused(self):
         buffer = io.BytesIO(specimen())
@@ -68,7 +144,7 @@ class MetadataCredentialTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder, HelperProcess() as helper:
             source, output = Path(folder)/'original.docx', Path(folder)/'copy.docx'
             source.write_bytes(specimen()); output.write_bytes(b'keep')
-            for edits in ({'unknown': 'a'}, {'author': True}, {'author': '\0'}, {'author': 'x'*4097}, {}):
+            for edits in ({'unknown': 'a'}, {'author': True}, {'author': '\0'}, {'author': 'x'*4097}, {'totalTime': 'abc'}, {}):
                 result = self.request(helper, source, 'clean', output, edits)
                 self.assertFalse(result['ok'])
                 self.assertEqual(output.read_bytes(), b'keep')

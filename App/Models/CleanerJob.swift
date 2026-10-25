@@ -70,18 +70,41 @@ struct JobPlan: Equatable, Sendable {
     /// Desired values for the descriptive properties the user changed. An
     /// empty string removes that property.
     var propertyEdits: [String: String] = [:]
+    /// Finder's "Where from" for the copy, as edited. Empty means the copy
+    /// has no download source, which is also what happens without a plan.
+    var downloadSource: [String] = []
 
     var isEmpty: Bool {
-        !removeProvenance && !changeWordTraces && propertyEdits.isEmpty
+        !removeProvenance && !changeWordTraces && propertyEdits.isEmpty && downloadSourceEntries.isEmpty
     }
 
-    static func propertyValueIsValid(_ value: String) -> Bool {
-        value.unicodeScalars.count <= 4096
+    /// Office stores the revision number and the editing minutes as whole numbers.
+    static let numericPropertyIDs: Set<String> = ["revision", "totalTime"]
+
+    static func propertyValueIsValid(_ value: String, for id: String) -> Bool {
+        if numericPropertyIDs.contains(id) {
+            return value.isEmpty || (value.utf8.allSatisfy { (0x30...0x39).contains($0) }
+                && Int64(value).map { $0 <= Int64(Int32.max) } == true)
+        }
+        return value.unicodeScalars.count <= 4096
             && !value.unicodeScalars.contains { $0.value < 32 && $0 != "\n" && $0 != "\t" }
     }
 
     var propertyEditsAreValid: Bool {
-        propertyEdits.values.allSatisfy(Self.propertyValueIsValid)
+        propertyEdits.allSatisfy { Self.propertyValueIsValid($0.value, for: $0.key) }
+    }
+
+    /// The download-source entries to record, without blank rows.
+    var downloadSourceEntries: [String] {
+        downloadSource.map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+    }
+
+    var downloadSourceIsValid: Bool {
+        let entries = downloadSourceEntries
+        return entries.count <= DownloadSource.maximumEntries && entries.allSatisfy { entry in
+            entry.unicodeScalars.count <= DownloadSource.maximumEntryLength
+                && !entry.unicodeScalars.contains { $0.value < 32 || $0.value == 127 }
+        }
     }
 }
 
@@ -90,6 +113,9 @@ enum BuildStepKind: String, CaseIterable, Equatable, Sendable {
     case provenance
     case wordTraces
     case properties
+    /// Done in the app, not the engine: Finder's "Where from" is a file-system
+    /// attribute, not part of the file's contents.
+    case downloadSource
     case checking
 
     var title: String {
@@ -97,6 +123,7 @@ enum BuildStepKind: String, CaseIterable, Equatable, Sendable {
         case .provenance: "Remove provenance markers"
         case .wordTraces: "Change Word editing history"
         case .properties: "Update document properties"
+        case .downloadSource: "Set the download source"
         case .checking: "Check the copy"
         }
     }
@@ -106,6 +133,7 @@ enum BuildStepKind: String, CaseIterable, Equatable, Sendable {
         case .provenance: "Removing provenance markers…"
         case .wordTraces: "Changing Word editing history…"
         case .properties: "Updating document properties…"
+        case .downloadSource: "Setting the download source…"
         case .checking: "Checking the copy…"
         }
     }
@@ -146,6 +174,8 @@ struct CleanerJob: Identifiable, Equatable, Sendable {
     var replacement: ReplacementResult?
     /// The original as it was when it was last inspected.
     var inspectedFingerprint: FileFingerprint?
+    /// The original's Finder "Where from" when it was last inspected.
+    var originalDownloadSource: [String] = []
     /// The original as it was when the current copy was built from it.
     var copySourceFingerprint: FileFingerprint?
 

@@ -147,6 +147,7 @@ final class AppStore {
 
         do {
             let fingerprint = FileFingerprint(url: job.sourceURL)
+            let downloadSource = DownloadSource.read(at: job.sourceURL)
             let original = try await withTrackedRequest(for: jobID) { requestID in
                 try await engine.inspect(fileAt: job.sourceURL, requestID: requestID)
             }
@@ -154,6 +155,7 @@ final class AppStore {
                 current.kind = original.kind
                 current.inspection = original.report
                 current.inspectedFingerprint = fingerprint
+                current.originalDownloadSource = downloadSource
             }
             guard let stagedURL = job.stagedOutputURL else {
                 update(jobID) { $0.status = Self.inspectionStatus(kind: original.kind, report: original.report) }
@@ -223,6 +225,9 @@ final class AppStore {
             options.metadataEdits = job.plan.propertyEdits
             steps.append((.properties, options))
         }
+        if !job.plan.downloadSourceEntries.isEmpty {
+            steps.append((.downloadSource, .conservative))
+        }
         return steps
     }
 
@@ -257,7 +262,7 @@ final class AppStore {
 
     func canCreateCopy(_ job: CleanerJob) -> Bool {
         guard job.status.canClean, job.kind != .unknown, !job.isReplaced, job.plan.propertyEditsAreValid,
-              !buildSteps(for: job).isEmpty else { return false }
+              job.plan.downloadSourceIsValid, !buildSteps(for: job).isEmpty else { return false }
         if job.plan.changeWordTraces, job.isWordDocument, !preferences.wordDateRangeValid { return false }
         return true
     }
@@ -296,6 +301,19 @@ final class AppStore {
                 let outputURL = try makeStagingURL(for: job)
                 stagingDirectories.append(outputURL.deletingLastPathComponent())
                 let stepInputURL = inputURL
+                if step.kind == .downloadSource {
+                    let entries = plan.downloadSourceEntries
+                    try DownloadSource.makeCopy(of: stepInputURL, at: outputURL, entries: entries)
+                    let recorded = DownloadSource.read(at: outputURL)
+                    guard recorded == entries else {
+                        throw WatermarkEngineError.invalidResponse("The download source couldn't be verified on the copy.")
+                    }
+                    let actions = entries.map { JSONValue.string("Where from: \($0)") }
+                    let report = WatermarkReport(raw: .object(["changed": .bool(true), "actions": .array(actions)]))
+                    results.append(BuildStepResult(kind: step.kind, options: step.options, report: report))
+                    inputURL = outputURL
+                    continue
+                }
                 let result = try await withTrackedRequest(for: jobID) { requestID in
                     try await engine.clean(
                         fileAt: stepInputURL,

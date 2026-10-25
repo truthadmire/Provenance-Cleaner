@@ -29,6 +29,7 @@ struct ChangesTabView: View {
             if job.inspection?.raw["metadata"]?["available"]?.boolValue == true {
                 PropertiesCard(store: store, job: job, disabled: disabled)
             }
+            DownloadSourceCard(store: store, job: job, disabled: disabled)
             if job.isWordDocument {
                 WordTracesCard(store: store, job: job, disabled: disabled)
             }
@@ -155,6 +156,10 @@ private struct PropertiesCard: View {
     private var fields: [MetadataField] { metadata?["fields"]?.arrayValue?.compactMap(MetadataField.init) ?? [] }
     private var editable: Bool { metadata?["editable"]?.boolValue == true }
     private var edits: [String: String] { job.plan.propertyEdits }
+    private var invalidNumbers: [String] {
+        edits.filter { JobPlan.numericPropertyIDs.contains($0.key) && !JobPlan.propertyValueIsValid($0.value, for: $0.key) }
+            .keys.sorted().map { MetadataLabels.label(for: $0) }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: Clay.space4) {
@@ -201,7 +206,10 @@ private struct PropertiesCard: View {
             .disabled(disabled || !editable)
 
             if !job.plan.propertyEditsAreValid {
-                Label("Use at most 4,096 characters per field, without control characters.", systemImage: "exclamationmark.triangle")
+                Label(invalidNumbers.isEmpty
+                      ? "Use at most 4,096 characters per field, without control characters."
+                      : "\(ListFormatter.localizedString(byJoining: invalidNumbers)) must be a whole number.",
+                      systemImage: "exclamationmark.triangle")
                     .font(Clay.caption)
                     .foregroundStyle(Clay.danger)
             }
@@ -215,6 +223,9 @@ private struct PropertiesCard: View {
                 }
                 if job.isPDF {
                     Text("PDF properties are updated incrementally. Earlier values may still be recoverable, so this isn't a secure way to redact.")
+                }
+                if fields.contains(where: { JobPlan.numericPropertyIDs.contains($0.id) }) {
+                    Text("Revision number counts saves and total editing time counts minutes. Saving the copy in Office again can update both.")
                 }
                 if let note = metadata?["note"]?.stringValue {
                     Text(note)
@@ -251,6 +262,129 @@ private struct MetadataField: Identifiable {
         self.id = id
         self.label = label
         self.value = raw["value"]?.stringValue ?? ""
+    }
+}
+
+// MARK: - Download source
+
+/// Finder's "Where from" for the copy. Empty keeps today's behaviour: the
+/// copy has no download source.
+private struct DownloadSourceCard: View {
+    @Bindable var store: AppStore
+    let job: CleanerJob
+    let disabled: Bool
+
+    private var entries: [String] { job.plan.downloadSource }
+    private var original: [String] { job.originalDownloadSource }
+    /// Always at least one row, so there is somewhere to type.
+    private var rows: [String] { entries.isEmpty ? [""] : entries }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Clay.space4) {
+            ClayCardHeader(title: "Download source", subtitle: "Finder's “Where from”") {
+                HStack(spacing: Clay.space2) {
+                    if !original.isEmpty, job.plan.downloadSourceEntries != original {
+                        Button("Use the original's") {
+                            store.updatePlan(for: job.id) { $0.downloadSource = original }
+                        }
+                        .buttonStyle(.clayGhost)
+                        .accessibilityIdentifier("download-source.use-original")
+                    }
+                    if !entries.isEmpty {
+                        Button("Clear") {
+                            store.updatePlan(for: job.id) { $0.downloadSource = [] }
+                        }
+                        .buttonStyle(.clayGhost)
+                        .accessibilityIdentifier("download-source.clear")
+                    }
+                }
+                .disabled(disabled)
+            }
+
+            VStack(alignment: .leading, spacing: Clay.space1) {
+                Text(original.isEmpty ? "The original has no download source." : "The original shows:")
+                    .font(Clay.caption)
+                    .foregroundStyle(Clay.inkMuted)
+                ForEach(Array(original.enumerated()), id: \.offset) { _, entry in
+                    Text(entry)
+                        .font(Clay.body)
+                        .foregroundStyle(Clay.ink)
+                        .textSelection(.enabled)
+                        .lineLimit(2)
+                        .truncationMode(.middle)
+                }
+            }
+            .accessibilityIdentifier("download-source.original")
+
+            VStack(alignment: .leading, spacing: Clay.space2) {
+                Text("The copy will show")
+                    .font(Clay.label)
+                    .foregroundStyle(Clay.inkMuted)
+                ForEach(rows.indices, id: \.self) { index in
+                    HStack(spacing: Clay.space2) {
+                        ClayTextField(
+                            label: index == 0 ? "Download link" : "Entry \(index + 1)",
+                            text: binding(for: index),
+                            prompt: index == 0 ? "None" : "Page it came from"
+                        )
+                        .accessibilityIdentifier("download-source.entry.\(index)")
+                        if rows.count > 1 {
+                            Button {
+                                store.updatePlan(for: job.id) { plan in
+                                    plan.downloadSource.remove(at: index)
+                                    if plan.downloadSource.allSatisfy(\.isEmpty) { plan.downloadSource = [] }
+                                }
+                            } label: {
+                                Image(systemName: "minus.circle")
+                            }
+                            .buttonStyle(.clayGhost)
+                            .help("Remove this entry")
+                            .accessibilityLabel("Remove entry \(index + 1)")
+                        }
+                    }
+                }
+                if !entries.isEmpty, entries.count < DownloadSource.maximumEntries {
+                    Button {
+                        store.updatePlan(for: job.id) { $0.downloadSource.append("") }
+                    } label: {
+                        Label("Add entry", systemImage: "plus")
+                    }
+                    .buttonStyle(.clayGhost)
+                    .accessibilityIdentifier("download-source.add")
+                }
+            }
+            .disabled(disabled)
+
+            if !job.plan.downloadSourceIsValid {
+                Label("Use at most \(DownloadSource.maximumEntries) entries of up to 4,096 characters, without control characters.", systemImage: "exclamationmark.triangle")
+                    .font(Clay.caption)
+                    .foregroundStyle(Clay.danger)
+            }
+
+            VStack(alignment: .leading, spacing: Clay.space1) {
+                Text("Leave it empty and the copy has no download source. Browsers record the file's link first, then the page it was downloaded from.")
+                Text("This is a Finder attribute, not part of the file. It stays with the copy when you save it, and replaces the original's when you replace the original.")
+            }
+            .font(Clay.caption)
+            .foregroundStyle(Clay.inkMuted)
+            .fixedSize(horizontal: false, vertical: true)
+        }
+        .clayCard()
+        .accessibilityIdentifier("download-source.card")
+    }
+
+    private func binding(for index: Int) -> Binding<String> {
+        Binding(
+            get: { rows.indices.contains(index) ? rows[index] : "" },
+            set: { value in
+                store.updatePlan(for: job.id) { plan in
+                    var updated = plan.downloadSource.isEmpty ? [""] : plan.downloadSource
+                    guard updated.indices.contains(index) else { return }
+                    updated[index] = value
+                    plan.downloadSource = updated.allSatisfy(\.isEmpty) ? [] : updated
+                }
+            }
+        )
     }
 }
 
@@ -326,6 +460,7 @@ private struct WordTracesCard: View {
                         if inspection.count("datesWithoutTimezone") > 0 {
                             Text("\(inspection.count("datesWithoutTimezone")) dates have no time zone and are treated as UTC.")
                         }
+                        Text("Total editing time and revision number are under Document properties.")
                         Text("Text, formatting, comments, tracked changes and author names are preserved. Opening and saving the copy in Word can add new editing history.")
                     }
                     .font(Clay.caption)
@@ -430,6 +565,10 @@ private struct PlanSummaryCard: View {
             var text = labels.joined(separator: ", ")
             if removed > 0 { text += " (\(removed) removed)" }
             return text + "."
+        case .downloadSource:
+            let entries = job.plan.downloadSourceEntries
+            guard let first = entries.first else { return "" }
+            return entries.count > 1 ? "\(first), and \(entries.count - 1) more." : "\(first)."
         case .checking:
             return ""
         }
@@ -441,6 +580,7 @@ enum MetadataLabels {
         [
             "author": "Author", "title": "Title", "subject": "Subject", "description": "Description",
             "keywords": "Keywords", "lastModifiedBy": "Last saved by", "copyright": "Copyright",
+            "revision": "Revision number", "totalTime": "Total editing time",
         ][id] ?? id
     }
 }

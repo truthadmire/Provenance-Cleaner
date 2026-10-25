@@ -22,8 +22,9 @@ default branch at build time.
 - Replacing an original requires confirmation, uses an atomic write, and keeps
   a recoverable `.bak` copy. It's refused when the original changed after the
   copy was made, and it doesn't carry the original's download-source record
-  (`kMDItemWhereFroms`) onto the cleaned file. A replaced file is then locked:
-  it isn't checked or rebuilt again as if it were the original.
+  (`kMDItemWhereFroms`) onto the cleaned file unless you set one for the copy.
+  A replaced file is then locked: it isn't checked or rebuilt again as if it
+  were the original.
 - Save and replace records are kept apart from each file's check results, so
   re-checking never erases them and they never hide a warning about the copy.
 - Space normalization is off by default to preserve typography. Metadata
@@ -66,14 +67,15 @@ known and what to do next:
 - **Findings** describes the original: grouped findings, anything that couldn't
   be checked (with the reason), content credentials and Word editing history.
 - **Changes** is the plan for the copy: remove provenance markers, set document
-  properties, and (for DOCX) change Word editing history.
+  properties, set the download source, and (for DOCX) change Word editing
+  history.
 - **Review** describes the copy: what each step changed, the properties that
   differ from the original, anything still in the copy, its credentials, and a
   side-by-side comparison. Saving and replacing the original start here.
 
 **Create copy** always builds from the original, in a fixed order: provenance
-cleaning, then Word editing history, then property edits, each step reading the
-previous step's output. Choices can therefore be made in any order without one
+cleaning, then Word editing history, then property edits, then the download
+source, each step reading the previous step's output. Choices can therefore be made in any order without one
 silently undoing another. If any step fails or is stopped, the previous copy is
 kept. Changing a choice or a cleaning setting marks the copy as outdated until
 it is updated. There is no export prompt after a copy is made; the copy waits on
@@ -83,17 +85,29 @@ signature verdict is never presented as proof about an edited file.
 
 Edit author, title, subject, keywords, description, last saved by, or copyright
 where the format supports those fields. Supported formats are DOCX, XLSX, PPTX,
-PDF, JPEG, PNG, TIFF and WebP. Emptying a field removes its mapped values;
+PDF, JPEG, PNG, TIFF and WebP. Office files also have **Revision number**
+(`cp:revision`) and **Total editing time** in minutes (`TotalTime` in
+`docProps/app.xml`); both take whole numbers from 0 to 2,147,483,647, and total
+editing time is offered only when the package has that properties part. Emptying a field removes its mapped values;
 untouched fields are left to the earlier steps. Each edit can be undone on its
 own before the copy is made.
 
-Office edits affect `docProps/core.xml`; other package entries retain their
+Office edits affect `docProps/core.xml`, and total editing time changes only
+its own element in `docProps/app.xml`; other package entries retain their
 uncompressed bytes. Comment/revision author names are separate and stay unchanged.
 Signed Office packages are readable but editing is refused. PDF/image edits use
 the bundled ExifTool with explicit field mappings and read-back verification.
 PDF updates are incremental: earlier property values may remain recoverable, so
 this editor is not a secure redaction facility. Metadata changes may invalidate
 existing document signatures or content credentials; the result is re-inspected.
+
+**Download source** sets Finder's "Where from" (`kMDItemWhereFroms`, a binary
+property list of strings) for any file type: browsers record the file's link,
+then the page it came from. The Changes tab shows the original's entries and can
+reuse them. It's a file-system attribute rather than file content, so the app
+sets it on a contents-only copy as the last step, read-back verified. Saving
+keeps it, and replacing the original writes it in place of the original's.
+Left empty, the copy has no download source, as before.
 
 C2PA detection uses structured c2patool JSON instead of keyword matches in error
 messages. The report separates embedded-manifest presence, claim-signature

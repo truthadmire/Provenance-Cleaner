@@ -4,6 +4,31 @@ This evidence separates the current development checks from the original
 0.1.0 release-candidate checks. Neither section claims the complete acceptance
 matrix.
 
+### 0.5.0 download source, revision number and total editing time — 2026-10-26
+
+- New: Office files can set **Revision number** (`cp:revision` in
+  `docProps/core.xml`) and **Total editing time** in minutes (`TotalTime`, an
+  `xsd:int` in `docProps/app.xml`). Both accept whole numbers from 0 to
+  2,147,483,647. `TotalTime` is edited in place, because Word's `app.xml` (a
+  default namespace with unqualified attributes) can't be re-serialized by
+  ElementTree. Every other byte of the part is kept, and the rest of the part
+  is compared after parsing.
+- New: **Download source** sets Finder's "Where from" (`kMDItemWhereFroms`, a
+  binary plist array of strings) on a contents-only copy as the last build
+  step, verified by reading it back. Save copy and Save all keep it. Replace
+  writes it over the original's; with none set, Replace still removes it.
+- 67 helper tests passed against the source and 67 against the rebuilt frozen
+  helper (4 new), under CPython 3.14.7 with pytest 9.1.1. 76 Swift unit tests
+  passed (7 new).
+- The frozen helper, driven through its JSON protocol, read a Word-shaped sample
+  (revision 42, 35 minutes), wrote 3 and 95 with only `<TotalTime>` changed in
+  `app.xml`, and refused `1.5` without creating an output. Spotlight read
+  the binary "Where from" attribute back (`mdls`).
+- Not verified: the new Changes-tab cards by eye in the running app (the
+  window wasn't available to drive), opening an edited copy in Word, and the
+  sandboxed Save/Replace of a download source. Those paths are unit-tested
+  unsandboxed. XCUITests were not run.
+
 ### 0.4.0 release build — 2026-10-25
 
 - 0.4.0 (6) ships the three 2026-10-18 entries below: the Clay interface, the

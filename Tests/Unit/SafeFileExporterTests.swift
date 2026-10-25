@@ -4,7 +4,7 @@ import XCTest
 @testable import ProvenanceCleaner
 
 final class SafeFileExporterTests: XCTestCase {
-    private let whereFrom = SafeFileExporter.downloadSourceAttribute
+    private let whereFrom = DownloadSource.attribute
 
     func testSaveCopyWritesExactlyTheChosenFileEvenWhenItExists() async throws {
         let fixture = try ExportFixture()
@@ -82,6 +82,43 @@ final class SafeFileExporterTests: XCTestCase {
         let permissions = try FileManager.default.attributesOfItem(atPath: original.path)[.posixPermissions] as? NSNumber
         XCTAssertEqual(permissions?.intValue, 0o640)
         XCTAssertEqual(fixture.attribute(whereFrom, on: result.backupURL), "https://generator.invalid/file", "the backup keeps everything")
+    }
+
+    func testSavedCopiesKeepTheDownloadSourceGivenToTheCopy() async throws {
+        let fixture = try ExportFixture()
+        defer { fixture.remove() }
+        let entries = ["https://example.invalid/report.docx", "https://example.invalid/"]
+        let staged = try fixture.write("stage.txt", "cleaned")
+        try DownloadSource.write(entries, to: staged)
+        let existing = try fixture.write("existing.txt", "old")
+        try DownloadSource.write(["https://old.invalid/"], to: existing)
+        let exporter = SafeFileExporter()
+
+        let fresh = try await exporter.saveCopy(from: staged, to: fixture.root.appendingPathComponent("fresh.txt"))
+        let overwritten = try await exporter.saveCopy(from: staged, to: existing)
+        let exported = try await exporter.exportCopy(
+            from: staged, sourceURL: fixture.root.appendingPathComponent("draft.txt"), into: fixture.root
+        )
+
+        for url in [fresh, overwritten, exported] {
+            XCTAssertEqual(DownloadSource.read(at: url), entries, url.lastPathComponent)
+        }
+    }
+
+    func testReplaceGivesTheOriginalTheCopysDownloadSource() async throws {
+        let fixture = try ExportFixture()
+        defer { fixture.remove() }
+        let original = try fixture.write("draft.txt", "original")
+        try DownloadSource.write(["https://generator.invalid/file"], to: original)
+        let staged = try fixture.write("staged.txt", "cleaned")
+        try DownloadSource.write(["https://example.invalid/report.txt"], to: staged)
+
+        let result = try await SafeFileExporter().replaceOriginal(from: staged, originalURL: original)
+
+        XCTAssertFalse(result.removedDownloadSource)
+        XCTAssertEqual(result.downloadSource, ["https://example.invalid/report.txt"])
+        XCTAssertEqual(DownloadSource.read(at: original), ["https://example.invalid/report.txt"])
+        XCTAssertEqual(DownloadSource.read(at: result.backupURL), ["https://generator.invalid/file"], "the backup keeps everything")
     }
 
     func testReplaceRefusesExistingBackup() async throws {
