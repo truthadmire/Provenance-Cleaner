@@ -4,7 +4,19 @@ This evidence separates the current development checks from the original
 0.1.0 release-candidate checks. Neither section claims the complete acceptance
 matrix.
 
-### Save and replace path (development, unreleased) — 2026-10-18
+### 0.4.0 release build — 2026-10-25
+
+- 0.4.0 (6) ships the three 2026-10-18 entries below: the Clay interface, the
+  helper output corrections and the save/replace fixes.
+- The frozen helper was rebuilt with the pinned CPython 3.14.7 (the python.org
+  package matches its locked SHA-256 and PSF Developer ID signature).
+- Under CPython 3.14.7 with pytest 9.1.1, 63 helper tests passed against the
+  source and 63 against the frozen helper. 69 Swift unit tests passed
+  (DebugTests).
+- XCUITests were not run. Signing, notarization and DMG checks are in the
+  release report.
+
+### Save and replace path (0.4.0) — 2026-10-18
 
 - Save copy writes exactly the save-panel URL (it used to write `stem 2.ext` after
   the panel had confirmed an overwrite). Temporary files go in the system's
@@ -37,7 +49,7 @@ matrix.
   panel); it now writes only the exact panel URL, using the system's
   item-replacement folder for temporary data.
 
-### Helper corrections to engine output (development, unreleased) — 2026-10-18
+### Helper corrections to engine output (0.4.0) — 2026-10-18
 
 - Fixed: cleaning DOCX/XLSX/PPTX corrupted `docProps/thumbnail.jpeg` (the pinned
   engine re-encodes every docProps part as UTF-8 text) and left the preview's
@@ -53,7 +65,7 @@ matrix.
   confirmed to fail with its fix disabled). 55 Swift unit tests passed. The
   vendored snapshot verified unchanged. The frozen helper was not rebuilt.
 
-### Clay interface redesign (development, unreleased) — 2026-10-18
+### Clay interface redesign (0.4.0) — 2026-10-18
 
 - Rebuilt the interface on the Clay design system and replaced the separate
   Clean / Apply to Copy / Apply editing traces actions with one copy built from
