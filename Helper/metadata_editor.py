@@ -26,6 +26,7 @@ FIELDS = {"author": ("Author", DC, "creator"), "title": ("Title", DC, "title"),
 NUMERIC = {"revision", "totalTime"}
 INT_MAX = 2**31 - 1
 _TOTAL_TIME = re.compile(rb"<(?:([A-Za-z_][\w.-]*):)?TotalTime\b[^>]*?(?:/>|>[^<]*</(?:[A-Za-z_][\w.-]*:)?TotalTime\s*>)")
+_PDF_REVISION_END = re.compile(rb"startxref\s+\d+\s+%%EOF")
 _PROPERTIES_END = re.compile(rb"</(?:([A-Za-z_][\w.-]*):)?Properties\s*>\s*$")
 TAGS = {"author": ["XMP-dc:Creator"], "title": ["XMP-dc:Title"], "subject": ["XMP-dc:Subject"],
         "description": ["XMP-dc:Description"], "keywords": ["XMP-pdf:Keywords"], "copyright": ["XMP-dc:Rights"]}
@@ -157,6 +158,28 @@ def _text(value):
     return "; ".join(str(v) for v in value) if isinstance(value, list) else str(value)
 
 
+def _rewrite_pdf(path):
+    """A fresh copy of the PDF holding only what its current revision uses.
+
+    ExifTool appends PDF edits as an incremental update, so every earlier value
+    stays in the file and `exiftool -PDF-update:all=` restores it. qpdf writes
+    only reachable objects, which drops earlier revisions, including ones other
+    apps appended before this edit."""
+    tool = shutil.which("qpdf")
+    if not tool:
+        raise MetadataError("The bundled PDF rewriter is unavailable.")
+    output = path.with_name("rewritten" + path.suffix)
+    r = subprocess.run([tool, str(path), str(output)], capture_output=True, text=True, timeout=120)
+    if r.returncode not in (0, 3) or not output.is_file():  # qpdf 3 means recoverable warnings.
+        raise MetadataError("The PDF couldn't be rewritten: " + r.stderr.strip()[:600])
+    if len(_PDF_REVISION_END.findall(output.read_bytes())) != 1:
+        raise MetadataError("The rewritten PDF still has earlier revisions; no result was saved.")
+    check = subprocess.run([tool, "--check", str(output)], capture_output=True, text=True, timeout=120)
+    if check.returncode not in (0, 3):
+        raise MetadataError("The rewritten PDF failed validation; no result was saved.")
+    return output
+
+
 def inspect(path, data=None):
     ext = path.suffix.lower()
     try:
@@ -179,8 +202,13 @@ def inspect(path, data=None):
         for key, tags in _tags(ext).items():
             sources = [{"tag": tag, "value": _text(values[tag])} for tag in tags if tag in values]
             fields.append({"id": key, "label": FIELDS[key][0], "value": " / ".join(dict.fromkeys(s["value"] for s in sources)), "sources": sources})
-        return {"available": True, "editable": True, "fields": fields,
-                "note": "Edits may invalidate existing content credentials or digital signatures. Re-inspect the saved result."}
+        note = "Edits may invalidate existing content credentials or digital signatures. Re-inspect the saved result."
+        if ext == ".pdf":
+            signed = b"/ByteRange" in (data if data is not None else path.read_bytes())
+            note = ("This PDF is digitally signed. Editing rewrites the file, so the signature will no longer validate."
+                    if signed else
+                    "Editing rewrites the PDF, so earlier property values are removed from it. Names in the page text, comments or attachments aren't changed.")
+        return {"available": True, "editable": True, "fields": fields, "note": note}
     except (MetadataError, OSError, subprocess.TimeoutExpired) as exc:
         return {"available": False, "editable": False, "fields": [], "note": str(exc), "incomplete": True}
 
@@ -253,6 +281,8 @@ def rewrite(data, ext, edits):
         r = subprocess.run([*args, str(path)], capture_output=True, text=True, timeout=30)
         if r.returncode != 0:
             raise MetadataError("Metadata write failed: " + r.stderr.strip()[:600])
+        if ext == ".pdf":
+            path = _rewrite_pdf(path)
         actual = _read_tags(path)
         for key, value in edits.items():
             for tag in tags[key]:

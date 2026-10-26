@@ -97,9 +97,15 @@ its own element in `docProps/app.xml`; other package entries retain their
 uncompressed bytes. Comment/revision author names are separate and stay unchanged.
 Signed Office packages are readable but editing is refused. PDF/image edits use
 the bundled ExifTool with explicit field mappings and read-back verification.
-PDF updates are incremental: earlier property values may remain recoverable, so
-this editor is not a secure redaction facility. Metadata changes may invalidate
-existing document signatures or content credentials; the result is re-inspected.
+ExifTool appends PDF edits as an incremental update, which would leave earlier
+property values recoverable, so the bundled qpdf then rewrites the whole file.
+The result must have a single revision, pass `qpdf --check` and read back the
+new values, or nothing is saved. This also drops revisions other apps appended
+earlier. It changes properties only: names in page text, comments, bookmarks,
+form fields or attachments stay, so it isn't a redaction tool. A rewrite always
+breaks a PDF's digital signature, and the Changes tab says so for signed PDFs.
+Metadata changes may invalidate existing document signatures or content
+credentials; the result is re-inspected.
 
 **Download source** sets Finder's "Where from" (`kMDItemWhereFroms`, a binary
 property list of strings) for any file type: browsers record the file's link,

@@ -221,9 +221,6 @@ private struct PropertiesCard: View {
                 if job.isOfficeDocument, job.plan.removeProvenance {
                     Text("Removing provenance clears author, last saved by, subject, keywords and description first. Values you enter here are applied afterwards, so they're kept.")
                 }
-                if job.isPDF {
-                    Text("PDF properties are updated incrementally. Earlier values may still be recoverable, so this isn't a secure way to redact.")
-                }
                 if fields.contains(where: { JobPlan.numericPropertyIDs.contains($0.id) }) {
                     Text("Revision number counts saves and total editing time counts minutes. Saving the copy in Office again can update both.")
                 }

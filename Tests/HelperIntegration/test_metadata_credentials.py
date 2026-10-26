@@ -2,6 +2,7 @@ import io
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 import sys
 import tempfile
@@ -35,6 +36,33 @@ def with_part(data, name, raw):
             elif raw is not None:
                 archive.writestr(info, raw)
     return output.getvalue()
+
+
+def minimal_pdf(*authors, catalog=b"", extra=()):
+    """A one-page PDF whose Info author is replaced by each later incremental
+    revision, as other apps append them. `extra` objects follow object 4."""
+    objects = [b"<< /Type /Catalog /Pages 2 0 R " + catalog + b">>", b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+               b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] >>", b"<< /Author (%s) >>" % authors[0], *extra]
+    out = bytearray(b"%PDF-1.4\n")
+    offsets = []
+    for number, body in enumerate(objects, 1):
+        offsets.append(len(out))
+        out += b"%d 0 obj\n%s\nendobj\n" % (number, body)
+    previous = len(out)
+    out += b"xref\n0 %d\n0000000000 65535 f \n" % (len(objects) + 1) + b"".join(b"%010d 00000 n \n" % o for o in offsets)
+    out += b"trailer\n<< /Size %d /Root 1 0 R /Info 4 0 R >>\nstartxref\n%d\n%%%%EOF\n" % (len(objects) + 1, previous)
+    for author in authors[1:]:
+        offset = len(out)
+        out += b"4 0 obj\n<< /Author (%s) >>\nendobj\n" % author
+        xref = len(out)
+        out += b"xref\n0 1\n0000000000 65535 f \n4 1\n%010d 00000 n \n" % offset
+        out += b"trailer\n<< /Size %d /Root 1 0 R /Info 4 0 R /Prev %d >>\nstartxref\n%d\n%%%%EOF\n" % (len(objects) + 1, previous, xref)
+        previous = xref
+    return bytes(out)
+
+
+def pdf_revisions(data):
+    return len(re.findall(rb"startxref\s+\d+\s+%%EOF", data))
 
 
 def office_values(ext, data):
@@ -166,8 +194,40 @@ class MetadataCredentialTests(unittest.TestCase):
                     after = self.request(helper, cleared)['report']['metadata']
                     self.assertEqual(next(f['value'] for f in after['fields'] if f['id']=='author'), '')
                     if ext == '.pdf':
-                        # ExifTool's incremental update retains page/content bytes.
-                        self.assertTrue(output.read_bytes().startswith(data))
+                        # Rewritten, not appended: one revision, no earlier values.
+                        self.assertEqual(pdf_revisions(output.read_bytes()), 1)
+                        self.assertEqual(pdf_revisions(cleared.read_bytes()), 1)
+                        self.assertNotIn('陈明'.encode('utf-16-be'), cleared.read_bytes())
+
+    def test_pdf_edit_removes_earlier_values_and_revisions(self):
+        data = minimal_pdf(b'Older Name', b'Original Name')
+        self.assertEqual(pdf_revisions(data), 2)
+        with tempfile.TemporaryDirectory() as folder, HelperProcess() as helper:
+            source, output = Path(folder)/'original.pdf', Path(folder)/'edited.pdf'
+            source.write_bytes(data)
+            before = self.request(helper, source)['report']['metadata']
+            self.assertEqual(next(f['value'] for f in before['fields'] if f['id']=='author'), 'Original Name')
+            self.assertIn('earlier property values are removed', before['note'])
+            result = self.request(helper, source, 'clean', output, {'author': 'New Name', 'title': 'Report'})
+            self.assertTrue(result['ok'], result)
+            self.assertEqual(source.read_bytes(), data)
+            edited = output.read_bytes()
+            self.assertEqual(pdf_revisions(edited), 1)
+            for earlier in (b'Older Name', b'Original Name'):
+                self.assertNotIn(earlier, edited)
+            after = self.request(helper, output)['report']['metadata']
+            values = {f['id']: f['value'] for f in after['fields']}
+            self.assertEqual((values['author'], values['title']), ('New Name', 'Report'))
+
+    def test_signed_pdf_says_the_signature_will_stop_validating(self):
+        signature = b'<< /FT /Sig /T (Signature1) /V << /Type /Sig /Filter /Adobe.PPKLite /ByteRange [0 0 0 0] /Contents <00> >> >>'
+        data = minimal_pdf(b'Signer', catalog=b'/AcroForm << /Fields [5 0 R] /SigFlags 3 >> ', extra=(signature,))
+        with tempfile.TemporaryDirectory() as folder, HelperProcess() as helper:
+            source = Path(folder)/'signed.pdf'
+            source.write_bytes(data)
+            metadata = self.request(helper, source)['report']['metadata']
+            self.assertTrue(metadata['editable'])
+            self.assertIn('signature will no longer validate', metadata['note'])
 
     def test_real_certificate_chain_and_trust_are_separate_from_signature(self):
         with HelperProcess() as helper:

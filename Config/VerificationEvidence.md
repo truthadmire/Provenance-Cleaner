@@ -4,6 +4,25 @@ This evidence separates the current development checks from the original
 0.1.0 release-candidate checks. Neither section claims the complete acceptance
 matrix.
 
+### 0.5.1 PDF property edits no longer leave earlier values — 2026-10-26
+
+- Reproduced before the change, with the bundled ExifTool 13.59: a PDF whose
+  base revision had author "Original Name", edited to "New Name" the way the
+  app did, still contained "Original Name" in plain text, and
+  `exiftool -PDF-update:all=` restored it.
+- Fix: after the ExifTool write, the bundled qpdf 12.4.1 rewrites the file,
+  keeping only objects the current revision uses. The result must have exactly
+  one revision, pass `qpdf --check`, and read back every new value, or nothing
+  is saved. On the same sample, "Original Name" no longer appeared anywhere
+  (streams decompressed), and the ExifTool revert found nothing to undo.
+- The PDF note in Document properties now says earlier values are removed,
+  and for a signed PDF (`/ByteRange` present) that the signature will no
+  longer validate. Signed PDFs can still be edited.
+- 69 helper tests passed against the source (2 new; both PDF edit tests failed
+  with the rewrite disabled). 76 Swift unit tests passed.
+- Not verified: very large or damaged PDFs beyond the existing qpdf
+  validation, and the Changes-tab wording by eye in the running app.
+
 ### 0.5.0 download source, revision number and total editing time — 2026-10-26
 
 - New: Office files can set **Revision number** (`cp:revision` in

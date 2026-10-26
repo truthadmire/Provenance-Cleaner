@@ -87,7 +87,7 @@ app = BUNDLE(
     name="ProvenanceEngine.app",
     icon=None,
     bundle_identifier="com.provenancecleaner.mac.engine",
-    version="0.5.0",
+    version="0.5.1",
     info_plist={
         "CFBundleDisplayName": "Provenance Engine",
         "CFBundleName": "ProvenanceEngine",
