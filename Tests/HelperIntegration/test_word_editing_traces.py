@@ -68,6 +68,33 @@ class WordEditingTracesTests(unittest.TestCase):
         self.assertEqual(report['earliest'], '2024-01-01T10:00:00Z')
         self.assertEqual(data, specimen())
 
+    def test_inspection_counts_tracked_changes_comments_and_their_authors(self):
+        report = traces.inspect(specimen())
+        self.assertEqual((report['insertions'], report['deletions'], report['moves'], report['formattingChanges']), (1, 1, 0, 0))
+        self.assertEqual(report['comments'], 1)
+        self.assertEqual(report['changeAuthors'], ['Reviewer'])
+        self.assertEqual(report['commentAuthors'], ['Reviewer'])
+        self.assertEqual(traces.inspect(specimen(prefix='v'))['changeAuthors'], ['Reviewer'])
+
+        body = ''.join(f'<w:p><w:ins w:id="{n}" w:author="Author {n:02}"><w:r><w:t>x</w:t></w:r></w:ins></w:p>' for n in range(60))
+        body += ('<w:p><w:moveFrom w:id="70" w:author="Mover"><w:r><w:delText>m</w:delText></w:r></w:moveFrom>'
+                 '<w:moveTo w:id="71" w:author="Mover"><w:r><w:t>m</w:t></w:r></w:moveTo>'
+                 '<w:r><w:rPr><w:b/><w:rPrChange w:id="72" w:author="" w:date="2024-01-02T00:00:00Z"><w:rPr/></w:rPrChange></w:rPr><w:t>b</w:t></w:r>'
+                 '<other:ins w:author="Not a revision"/></w:p>')
+        buf = io.BytesIO()
+        with zipfile.ZipFile(io.BytesIO(specimen())) as source, zipfile.ZipFile(buf, 'w') as archive:
+            for info in source.infolist():
+                raw = source.read(info)
+                if info.filename == 'word/document.xml':
+                    raw = re.sub(rb'<w:body>.*</w:body>', f'<w:body>{body}</w:body>'.encode(), raw, flags=re.S)
+                archive.writestr(info, raw)
+        report = traces.inspect(buf.getvalue())
+        self.assertEqual((report['insertions'], report['moves'], report['formattingChanges']), (60, 1, 1))
+        self.assertEqual(report['changeAuthorCount'], 61)
+        self.assertEqual(len(report['changeAuthors']), traces.MAX_AUTHORS)
+        self.assertEqual(report['changeAuthors'][:2], ['Author 00', 'Author 01'])
+        self.assertNotIn('Not a revision', report['changeAuthors'])
+
     def test_randomization_preserves_order_equal_instants_and_document_contents(self):
         data = specimen()
         result, report = traces.rewrite(data, {'dates': 'randomize', 'start': '2020-01-01T00:00:00Z', 'end': '2020-02-01T00:00:00Z'})

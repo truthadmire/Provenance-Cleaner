@@ -38,7 +38,11 @@ struct FindingsTabView: View {
                 }
 
                 if job.isWordDocument, let traces = report.raw["word_editing_traces"] {
-                    WordHistorySummaryCard(inspection: WordTraceInspection(raw: traces), onShowChanges: onShowChanges)
+                    let inspection = WordTraceInspection(raw: traces)
+                    if inspection.hasReviewMarkup {
+                        WordReviewMarkupCard(inspection: inspection)
+                    }
+                    WordHistorySummaryCard(inspection: inspection, onShowChanges: onShowChanges)
                 }
 
                 VStack(alignment: .leading, spacing: Clay.space2) {
@@ -186,6 +190,43 @@ struct TechnicalReportDisclosure: View {
                 .padding(Clay.space3)
                 .background(Clay.sunken, in: RoundedRectangle(cornerRadius: Clay.radiusMedium, style: .continuous))
         }
+    }
+}
+
+/// Tracked changes and comments keep earlier text and reviewers' names in the
+/// file, and no step of the copy removes them.
+private struct WordReviewMarkupCard: View {
+    let inspection: WordTraceInspection
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Clay.space3) {
+            ClayCardHeader(
+                title: "Tracked changes and comments",
+                subtitle: "Anyone who opens this document can read them, including deleted text and who made each change. The copy keeps them too."
+            ) {
+                ClayBadge(text: "Still in the file", tone: .warning)
+            }
+            Grid(alignment: .leading, horizontalSpacing: Clay.space6, verticalSpacing: Clay.space2) {
+                if inspection.trackedChanges > 0 {
+                    ClayKeyValueRow(key: "Tracked changes", value: inspection.trackedChangeSummary)
+                }
+                if let authors = inspection.authors("changeAuthor") {
+                    ClayKeyValueRow(key: "Changes by", value: authors)
+                }
+                if inspection.comments > 0 {
+                    ClayKeyValueRow(key: "Comments", value: String(inspection.comments))
+                }
+                if let authors = inspection.authors("commentAuthor") {
+                    ClayKeyValueRow(key: "Comments by", value: authors)
+                }
+            }
+            Text("To remove them, accept or reject all changes and delete the comments in Word, then add the saved file again.")
+                .font(Clay.caption)
+                .foregroundStyle(Clay.inkMuted)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .clayCard()
+        .accessibilityIdentifier("findings.wordReviewMarkup")
     }
 }
 

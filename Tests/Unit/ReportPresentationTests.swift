@@ -118,4 +118,27 @@ final class ReportPresentationTests: XCTestCase {
         XCTAssertEqual(verdict.tone, .warning)
         XCTAssertEqual(verdict.title, "Your copy is ready, but checking it didn't finish")
     }
+
+    func testWordReviewMarkupSummarizesKindsAndAuthorsLeftOut() {
+        let inspection = WordTraceInspection(raw: .object([
+            "available": .bool(true),
+            "insertions": .number(1), "deletions": .number(2), "moves": .number(0), "formattingChanges": .number(0),
+            "comments": .number(0),
+            "changeAuthors": .array([.string("Ana"), .string("Reviewer")]), "changeAuthorCount": .number(5),
+            "commentAuthors": .array([]), "commentAuthorCount": .number(0),
+        ]))
+        XCTAssertTrue(inspection.hasReviewMarkup)
+        XCTAssertEqual(inspection.trackedChangeSummary, "3 (1 insertion, 2 deletions)")
+        XCTAssertEqual(inspection.authors("changeAuthor"), "Ana, Reviewer and 3 more")
+        XCTAssertNil(inspection.authors("commentAuthor"))
+
+        let commentsOnly = WordTraceInspection(raw: .object([
+            "available": .bool(true), "comments": .number(1), "deletions": .number(4),
+        ]))
+        XCTAssertEqual(commentsOnly.trackedChangeSummary, "4 deletions")
+
+        // Reports from before this field existed, or unreadable packages, show no warning.
+        XCTAssertFalse(WordTraceInspection(raw: .object(["available": .bool(true)])).hasReviewMarkup)
+        XCTAssertFalse(WordTraceInspection(raw: .object(["available": .bool(false), "comments": .number(2)])).hasReviewMarkup)
+    }
 }

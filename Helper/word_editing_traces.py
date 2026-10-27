@@ -27,6 +27,16 @@ RSID_NAMES = {"rsidR", "rsidRPr", "rsidRDefault", "rsidP", "rsidDel", "rsidSect"
 MAX_EXPANDED_BYTES = 128 << 20
 MAX_PARTS = 10000
 MAX_FIELDS = 200000
+MAX_AUTHORS = 50
+# Revision markup that keeps earlier content or formatting in the file.
+REVISION_KINDS = {
+    "ins": "insertions", "cellIns": "insertions",
+    "del": "deletions", "cellDel": "deletions",
+    "moveFrom": "moves",
+    **{name: "formattingChanges" for name in (
+        "rPrChange", "pPrChange", "sectPrChange", "tblPrChange", "tblPrExChange",
+        "trPrChange", "tcPrChange", "tblGridChange", "numberingChange", "cellMerge")},
+}
 _ATTRIBUTE = re.compile(rb'''\s+([^\s=/>]+)\s*=\s*(["'])(.*?)\2''', re.S)
 
 
@@ -68,7 +78,7 @@ def _tag_end(raw: bytes, start: int) -> int:
     raise WordTraceError("An XML tag is incomplete.")
 
 
-def _xml_fields(part: str, raw: bytes) -> tuple[list[Field], list[tuple[int, int]]]:
+def _xml_fields(part: str, raw: bytes, review: dict | None = None) -> tuple[list[Field], list[tuple[int, int]]]:
     # Byte patches are intentionally restricted to UTF-8. Refuse other encodings
     # instead of round-tripping a document through a lossy XML serializer.
     try:
@@ -92,6 +102,14 @@ def _xml_fields(part: str, raw: bytes) -> tuple[list[Field], list[tuple[int, int
         finish = _tag_end(raw, begin)
         stack.append((uri, local, begin, finish, raw[begin:finish].rstrip().endswith(b"/>")))
         spans = {match[1].decode("utf-8"): match for match in _ATTRIBUTE.finditer(raw, begin, finish)}
+        if review is not None and uri in W_NAMESPACES and (local in REVISION_KINDS or local in {"moveTo", "comment"}):
+            if local in REVISION_KINDS:
+                review[REVISION_KINDS[local]] += 1
+            elif local == "comment":
+                review["comments"] += 1
+            author = next((value for expanded, value in attrs.items() if _name(expanded)[0] in W_NAMESPACES and _name(expanded)[1] == "author"), "").strip()
+            if author:
+                review["commentAuthors" if local == "comment" else "changeAuthors"].add(author)
         for expanded, value in attrs.items():
             attr_uri, attr_local, lexical = _name(expanded)
             kind = None
@@ -177,6 +195,8 @@ def _read_package(data: bytes):
             parts = []
             fields = []
             containers = {}
+            review = {"insertions": 0, "deletions": 0, "moves": 0, "formattingChanges": 0, "comments": 0,
+                      "changeAuthors": set(), "commentAuthors": set()}
             budget = MAX_EXPANDED_BYTES
             for info in infos:
                 if info.flag_bits & 1:
@@ -190,17 +210,29 @@ def _read_package(data: bytes):
                     raise WordTraceError("DOCX expanded data exceeds the 128 MiB limit.")
                 parts.append((info, raw))
                 if info.filename.endswith(".xml") and info.filename.startswith(("word/", "docProps/")):
-                    found, ranges = _xml_fields(info.filename, raw)
+                    found, ranges = _xml_fields(info.filename, raw, review if info.filename.startswith("word/") else None)
                     fields.extend(found)
                     containers[info.filename] = ranges
                     if len(fields) > MAX_FIELDS:
                         raise WordTraceError("The document exceeds the editing-metadata complexity limit.")
-            return parts, fields, containers, archive.comment
+            return parts, fields, containers, archive.comment, review
     except (zipfile.BadZipFile, RuntimeError, NotImplementedError) as exc:
         raise WordTraceError("The DOCX package is damaged, encrypted, or unsupported.") from exc
 
 
-def _summary(parts, fields) -> dict:
+def _review_summary(review) -> dict:
+    result = {}
+    for key, value in review.items():
+        if isinstance(value, set):
+            names = sorted(value, key=str.casefold)
+            result[key] = names[:MAX_AUTHORS]
+            result[key[:-1] + "Count"] = len(names)
+        else:
+            result[key] = value
+    return result
+
+
+def _summary(parts, fields, review) -> dict:
     dates = [field for field in fields if field.kind != "rsid"]
     parsed = []
     invalid = 0
@@ -220,22 +252,23 @@ def _summary(parts, fields) -> dict:
         "earliest": min(parsed).isoformat().replace("+00:00", "Z") if parsed else None,
         "latest": max(parsed).isoformat().replace("+00:00", "Z") if parsed else None,
         "archiveEntries": len(parts),
+        **_review_summary(review),
         "signed": any(info.filename.lower().startswith("_xmlsignatures/") or (info.filename == "[Content_Types].xml" and b"digital-signature" in raw) for info, raw in parts),
     }
 
 
 def inspect(data: bytes) -> dict:
     try:
-        parts, fields, _, _ = _read_package(data)
-        return {"available": True, **_summary(parts, fields)}
+        parts, fields, _, _, review = _read_package(data)
+        return {"available": True, **_summary(parts, fields, review)}
     except (WordTraceError, ValueError) as exc:
         return {"available": False, "reason": str(exc)}
 
 
 def rewrite(data: bytes, options: dict) -> tuple[bytes, dict]:
     options = validate_options(options)
-    parts, fields, containers, comment = _read_package(data)
-    before = _summary(parts, fields)
+    parts, fields, containers, comment, review = _read_package(data)
+    before = _summary(parts, fields, review)
     if before["signed"]:
         raise WordTraceError("This DOCX has a digital signature. Editing traces would invalidate it; use an unsigned copy.")
     identifier_set = {field.value.upper() for field in fields if field.kind == "rsid"}
