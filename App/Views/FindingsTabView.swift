@@ -37,6 +37,10 @@ struct FindingsTabView: View {
                     ContentCredentialsCard(report: report)
                 }
 
+                if job.isPDF, let traces = report.raw["pdf_traces"].map(PDFTraceInspection.init(raw:)), traces.hasContent {
+                    PDFOriginCard(inspection: traces)
+                }
+
                 if job.isWordDocument, let traces = report.raw["word_editing_traces"] {
                     let inspection = WordTraceInspection(raw: traces)
                     if inspection.hasReviewMarkup {
@@ -190,6 +194,59 @@ struct TechnicalReportDisclosure: View {
                 .padding(Clay.space3)
                 .background(Clay.sunken, in: RoundedRectangle(cornerRadius: Clay.radiusMedium, style: .continuous))
         }
+    }
+}
+
+/// The software and dates a PDF names, and the generator traces in its structure.
+private struct PDFOriginCard: View {
+    let inspection: PDFTraceInspection
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Clay.space3) {
+            ClayCardHeader(
+                title: "How this PDF was made",
+                subtitle: "Document properties and the naming some PDF libraries leave in the file's structure."
+            ) {
+                if !inspection.generators.isEmpty {
+                    ClayBadge(text: "Tool traces", tone: .warning)
+                }
+            }
+            if !inspection.properties.isEmpty {
+                Grid(alignment: .leading, horizontalSpacing: Clay.space6, verticalSpacing: Clay.space2) {
+                    ForEach(inspection.properties, id: \.label) { property in
+                        ClayKeyValueRow(
+                            key: property.label,
+                            value: ["Created", "Modified"].contains(property.label) ? ClayDate.display(property.value) : property.value
+                        )
+                    }
+                }
+            }
+            ForEach(inspection.generators, id: \.name) { generator in
+                HStack(alignment: .top, spacing: Clay.space3) {
+                    Image(systemName: "exclamationmark.triangle")
+                        .font(.system(size: 12))
+                        .foregroundStyle(Clay.warning)
+                        .padding(.top, 3)
+                    Text("Edited or made with \(generator.name): \(generator.evidence.joined(separator: "; ")).")
+                        .font(Clay.body)
+                        .foregroundStyle(Clay.ink)
+                        .textSelection(.enabled)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .accessibilityElement(children: .combine)
+            }
+            if let reason = inspection.reason {
+                Text(reason)
+                    .font(Clay.caption)
+                    .foregroundStyle(Clay.inkMuted)
+            }
+            Text("Removing provenance markers clears these properties, renames these traces and gives the copy a new document ID. Page text and links stay.")
+                .font(Clay.caption)
+                .foregroundStyle(Clay.inkMuted)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .clayCard()
+        .accessibilityIdentifier("findings.pdfOrigin")
     }
 }
 

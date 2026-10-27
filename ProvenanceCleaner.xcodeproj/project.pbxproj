@@ -32,6 +32,7 @@
 		7D569CF0CE3B70755F72E5BB /* SafeFileExporterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A09490140F9DCBC5170407B5 /* SafeFileExporterTests.swift */; };
 		8DCAB84222317FFC6C0A2B80 /* qpdf-NOTICE.md in Resources */ = {isa = PBXBuildFile; fileRef = B5456CDB25DDA7CCC7EE5C2E /* qpdf-NOTICE.md */; };
 		8E0DBA83DA781186C030A958 /* OwnershipNoticeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B50A792AEF5BACE406963647 /* OwnershipNoticeView.swift */; };
+		8F7B31DF2B644FA5DF00F621 /* PDFTraceInspection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0502D3598833D6C1DBAA886B /* PDFTraceInspection.swift */; };
 		90913E720D84AF794B872C25 /* qpdf-LICENSE-Apache-2.0.txt in Resources */ = {isa = PBXBuildFile; fileRef = 265DA652CE7A543CDE44F29A /* qpdf-LICENSE-Apache-2.0.txt */; };
 		91473650BE2C21F68337D670 /* OpenSSL-NOTICE.txt in Resources */ = {isa = PBXBuildFile; fileRef = F42CDD4D8209C0DB38745C43 /* OpenSSL-NOTICE.txt */; };
 		9CA058FAE70C36DA176F0221 /* THIRD_PARTY_NOTICES.md in Resources */ = {isa = PBXBuildFile; fileRef = 65CCEFCD7AE1FE9C80D4662D /* THIRD_PARTY_NOTICES.md */; };
@@ -81,6 +82,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		0502D3598833D6C1DBAA886B /* PDFTraceInspection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFTraceInspection.swift; sourceTree = "<group>"; };
 		0F5CE4BB9561B2E377343635 /* EngineContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EngineContractTests.swift; sourceTree = "<group>"; };
 		0F7E742212ECBE24C8DE6F72 /* ChangesTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChangesTabView.swift; sourceTree = "<group>"; };
 		19992F8D39460B3D5F728A6B /* ClayTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClayTheme.swift; sourceTree = "<group>"; };
@@ -172,6 +174,7 @@
 				6CA84ABC9BAB7364DADB8079 /* CleanerJob.swift */,
 				3365B5058EFD6D9813027D55 /* EngineModels.swift */,
 				D26E35178405B3DE8598D4D0 /* JSONValue.swift */,
+				0502D3598833D6C1DBAA886B /* PDFTraceInspection.swift */,
 				D7586D589DC826DFCDC8EBA9 /* WordTraceOptions.swift */,
 			);
 			path = Models;
@@ -506,6 +509,7 @@
 				F28834F827B49BFAC111886F /* JSONValue.swift in Sources */,
 				F6FF1D3AD3A1308666C37E5B /* JobDetailView.swift in Sources */,
 				8E0DBA83DA781186C030A958 /* OwnershipNoticeView.swift in Sources */,
+				8F7B31DF2B644FA5DF00F621 /* PDFTraceInspection.swift in Sources */,
 				CD289DDBE5AFCB4199A178BA /* ProvenanceCleanerApp.swift in Sources */,
 				D26E7EB3831ADEDBC155806A /* ProvenanceCleanerCommands.swift in Sources */,
 				C874832E4C66F74E7AB69A0E /* QueueSidebarView.swift in Sources */,

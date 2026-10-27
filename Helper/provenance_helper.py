@@ -31,6 +31,7 @@ from typing import Any, NoReturn
 import word_editing_traces
 import metadata_editor
 import credential_inspection
+import pdf_traces
 
 
 PROTOCOL_VERSION = 1
@@ -203,6 +204,8 @@ import image_meta
 import container_meta
 image_meta.run_optional_tools = credential_inspection.run_optional_tools
 container_meta.run_optional_tools = credential_inspection.run_optional_tools
+# PDF detection and cleaning fixes; see pdf_traces.
+pdf_traces.install(container_meta)
 
 import upstream_fixes  # noqa: E402  (needs the upstream modules on sys.path)
 
@@ -527,6 +530,8 @@ def _inspect_response(request_id: str, input_path: Path) -> dict[str, Any]:
                     confidences.append("confirmed" if detail["state"] == "present" else "probable")
     if input_path.suffix.lower() == ".docx":
         report["word_editing_traces"] = word_editing_traces.inspect(data)
+    if input_path.suffix.lower() == ".pdf":
+        report["pdf_traces"] = pdf_traces.inspect(input_path, data)
     if input_path.suffix.lower() == ".pdf" and embedded_provenance_present(data):
         findings = report.setdefault("findings", [])
         confidences = report.setdefault("findings_confidence", ["informational"] * len(findings))
@@ -660,8 +665,9 @@ def _clean_response(
         meta = report.get("meta", {})
         deep_ran = meta.get("deep_image_pass", False)
         actions = [str(action).lower() for action in report.get("actions", [])]
+        no_images = pdf_traces.NO_IMAGES_ACTION in report.get("actions", [])
         report["pdf_deep_clean_incomplete"] = (
-            (options.get("deep_images") in ("always", "lossless") and not deep_ran)
+            (options.get("deep_images") in ("always", "lossless") and not deep_ran and not no_images)
             or any(
                 "deep image pass" in action and ("failed" in action or "skipped" in action or "install ghostscript" in action)
                 for action in actions

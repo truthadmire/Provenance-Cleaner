@@ -56,6 +56,22 @@ document-only cleaning. Pass-through preserves JPEG/JPEG2000 data where supporte
 other codecs may be rewritten. Results report whether the deep pass ran, whether
 the additional re-encoding step ran, and whether processing was incomplete.
 PDF rewriting may affect interactive features; review the output before export.
+
+Every PDF clean, in any mode, also removes generator traces through qpdf's JSON
+form (`Helper/pdf_traces.py`):
+- it removes attached C2PA manifests (`/AF` and `EmbeddedFiles` entries);
+- it renames resources to neutral names (`/helv`, `/gRLs0` and `/F2+0` become
+  `/F1`, `/GS1` and so on);
+- it merges each page's content streams;
+- it gives font subsets new tags, including in their ToUnicode maps;
+- it writes a new document ID.
+
+Image and font data stay byte-identical. Form-field fonts named in `/DA`
+strings keep their names. The Ghostscript pass is skipped for a PDF with no
+images or attachments, because redrawing pages can change how text copies out.
+Detection expands compressed object streams before scanning, and doesn't count
+link URLs as AI markers. Findings shows the PDF's producer, creator and dates,
+and any PyMuPDF or ReportLab traces.
 The bundled qpdf validator checks inputs before deep cleaning; an unparseable PDF
 or one that requires a password is refused before the image pass.
 

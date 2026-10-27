@@ -141,8 +141,8 @@ def _provenance_docx() -> bytes:
     return contents.getvalue()
 
 
-def _assemble_pdf(objects: list[bytes], trailer_extra: bytes = b"") -> bytes:
-    output = bytearray(b"%PDF-1.7\n%\xe2\xe3\xcf\xd3\n")
+def _assemble_pdf(objects: list[bytes], trailer_extra: bytes = b"", header: bytes = b"%PDF-1.7\n%\xe2\xe3\xcf\xd3\n") -> bytes:
+    output = bytearray(header)
     offsets: list[int] = []
     for index, body in enumerate(objects, start=1):
         offsets.append(len(output))
@@ -209,7 +209,7 @@ def _helper_with_test_ghostscript(root: Path, script: str) -> Path:
         (root / "Helper").mkdir()
         test_helper = root / "Helper/provenance_helper.py"
         shutil.copyfile(HELPER, test_helper)
-        for module in ("word_editing_traces.py", "metadata_editor.py", "credential_inspection.py", "office_credentials.py", "upstream_fixes.py"):
+        for module in ("word_editing_traces.py", "metadata_editor.py", "credential_inspection.py", "office_credentials.py", "upstream_fixes.py", "pdf_traces.py"):
             shutil.copyfile(ROOT / "Helper" / module, test_helper.parent / module)
         (root / "Vendor").mkdir()
         (root / "Vendor/watermarks-remover").symlink_to(ROOT / "Vendor/watermarks-remover", target_is_directory=True)
@@ -756,7 +756,7 @@ class ProvenanceHelperIntegrationTests(unittest.TestCase):
             self.assertNotIn("OpenAI", app)
             self.assertEqual(input_path.read_bytes(), source_bytes)
 
-    def test_pdf_document_metadata_is_structurally_removed_and_deep_pass_runs(
+    def test_pdf_document_metadata_is_structurally_removed_and_imageless_pdf_skips_deep_pass(
         self,
     ) -> None:
         source_bytes = _provenance_pdf()
@@ -793,13 +793,13 @@ class ProvenanceHelperIntegrationTests(unittest.TestCase):
             self.assertNotIn(b"Claude", result_bytes)
             self.assertNotIn(b"Anthropic", result_bytes)
             self.assertIs(cleaned["report"]["meta"]["structural_rewrite"], True)
-            self.assertIs(cleaned["report"]["meta"]["deep_image_pass"], True)
+            # Ghostscript only redraws pages, which can change how text
+            # copies out, so a PDF without images or attachments skips it.
+            self.assertIs(cleaned["report"]["meta"]["deep_image_pass"], False)
             self.assertIs(cleaned["report"]["pdf_deep_clean_incomplete"], False)
-            self.assertTrue(
-                any(
-                    "ghostscript pdfwrite deep image pass" in action.lower()
-                    for action in cleaned["report"]["actions"]
-                )
+            self.assertIn(
+                "deep image pass not needed: the PDF has no embedded images or attachments",
+                cleaned["report"]["actions"],
             )
             self.assertEqual(input_path.read_bytes(), source_bytes)
 
@@ -858,7 +858,7 @@ class ProvenanceHelperIntegrationTests(unittest.TestCase):
             root = Path(temp)
             test_helper = _helper_with_test_ghostscript(root, "#!/bin/sh\nexit 1\n")
             source = Path(temp) / "broken.pdf"
-            source.write_bytes(_provenance_pdf())
+            source.write_bytes(_pdf_with_embedded_jpeg(_JPEG_1X1))
             with HelperProcess(helper_path=test_helper) as helper:
                 result = helper.exchange({"requestID": "broken-pdf", "operation": "clean", "inputPath": str(source), "outputPath": str(Path(temp) / "output.pdf"), "options": {**CONSERVATIVE_OPTIONS, "deepImages": "always"}}, timeout=90)
             self.assertIs(result["ok"], True, result)
@@ -886,7 +886,7 @@ class ProvenanceHelperIntegrationTests(unittest.TestCase):
                 'if [ "$1" = "--version" ]; then echo 10.07.1; exit 0; fi\n'
                 f"printf '%s' $$ > {shlex.quote(str(marker))}\nexec /bin/sleep 120\n")
             source = root / "input.pdf"
-            source.write_bytes(_provenance_pdf())
+            source.write_bytes(_pdf_with_embedded_jpeg(_JPEG_1X1))
             helper = HelperProcess(helper_path=test_helper)
             child_pid = None
             try:

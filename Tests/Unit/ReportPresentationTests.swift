@@ -141,4 +141,24 @@ final class ReportPresentationTests: XCTestCase {
         XCTAssertFalse(WordTraceInspection(raw: .object(["available": .bool(true)])).hasReviewMarkup)
         XCTAssertFalse(WordTraceInspection(raw: .object(["available": .bool(false), "comments": .number(2)])).hasReviewMarkup)
     }
+
+    func testPDFTraceInspectionReadsPropertiesAndGeneratorEvidence() {
+        let inspection = PDFTraceInspection(raw: .object([
+            "available": .bool(true),
+            "properties": .array([
+                .object(["label": .string("Producer"), "value": .string("Microsoft® Word 2010")]),
+                .object(["label": .string("Created")]),
+            ]),
+            "generators": .array([
+                .object(["name": .string("PyMuPDF"), "evidence": .array([.string("resources named /helv")])]),
+            ]),
+        ]))
+        XCTAssertEqual(inspection.properties, [.init(label: "Producer", value: "Microsoft® Word 2010")])
+        XCTAssertEqual(inspection.generators, [.init(name: "PyMuPDF", evidence: ["resources named /helv"])])
+        XCTAssertTrue(inspection.hasContent)
+
+        // A clean PDF, or a report from before this field existed, shows no card.
+        XCTAssertFalse(PDFTraceInspection(raw: .object(["available": .bool(true), "properties": .array([])])).hasContent)
+        XCTAssertFalse(PDFTraceInspection(raw: .object([:])).hasContent)
+    }
 }
