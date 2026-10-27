@@ -4,6 +4,40 @@ This evidence separates the current development checks from the original
 0.1.0 release-candidate checks. Neither section claims the complete acceptance
 matrix.
 
+### 0.6.0 PDF generator traces, PDF detection, Word review markup — 2026-10-28
+
+- Reproduced before the change on two real PDFs:
+  - **A ChatGPT edit of a Word 2010 worksheet.** It was re-saved by PyMuPDF
+    (MuPDF header, `/helv` font resource, page content wrapped in separate
+    `q`/`Q` streams) and carried an OpenAI C2PA manifest as an attached file.
+    Auto cleaning removed the manifest only by running Ghostscript; document-only
+    cleaning left `/helv`, the wrapping and the original document ID.
+  - **A ReportLab report with openai.com links and no images.** It was flagged
+    "OpenAI" because of the link URIs. That false marker made Auto run
+    Ghostscript, which broke copied monospaced text into "g p t - 6 . 1".
+  - An "OpenAI" Producer inside a compressed object stream wasn't detected at
+    all.
+- Fix (`Helper/pdf_traces.py`, applied over the pinned engine's PDF functions):
+  - Every PDF clean also rewrites the file through qpdf 12.4.1's JSON form. It
+    removes attached C2PA manifests, renames resources to neutral names, merges
+    page content streams, gives font subsets new tags (ToUnicode included) and
+    writes a new document ID. Image and font data stay byte-identical.
+  - The marker scan expands object streams and ignores link URIs.
+  - Ghostscript is skipped when a PDF has no images or attachments.
+  - Findings shows the PDF's producer, creator, dates and generator traces.
+    DOCX Findings also warns about tracked changes and comments, with counts
+    and author names.
+- On both PDFs, in never, auto and always modes, re-inspection found no
+  generator traces, properties or credential (c2patool: no claim), and the old
+  ID was gone. PDFKit text matched the original exactly. Rendering was
+  pixel-identical, except always mode on the worksheet, whose JPEG re-encoding
+  changed 0.07–0.11% of pixels as before.
+- 77 helper tests passed against the source (7 new; the 4 PDF protocol tests
+  failed with the fix disabled). 78 Swift unit tests passed.
+- Not verified: the new Findings cards by eye in the running app, encrypted
+  PDFs (the trace step is skipped for them), and PDFs whose content streams
+  use filters other than Flate (resource names are then kept).
+
 ### 0.5.1 PDF property edits no longer leave earlier values — 2026-10-26
 
 - Reproduced before the change, with the bundled ExifTool 13.59: a PDF whose
