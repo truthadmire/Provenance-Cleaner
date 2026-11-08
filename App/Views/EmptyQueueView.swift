@@ -30,7 +30,7 @@ struct EmptyQueueView: View {
 
                 Rectangle().fill(Clay.hairline).frame(height: 1)
 
-                Label("Everything stays on this Mac. The app has no network access.", systemImage: "lock")
+                Label("Your files stay on this Mac unless you choose to run an AI review.", systemImage: "lock")
                     .font(Clay.caption)
                     .foregroundStyle(Clay.inkMuted)
             }

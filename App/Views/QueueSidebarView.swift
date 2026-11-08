@@ -25,7 +25,7 @@ struct QueueSidebarView: View {
                             Button("Remove from List", role: .destructive) {
                                 store.remove(jobIDs: [job.id])
                             }
-                            .disabled(job.status.isBusy || job.isScanningForInjection)
+                            .disabled(job.status.isBusy || job.isScanningForInjection || job.isReviewingWithAI)
                         }
                 }
             } header: {
@@ -92,7 +92,7 @@ private struct QueueRow: View {
                     .truncationMode(.middle)
                     .accessibilityIdentifier("queue.row.\(job.displayName)")
                 HStack(spacing: 5) {
-                    if job.status.isBusy || job.isScanningForInjection {
+                    if job.status.isBusy || job.isScanningForInjection || job.isReviewingWithAI {
                         ProgressView().controlSize(.mini)
                     } else {
                         Circle()
@@ -100,7 +100,7 @@ private struct QueueRow: View {
                             .frame(width: 6, height: 6)
                             .accessibilityHidden(true)
                     }
-                    Text(job.isScanningForInjection ? "Checking for prompt injection…" : job.queueLabel)
+                    Text(job.isScanningForInjection ? "Checking for prompt injection…" : job.isReviewingWithAI ? "Reviewing with AI…" : job.queueLabel)
                         .lineLimit(1)
                         .accessibilityIdentifier("queue.status.\(job.displayName)")
                     if let verdict = job.injectionVerdictToFlag {

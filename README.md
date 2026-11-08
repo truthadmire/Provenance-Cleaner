@@ -3,7 +3,8 @@
 Provenance Cleaner is a native, offline macOS utility for inspecting and
 removing deterministic invisible-Unicode carriers and provenance metadata from
 files the user owns or is authorized to modify. It targets Apple silicon and
-macOS 14 or later.
+macOS 14 or later. Cleaning and checking are offline; the only thing that goes
+online is the optional AI review of a prompt-injection check.
 
 The cleaning engine is vendored from
 [`guillaumemeyer/watermarks-remover`](https://github.com/guillaumemeyer/watermarks-remover)
@@ -34,7 +35,11 @@ default branch at build time.
   lets you set those properties again on the copy.
 - Results describe findings and residual risk. They never claim that a file is
   universally “watermark-free.”
-- The app has no network entitlement, telemetry, updater, or remote/model API.
+- The app has no telemetry or updater. It holds a network-client entitlement for
+  one purpose: the optional AI review, which runs only when the user starts it
+  and confirms, using their own API key. The cleaning engine makes no network
+  calls, although as a sandbox-inheriting child it has the same entitlement, so
+  that rests on its code and the release checks rather than on the sandbox.
 
 Visible-logo removal, statistical text rewriting, SynthID scoring, CtrlRegen,
 MarkDiffusion, audio-waveform alteration, and image regeneration are outside
@@ -196,6 +201,29 @@ attached files, and white text in Excel cells or on PowerPoint slides aren't
 checked. Text covered by a later shape isn't detected. The check only reports:
 creating a copy can remove invisible characters and some metadata, but hidden
 text and comments stay.
+
+### AI review
+
+**Review with AI…** on a finished check asks an external model for a second
+opinion. It's optional, and nothing is sent without it. Add your own API key for
+any of Claude, OpenAI, Gemini, DeepSeek, GLM or Qwen in Settings under **AI review**,
+choose a model (and a region for GLM and Qwen, since keys are tied to one), and use
+**Test** to confirm it works. Model names change often, so the field is editable
+and the listed ones are only suggestions.
+
+- A sheet shown before every review names the companies, the size of the text and
+  what will be sent. Only the extracted text and a short summary of the offline
+  findings, with any decoded hidden messages, go out, never the file. That text includes hidden text, comments and
+  metadata, up to 400,000 characters with hidden text first, in requests of up to
+  120,000 characters.
+- Keys stay in the login Keychain, not in preferences, logs or reports. The
+  addresses are fixed in code, requests use HTTPS, redirects are refused, and
+  results are kept in memory only.
+- The document may try to manipulate its reviewer, so it's sent as data between
+  random markers, with invisible characters written out. A finding whose quote
+  isn't in the file or a decoded message is dropped and counted, and each model's verdict is worked out
+  from the findings that remain. Reviews appear beside the offline findings, never
+  replace them, and trigger nothing.
 
 ## Word editing traces
 

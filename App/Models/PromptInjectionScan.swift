@@ -52,6 +52,7 @@ struct PromptInjectionScan: Equatable, Sendable {
     var findingsTotal: Int { Int(raw["findingsTotal"]?.numberValue ?? Double(findings.count)) }
     var extractedCharacters: Int { Int(raw["extracted"]?["chars"]?.numberValue ?? 0) }
     var reviewText: String { raw["review_text"]?.stringValue ?? "" }
+    var reviewTextTruncated: Bool { raw["extracted"]?["truncated"]?.boolValue == true }
 
     var findings: [Finding] {
         (raw["findings"]?.arrayValue ?? []).enumerated().compactMap { index, item in
@@ -84,9 +85,28 @@ struct PromptInjectionScan: Equatable, Sendable {
         return groups
     }
 
+    var decodedMessages: [String] {
+        findings.compactMap(\.decoded)
+    }
+
     var lesserFindings: [Finding] {
         findings.filter { $0.severity == .info }
     }
+}
+
+/// One provider's AI review of a file. Kept in memory only, never written to disk.
+struct AIProviderReview: Identifiable, Equatable, Sendable {
+    enum State: Equatable, Sendable {
+        case running
+        case finished(AIReviewOutcome)
+        case failed(String)
+    }
+
+    let provider: AIProvider
+    let model: String
+    var state: State
+
+    var id: AIProvider { provider }
 }
 
 enum InjectionScanState: Equatable, Sendable {

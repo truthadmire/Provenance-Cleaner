@@ -58,10 +58,15 @@ struct SettingsView: View {
                 Label("Cleaning", systemImage: "wand.and.stars")
             }
 
+            AIReviewSettingsView(preferences: preferences, store: store)
+                .tabItem {
+                    Label("AI review", systemImage: "sparkle.magnifyingglass")
+                }
+
             Form {
                 Section {
-                    Label("Everything is processed on this Mac", systemImage: "lock")
-                    Text("The app has no network access. It removes markers it can find reliably and doesn't call any online service.")
+                    Label("Cleaning and checking happen on this Mac", systemImage: "lock")
+                    Text("The app removes markers it can find reliably, without any online service. It goes online only for an AI review: when you run one and confirm, the file's extracted text goes to the providers you chose, with your own keys.")
                         .font(Clay.caption)
                         .foregroundStyle(Clay.inkMuted)
                 } header: {

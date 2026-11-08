@@ -29,6 +29,14 @@ enum Clay {
     static let danger = dynamic(0xA33A2C, 0xF0A596)
     static let dangerSoft = dynamic(0xF7E3DF, 0x402B27)
     static let focus = dynamic(0x2C84DB, 0x61AAF2)
+    // Text of each AI provider's review, so it can't be mistaken for the local
+    // checks or for another model. All meet 4.5:1 on `surface`.
+    static let aiClaude = dynamic(0x9A4A1C, 0xF0A878)
+    static let aiOpenAI = dynamic(0x0B6E5E, 0x6ED8C2)
+    static let aiGemini = dynamic(0x1F5FBF, 0x8FBBF7)
+    static let aiDeepSeek = dynamic(0x6A3FB5, 0xC4A8F5)
+    static let aiGLM = dynamic(0xA3307A, 0xF09AD2)
+    static let aiQwen = dynamic(0x62680F, 0xD2D67C)
 
     // MARK: Space and shape
 

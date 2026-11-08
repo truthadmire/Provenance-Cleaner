@@ -43,6 +43,7 @@ final class AppPreferences {
         static let normalizeSpaces = "normalizeSpaces"
         static let alsoLayerAText = "alsoLayerAText"
         static let deepImages = "deepImages"
+        static let aiProviders = "aiProviders"
     }
 
     @ObservationIgnored private let defaults: UserDefaults
@@ -69,6 +70,23 @@ final class AppPreferences {
 
     var deepImageMode: DeepImageMode {
         didSet { defaults.set(deepImageMode.rawValue, forKey: Key.deepImages) }
+    }
+
+    /// Models and regions by provider. API keys are in the Keychain, not here.
+    private var aiProviderSettings: [String: AIProviderSettings] {
+        didSet {
+            if let data = try? JSONEncoder().encode(aiProviderSettings) {
+                defaults.set(data, forKey: Key.aiProviders)
+            }
+        }
+    }
+
+    func aiSettings(for provider: AIProvider) -> AIProviderSettings {
+        aiProviderSettings[provider.rawValue] ?? .defaults(for: provider)
+    }
+
+    func setAISettings(_ settings: AIProviderSettings, for provider: AIProvider) {
+        aiProviderSettings[provider.rawValue] = settings
     }
 
     var wordSessionMode: WordTraceMode {
@@ -114,6 +132,8 @@ final class AppPreferences {
         self.alsoLayerAText = defaults.object(forKey: Key.alsoLayerAText) as? Bool ?? true
         self.deepImageMode = defaults.string(forKey: Key.deepImages)
             .flatMap(DeepImageMode.init(rawValue:)) ?? .auto
+        self.aiProviderSettings = defaults.data(forKey: Key.aiProviders)
+            .flatMap { try? JSONDecoder().decode([String: AIProviderSettings].self, from: $0) } ?? [:]
     }
 
     var cleaningOptions: CleaningOptions {

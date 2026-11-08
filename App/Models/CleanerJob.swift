@@ -181,6 +181,8 @@ struct CleanerJob: Identifiable, Equatable, Sendable {
     /// The prompt-injection check, kept apart from `status` and `inspection`
     /// because it's optional and says nothing about cleaning.
     var injectionScan: InjectionScanState = .notScanned
+    /// Optional AI reviews of that check's text, by provider.
+    var aiReviews: [AIProviderReview] = []
 
     init(id: UUID = UUID(), sourceURL: URL) {
         self.id = id
@@ -202,6 +204,7 @@ struct CleanerJob: Identifiable, Equatable, Sendable {
     var isPDF: Bool { fileExtension == "pdf" }
 
     var isScanningForInjection: Bool { injectionScan == .scanning }
+    var isReviewingWithAI: Bool { aiReviews.contains { $0.state == .running } }
 
     /// The verdict of a finished prompt-injection check, when it found something.
     var injectionVerdictToFlag: PromptInjectionScan.Verdict? {

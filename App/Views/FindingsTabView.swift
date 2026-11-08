@@ -8,9 +8,16 @@ struct FindingsTabView: View {
     var onInspect: () -> Void
     var onShowChanges: () -> Void
     var onScanForInjection: () -> Void = {}
+    var onReviewWithAI: () -> Void = {}
 
     private var injectionCard: PromptInjectionCard {
-        PromptInjectionCard(state: job.injectionScan, canScan: canScanForInjection, onScan: onScanForInjection)
+        PromptInjectionCard(
+            state: job.injectionScan,
+            canScan: canScanForInjection,
+            aiReviews: job.aiReviews,
+            onScan: onScanForInjection,
+            onReviewWithAI: onReviewWithAI
+        )
     }
 
     var body: some View {

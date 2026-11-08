@@ -22,8 +22,11 @@ final class AppStore {
     var engineAvailabilityMessage: String?
 
     let preferences: AppPreferences
+    let apiKeys: any APIKeyStoring
 
     @ObservationIgnored private let engine: any WatermarkEngine
+    @ObservationIgnored private let aiReviewer: any AIReviewing
+    @ObservationIgnored private var aiReviewTasks: [CleanerJob.ID: Task<Void, Never>] = [:]
     @ObservationIgnored private let exporter: SafeFileExporter
     @ObservationIgnored private let fileManager: FileManager
     @ObservationIgnored private let stagingRoot: URL
@@ -42,8 +45,12 @@ final class AppStore {
         exporter: SafeFileExporter = SafeFileExporter(),
         fileManager: FileManager = .default,
         stagingRoot: URL? = nil,
-        requestFolderAccess: (@MainActor (URL) -> URL?)? = nil
+        requestFolderAccess: (@MainActor (URL) -> URL?)? = nil,
+        aiReviewer: any AIReviewing = AIReviewClient(),
+        apiKeys: any APIKeyStoring = KeychainAPIKeyStore()
     ) {
+        self.aiReviewer = aiReviewer
+        self.apiKeys = apiKeys
         self.requestFolderAccess = requestFolderAccess ?? { FilePanelService.requestFolderAccess(for: $0) }
         self.engine = engine ?? BundledWatermarkEngine()
         self.preferences = preferences
@@ -61,7 +68,7 @@ final class AppStore {
     }
 
     var isBusy: Bool {
-        isCleaningSequentially || isSaving || jobs.contains { $0.status.isBusy || $0.isScanningForInjection }
+        isCleaningSequentially || isSaving || jobs.contains { $0.status.isBusy || $0.isScanningForInjection || $0.isReviewingWithAI }
     }
 
     var hasCleanableJobs: Bool {
@@ -141,7 +148,7 @@ final class AppStore {
 
     func canScanForInjection(_ job: CleanerJob) -> Bool {
         // After a replace the file on disk is the copy, not the original.
-        job.kind != .unknown && !job.isReplaced && !job.status.isBusy && !job.isScanningForInjection
+        job.kind != .unknown && !job.isReplaced && !job.status.isBusy && !job.isScanningForInjection && !job.isReviewingWithAI
     }
 
     func scanForInjection(jobID: CleanerJob.ID) async {
@@ -152,12 +159,106 @@ final class AppStore {
             let scan = try await withTrackedRequest(for: jobID) { requestID in
                 try await engine.scan(fileAt: job.sourceURL, requestID: requestID)
             }
-            update(jobID) { $0.injectionScan = .finished(scan) }
+            update(jobID) {
+                $0.injectionScan = .finished(scan)
+                $0.aiReviews = []
+            }
         } catch where isCancellation(error) {
             update(jobID) { $0.injectionScan = previous }
         } catch {
             update(jobID) { $0.injectionScan = .failed(error.localizedDescription) }
         }
+    }
+
+    /// Providers with a saved key that the user offers for reviews.
+    func aiProvidersReady() -> [AIProvider] {
+        AIProvider.allCases.filter { preferences.aiSettings(for: $0).enabled && apiKeys.hasKey(for: $0) }
+    }
+
+    /// Sends the finished check's text to each provider. Callers confirm first;
+    /// nothing else in the app reaches this. Results are advisory and in memory only.
+    func reviewWithAI(jobID: CleanerJob.ID, providers: [AIProvider]) async {
+        guard let job = job(withID: jobID), case let .finished(scan) = job.injectionScan, scan.available,
+              !job.isReviewingWithAI, !providers.isEmpty
+        else { return }
+        let settings = providers.map { (provider: $0, settings: preferences.aiSettings(for: $0)) }
+        update(jobID) { current in
+            current.aiReviews = settings.map { AIProviderReview(provider: $0.provider, model: $0.settings.model, state: .running) }
+        }
+        let summary = AIReviewPrompt.offlineSummary(of: scan)
+        let reviewer = aiReviewer
+        var requests: [(provider: AIProvider, request: AIReviewRequest?)] = []
+        for item in settings {
+            requests.append((item.provider, makeAIRequest(
+                provider: item.provider, settings: item.settings, reviewText: scan.reviewText,
+                offlineSummary: summary, decodedMessages: scan.decodedMessages
+            )))
+        }
+        let task = Task { [weak self] in
+            await withTaskGroup(of: (AIProvider, AIProviderReview.State).self) { group in
+                for item in requests {
+                    group.addTask {
+                        guard let request = item.request else {
+                            return (item.provider, .failed(AIReviewError.missingKey.localizedDescription))
+                        }
+                        do {
+                            return (item.provider, .finished(try await reviewer.review(request)))
+                        } catch is CancellationError {
+                            return (item.provider, .failed("Stopped before it finished."))
+                        } catch {
+                            return (item.provider, .failed(error.localizedDescription))
+                        }
+                    }
+                }
+                for await (provider, state) in group {
+                    self?.update(jobID) { current in
+                        if let index = current.aiReviews.firstIndex(where: { $0.provider == provider }) {
+                            current.aiReviews[index].state = state
+                        }
+                    }
+                }
+            }
+        }
+        aiReviewTasks[jobID] = task
+        await task.value
+        aiReviewTasks[jobID] = nil
+    }
+
+    /// nil when the provider answered in the expected form, else why it didn't.
+    func testAIProvider(_ provider: AIProvider) async -> String? {
+        guard let request = makeAIRequest(
+            provider: provider,
+            settings: preferences.aiSettings(for: provider),
+            reviewText: "[Test (visible)]\nThis is an ordinary sentence for a connection test.",
+            offlineSummary: "Nothing."
+        ) else {
+            return AIReviewError.missingKey.localizedDescription
+        }
+        do {
+            _ = try await aiReviewer.review(request)
+            return nil
+        } catch {
+            return error.localizedDescription
+        }
+    }
+
+    private func makeAIRequest(
+        provider: AIProvider,
+        settings: AIProviderSettings,
+        reviewText: String,
+        offlineSummary: String,
+        decodedMessages: [String] = []
+    ) -> AIReviewRequest? {
+        guard let key = try? apiKeys.key(for: provider), !key.isEmpty else { return nil }
+        return AIReviewRequest(
+            provider: provider,
+            endpoint: provider.endpoint(id: settings.endpointID),
+            model: settings.model.trimmingCharacters(in: .whitespacesAndNewlines),
+            apiKey: key,
+            reviewText: reviewText,
+            offlineSummary: offlineSummary,
+            decodedMessages: decodedMessages
+        )
     }
 
     func inspectSelected() async {
@@ -239,6 +340,7 @@ final class AppStore {
 
     func cancelAllProcessing() async {
         cancellationRequested = true
+        aiReviewTasks.values.forEach { $0.cancel() }
         let requestIDs = Array(Set(activeRequestIDs.values))
         for requestID in requestIDs {
             await engine.cancel(requestID: requestID)

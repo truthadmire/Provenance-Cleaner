@@ -5,7 +5,9 @@ import SwiftUI
 struct PromptInjectionCard: View {
     let state: InjectionScanState
     var canScan: Bool
+    var aiReviews: [AIProviderReview] = []
     var onScan: () -> Void
+    var onReviewWithAI: () -> Void = {}
 
     private static let title = "Prompt injection"
     private static let purpose = "Instructions hidden from you but readable by an AI assistant that opens this file."
@@ -78,7 +80,24 @@ struct PromptInjectionCard: View {
                 explanation(note)
             }
             explanation("This check only reports. Creating a copy can remove invisible characters and some metadata, but hidden text and comments stay in it.")
-            scanButton("Check again")
+            if !aiReviews.isEmpty {
+                Rectangle().fill(Clay.hairline).frame(height: 1)
+                Text("AI review")
+                    .font(Clay.captionMedium)
+                    .foregroundStyle(Clay.inkMuted)
+                    .accessibilityAddTraits(.isHeader)
+                ForEach(aiReviews) { review in
+                    AIReviewResultView(review: review)
+                }
+                explanation("A second opinion from the models you chose. It can miss things or be misled by the file, so it doesn't replace the checks above.")
+            }
+            HStack(spacing: Clay.space2) {
+                scanButton("Check again")
+                Button("Review with AI…", action: onReviewWithAI)
+                    .buttonStyle(.clayGhost)
+                    .disabled(!canScan)
+                    .accessibilityIdentifier("findings.promptInjection.reviewWithAI")
+            }
         }
     }
 

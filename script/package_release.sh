@@ -64,12 +64,14 @@ verify_entitlements_policy() {
   /usr/bin/plutil -lint "$APP_ENTITLEMENTS" "$HELPER_ENTITLEMENTS" >/dev/null
   app_key_count="$(/usr/bin/plutil -p "$APP_ENTITLEMENTS" | /usr/bin/awk '/ => / {count++} END {print count + 0}')"
   helper_key_count="$(/usr/bin/plutil -p "$HELPER_ENTITLEMENTS" | /usr/bin/awk '/ => / {count++} END {print count + 0}')"
-  [[ "$app_key_count" -eq 2 ]] || \
-    die "outer app entitlements must contain exactly App Sandbox and user-selected read/write"
+  [[ "$app_key_count" -eq 3 ]] || \
+    die "outer app entitlements must contain exactly App Sandbox, user-selected read/write and network client"
   [[ "$(/usr/bin/plutil -extract 'com\.apple\.security\.app-sandbox' raw -o - "$APP_ENTITLEMENTS")" == "true" ]] || \
     die "outer app must enable App Sandbox"
   [[ "$(/usr/bin/plutil -extract 'com\.apple\.security\.files\.user-selected\.read-write' raw -o - "$APP_ENTITLEMENTS")" == "true" ]] || \
     die "outer app must enable user-selected read/write access"
+  [[ "$(/usr/bin/plutil -extract 'com\.apple\.security\.network\.client' raw -o - "$APP_ENTITLEMENTS")" == "true" ]] || \
+    die "outer app must enable the network client for AI reviews"
   [[ "$helper_key_count" -eq 2 ]] || \
     die "helper entitlements must contain exactly App Sandbox and inherit"
   [[ "$(/usr/bin/plutil -extract 'com\.apple\.security\.app-sandbox' raw -o - "$HELPER_ENTITLEMENTS")" == "true" ]] || \
@@ -150,12 +152,14 @@ verify_signed_entitlements() {
   /usr/bin/plutil -lint "$actual_app" "$actual_helper" >/dev/null
   app_key_count="$(/usr/bin/plutil -p "$actual_app" | /usr/bin/awk '/ => / {count++} END {print count + 0}')"
   helper_key_count="$(/usr/bin/plutil -p "$actual_helper" | /usr/bin/awk '/ => / {count++} END {print count + 0}')"
-  [[ "$app_key_count" -eq 2 ]] || die "signed outer app contains unexpected entitlements"
+  [[ "$app_key_count" -eq 3 ]] || die "signed outer app contains unexpected entitlements"
   [[ "$helper_key_count" -eq 2 ]] || die "signed helper contains unexpected entitlements"
   [[ "$(/usr/bin/plutil -extract 'com\.apple\.security\.app-sandbox' raw -o - "$actual_app")" == "true" ]] || \
     die "signed outer app is missing App Sandbox"
   [[ "$(/usr/bin/plutil -extract 'com\.apple\.security\.files\.user-selected\.read-write' raw -o - "$actual_app")" == "true" ]] || \
     die "signed outer app is missing user-selected read/write"
+  [[ "$(/usr/bin/plutil -extract 'com\.apple\.security\.network\.client' raw -o - "$actual_app")" == "true" ]] || \
+    die "signed outer app is missing the network client"
   [[ "$(/usr/bin/plutil -extract 'com\.apple\.security\.app-sandbox' raw -o - "$actual_helper")" == "true" ]] || \
     die "signed helper is missing App Sandbox"
   [[ "$(/usr/bin/plutil -extract 'com\.apple\.security\.inherit' raw -o - "$actual_helper")" == "true" ]] || \
@@ -618,7 +622,7 @@ REPORT="$OUTPUT_DIR/RELEASE_REPORT.md"
   echo "- Source commit: $SOURCE_COMMIT"
   echo "- Signing identity: $SIGNING_IDENTITY"
   echo "- Hardened runtime: enabled on nested Mach-O code and the outer app"
-  echo "- Sandbox: outer app uses App Sandbox + user-selected read/write; nested helper uses App Sandbox + inherit and receives only app-container staged paths"
+  echo "- Sandbox: outer app uses App Sandbox + user-selected read/write + network client (for the optional AI review only); nested helper uses App Sandbox + inherit, makes no network calls and receives only app-container staged paths"
   echo "- Notarization: $NOTARIZATION_STATUS"
   echo "- Stapling: $([[ -n "$NOTARY_PROFILE" ]] && echo validated || echo not performed)"
   echo "- Architectures: application, frozen CPython/OpenSSL/zstd, c2patool, qpdf and Ghostscript arm64; qpdf and Ghostscript use static bundled codecs"
