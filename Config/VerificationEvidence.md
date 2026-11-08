@@ -4,6 +4,35 @@ This evidence separates the current development checks from the original
 0.1.0 release-candidate checks. Neither section claims the complete acceptance
 matrix.
 
+### 0.7.0 prompt-injection check and optional AI review — 2026-11-08
+
+- New: **Check for prompt injection** reports instructions hidden from a person
+  but readable by an AI assistant (`Helper/injection_scan.py`,
+  `Helper/injection_extract.py`), offline and read-only. **Review with AI…** asks
+  the user's chosen providers for a second opinion, with their own API keys, only
+  after a confirmation sheet.
+- The outer app gains `com.apple.security.network.client`, used only by that
+  review. The helper inherits it through its sandbox and makes no network calls;
+  that rests on its code and the release capability check, not on the sandbox.
+- In the debug build, crafted samples gave the expected offline results: a PDF
+  with white-on-white text and a DOCX with hidden, white and tiny runs and a
+  tag-character message were flagged while the normal check found nothing there,
+  and a plain text file was clean.
+- With real keys, OpenAI, Gemini and DeepSeek each flagged both crafted files,
+  reported the hidden instructions rather than following them, and found nothing
+  in the clean file. No finding was dropped for an unmatched quote.
+- 116 Swift unit tests (stubbed network) and 120 helper tests passed against the
+  source; the 43 scan tests also passed against a frozen helper before release.
+- Not verified:
+  - real requests to Claude, GLM or Qwen;
+  - sending decoded hidden messages to a real model (added after the real runs);
+  - long documents split across several real requests;
+  - choosing files in the system file picker (the button opened it, but the
+    picker can't be driven by automation);
+  - provider colours and the "found nothing" wording in the running app with
+    real answers;
+  - false-alarm rates on everyday documents.
+
 ### 0.6.0 PDF generator traces, PDF detection, Word review markup — 2026-10-28
 
 - Reproduced before the change on two real PDFs:
