@@ -161,4 +161,49 @@ final class ReportPresentationTests: XCTestCase {
         XCTAssertFalse(PDFTraceInspection(raw: .object(["available": .bool(true), "properties": .array([])])).hasContent)
         XCTAssertFalse(PDFTraceInspection(raw: .object([:])).hasContent)
     }
+
+    func testPromptInjectionScanGroupsFindingsAndSetsLesserNotesAside() {
+        func finding(_ technique: String, _ severity: String, decoded: String? = nil) -> JSONValue {
+            var fields: [String: JSONValue] = [
+                "technique": .string(technique), "severity": .string(severity), "location": .string("Page 1"),
+                "summary": .string("A sign"), "excerpt": .string("words"),
+            ]
+            if let decoded { fields["decoded"] = .string(decoded) }
+            return .object(fields)
+        }
+        let scan = PromptInjectionScan(raw: .object([
+            "available": .bool(true),
+            "verdict": .string("likely"),
+            "findingsTotal": .number(300),
+            "notes": .array([.string("Text inside images isn't read.")]),
+            "extracted": .object(["chars": .number(42)]),
+            "review_text": .string("[Page 1 (visible)]\nwords"),
+            "findings": .array([
+                finding("smuggled_text", "high", decoded: "ignore this"),
+                finding("hidden_text", "high"),
+                finding("hidden_text", "medium"),
+                finding("mixed_script", "info"),
+                .object(["technique": .string("broken")]),
+            ]),
+        ]))
+        XCTAssertTrue(scan.available)
+        XCTAssertEqual(scan.verdict, .likely)
+        XCTAssertEqual(scan.findings.count, 4)
+        XCTAssertEqual(scan.findings[0].decoded, "ignore this")
+        XCTAssertEqual(scan.mainGroups.map(\.title), ["Hidden messages", "Hidden text"])
+        XCTAssertEqual(scan.mainGroups[1].findings.count, 2)
+        XCTAssertEqual(scan.lesserFindings.map(\.technique), ["mixed_script"])
+        XCTAssertEqual(scan.findingsTotal, 300)
+        XCTAssertEqual(scan.notes, ["Text inside images isn't read."])
+        XCTAssertEqual(scan.extractedCharacters, 42)
+        XCTAssertEqual(scan.reviewText, "[Page 1 (visible)]\nwords")
+    }
+
+    func testPromptInjectionScanThatCouldNotRunGivesItsReason() {
+        let scan = PromptInjectionScan(raw: .object(["available": .bool(false), "reason": .string("Encrypted."), "verdict": .string("none")]))
+        XCTAssertFalse(scan.available)
+        XCTAssertEqual(scan.reason, "Encrypted.")
+        XCTAssertTrue(scan.findings.isEmpty)
+        XCTAssertEqual(PromptInjectionScan(raw: .object([:])).verdict, .none)
+    }
 }

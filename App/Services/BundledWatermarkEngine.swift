@@ -52,6 +52,27 @@ actor BundledWatermarkEngine: WatermarkEngine {
         )
     }
 
+    func scan(_ input: EngineInput) async throws -> PromptInjectionScan {
+        let staging = try EngineStagingArea(
+            requestID: input.requestID,
+            sourceURL: input.inputURL,
+            maximumInputBytes: Self.maximumInputBytes
+        )
+        defer { staging.remove() }
+
+        let response = try await send(
+            HelperRequest(
+                requestID: input.requestID.uuidString,
+                operation: .scan,
+                inputPath: staging.inputURL.path
+            )
+        )
+        guard let report = response.report["prompt_injection"] else {
+            throw WatermarkEngineError.invalidResponse("A scan response omitted its report.")
+        }
+        return PromptInjectionScan(raw: report)
+    }
+
     func clean(_ input: EngineInput, options: CleanOptions) async throws -> CleanResult {
         guard let requestedOutputURL = input.outputURL else {
             throw WatermarkEngineError.invalidInput("A clean request requires an output URL.")
@@ -374,6 +395,7 @@ enum HelperOperation: String, Codable, Sendable {
     case capabilities
     case inspect
     case clean
+    case scan
 }
 
 struct HelperRequest: Codable, Equatable, Sendable {

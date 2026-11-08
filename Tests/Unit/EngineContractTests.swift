@@ -77,6 +77,13 @@ final class EngineContractTests: XCTestCase {
         XCTAssertEqual(options["deepImages"] as? String, "auto")
     }
 
+    func testScanRequestEncodesItsOperationAndInputOnly() throws {
+        let data = try JSONEncoder().encode(HelperRequest(requestID: "s", operation: .scan, inputPath: "/tmp/a.pdf"))
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        XCTAssertEqual(object["operation"] as? String, "scan")
+        XCTAssertEqual(Set(object.keys), ["requestID", "operation", "inputPath"])
+    }
+
     func testCapabilitiesRequestOmitsUnusedOptionalKeys() throws {
         let data = try JSONEncoder().encode(
             HelperRequest(requestID: "cap-1", operation: .capabilities)

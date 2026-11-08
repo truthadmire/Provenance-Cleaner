@@ -4,6 +4,7 @@ protocol WatermarkEngine: Sendable {
     func capabilities() async throws -> EngineCapabilities
     func inspect(_ input: EngineInput) async throws -> InspectionResult
     func clean(_ input: EngineInput, options: CleanOptions) async throws -> CleanResult
+    func scan(_ input: EngineInput) async throws -> PromptInjectionScan
     func cancel(requestID: UUID) async
 }
 
@@ -14,6 +15,10 @@ extension WatermarkEngine {
 
     func inspect(fileAt inputURL: URL, requestID: UUID = UUID()) async throws -> EngineInspection {
         try await inspect(EngineInput(requestID: requestID, inputURL: inputURL))
+    }
+
+    func scan(fileAt inputURL: URL, requestID: UUID = UUID()) async throws -> PromptInjectionScan {
+        try await scan(EngineInput(requestID: requestID, inputURL: inputURL))
     }
 
     func clean(

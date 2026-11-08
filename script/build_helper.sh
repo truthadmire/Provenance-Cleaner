@@ -91,6 +91,8 @@ if [[ "$IF_NEEDED" -eq 1 && -x "$OUTPUT_BINARY" ]]; then
     "$HELPER_DIR/office_credentials.py"
     "$HELPER_DIR/upstream_fixes.py"
     "$HELPER_DIR/pdf_traces.py"
+    "$HELPER_DIR/injection_scan.py"
+    "$HELPER_DIR/injection_extract.py"
     "$SPEC"
     "$UPSTREAM_DIR"
     "$HELPER_DIR/requirements-build.txt"

@@ -178,6 +178,9 @@ struct CleanerJob: Identifiable, Equatable, Sendable {
     var originalDownloadSource: [String] = []
     /// The original as it was when the current copy was built from it.
     var copySourceFingerprint: FileFingerprint?
+    /// The prompt-injection check, kept apart from `status` and `inspection`
+    /// because it's optional and says nothing about cleaning.
+    var injectionScan: InjectionScanState = .notScanned
 
     init(id: UUID = UUID(), sourceURL: URL) {
         self.id = id
@@ -197,6 +200,14 @@ struct CleanerJob: Identifiable, Equatable, Sendable {
     var isWordDocument: Bool { fileExtension == "docx" }
     var isOfficeDocument: Bool { ["docx", "xlsx", "pptx"].contains(fileExtension) }
     var isPDF: Bool { fileExtension == "pdf" }
+
+    var isScanningForInjection: Bool { injectionScan == .scanning }
+
+    /// The verdict of a finished prompt-injection check, when it found something.
+    var injectionVerdictToFlag: PromptInjectionScan.Verdict? {
+        guard case let .finished(scan) = injectionScan, scan.available, scan.verdict != .none else { return nil }
+        return scan.verdict
+    }
 
     var previewURL: URL {
         stagedOutputURL ?? sourceURL

@@ -43,7 +43,13 @@ struct JobDetailView: View {
                 Group {
                     switch selectedTab {
                     case .findings:
-                        FindingsTabView(job: job, onInspect: inspect, onShowChanges: { selectedTab = .changes })
+                        FindingsTabView(
+                            job: job,
+                            canScanForInjection: store.canScanForInjection(job),
+                            onInspect: inspect,
+                            onShowChanges: { selectedTab = .changes },
+                            onScanForInjection: { Task { await store.scanForInjection(jobID: job.id) } }
+                        )
                     case .changes:
                         ChangesTabView(store: store, job: job)
                     case .review:

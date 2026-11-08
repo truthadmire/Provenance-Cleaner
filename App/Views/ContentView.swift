@@ -41,6 +41,14 @@ struct ContentView: View {
                 .help("Add files (⌘O)")
                 .accessibilityIdentifier("toolbar.add-files")
 
+                Button(action: checkForInjection) {
+                    Label("Check for prompt injection", systemImage: "exclamationmark.shield")
+                        .labelStyle(.titleAndIcon)
+                }
+                .help("Choose files to check for hidden instructions aimed at AI assistants (⇧⌘O)")
+                .disabled(store.isBusy)
+                .accessibilityIdentifier("toolbar.check-injection")
+
                 if store.isBusy {
                     Button {
                         Task { await store.cancelAllProcessing() }
@@ -181,6 +189,7 @@ struct ContentView: View {
         let selected = store.selectedJob
         return CleanerCommandActions(
             addFiles: addFiles,
+            checkForInjection: checkForInjection,
             createCopy: { Task { await store.createCopyForSelected() } },
             saveCopy: { if let selected { saveCopy(selected) } },
             showTab: { selectedDetailTab = $0 },
@@ -188,6 +197,7 @@ struct ContentView: View {
             createAllCopies: { Task { await store.createAllCopies() } },
             saveAll: { showingBatchExportChoices = true },
             removeSelected: store.removeSelected,
+            canCheckForInjection: !store.isBusy,
             canInspect: !store.jobs.isEmpty && !store.isBusy,
             canCreateCopy: selected.map(store.canCreateCopy) == true && !store.isBusy,
             canSaveCopy: selected.map(store.canSaveCopy) == true && !store.isBusy,
@@ -202,6 +212,13 @@ struct ContentView: View {
         let urls = FilePanelService.chooseInputs()
         guard !urls.isEmpty else { return }
         Task { await store.addAndInspect(urls) }
+    }
+
+    private func checkForInjection() {
+        let urls = FilePanelService.chooseInputs()
+        guard !urls.isEmpty else { return }
+        selectedDetailTab = .findings
+        Task { await store.addAndScan(urls) }
     }
 
     private func saveCopy(_ job: CleanerJob) {

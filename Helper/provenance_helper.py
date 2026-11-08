@@ -43,7 +43,7 @@ MAX_REQUEST_LINE_BYTES = 1 << 20
 MAX_REQUEST_ID_CHARS = 256
 
 _REQUEST_FIELDS = frozenset({"requestID", "operation", "inputPath", "outputPath", "options"})
-_OPERATIONS = frozenset({"capabilities", "inspect", "clean"})
+_OPERATIONS = frozenset({"capabilities", "inspect", "clean", "scan"})
 _OPTION_TYPES: dict[str, type] = {
     "normalizeSpaces": bool,
     "keepNonAIMetadata": bool,
@@ -208,6 +208,7 @@ container_meta.run_optional_tools = credential_inspection.run_optional_tools
 pdf_traces.install(container_meta)
 
 import upstream_fixes  # noqa: E402  (needs the upstream modules on sys.path)
+import injection_scan  # noqa: E402  (needs the upstream modules on sys.path)
 
 
 def _json_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
@@ -541,6 +542,15 @@ def _inspect_response(request_id: str, input_path: Path) -> dict[str, Any]:
     return {"requestID": request_id, "ok": True, "kind": kind, "report": report}
 
 
+def _scan_response(request_id: str, input_path: Path) -> dict[str, Any]:
+    data = _read_input(input_path)
+    try:
+        report = injection_scan.scan(input_path, data)
+    except OSError as exc:
+        raise ProtocolError("processing_io_error", f"the prompt-injection check failed: {exc}") from exc
+    return {"requestID": request_id, "ok": True, "kind": "unknown", "report": {"prompt_injection": report}}
+
+
 def _clean_response(
     request_id: str,
     input_path: Path,
@@ -703,6 +713,10 @@ def _handle_request(request: dict[str, Any]) -> dict[str, Any]:
     if operation == "inspect":
         _unexpected_fields(request, frozenset({"requestID", "operation", "inputPath"}))
         return _inspect_response(request_id, _path_field(request, "inputPath"))
+
+    if operation == "scan":
+        _unexpected_fields(request, frozenset({"requestID", "operation", "inputPath"}))
+        return _scan_response(request_id, _path_field(request, "inputPath"))
 
     _unexpected_fields(
         request,

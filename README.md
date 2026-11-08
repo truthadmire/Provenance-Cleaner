@@ -162,6 +162,41 @@ configuration, not a claim of current public trust. C2PA credentials are evidenc
 of provenance, not a verdict about whether the content is true. The implementation
 uses the [official c2patool JSON and certificate interfaces](https://github.com/contentauth/c2patool/blob/main/docs/usage.md).
 
+## Prompt-injection check
+
+**Check for prompt injection**, beside **Add files**, adds the chosen files to the
+list and looks for instructions hidden from a person but readable by an AI
+assistant that later opens the file. Queued files can be checked from their
+Findings tab or the sidebar's context menu. The check is offline and read-only
+(`Helper/injection_scan.py`, `Helper/injection_extract.py`); it changes nothing
+about a file's cleaning state.
+
+- **Hidden messages:** Unicode tag characters, variation selectors and binary
+  zero-width runs are decoded, and the decoded text is shown.
+- **Invisible characters and text-direction controls**, found by the engine's
+  existing Unicode inspection, so emoji sequences and valid joiners stay clean.
+- **Hidden text:**
+  - Word runs that are hidden, white or 2 pt or smaller, including through styles;
+  - hidden sheets, rows, columns, slides and shapes, and ODT hidden text;
+  - HTML, SVG and EPUB content hidden with attributes or CSS;
+  - PDF text that's invisible, transparent, clipped, smaller than 1 pt, off the
+    page, on a hidden layer, or white with nothing painted behind it.
+
+  An invisible layer over a scanned page is expected, so it's only a note.
+- **Instruction-like wording** in English and Chinese, and chat-model control
+  tokens. The same phrase counts for more in hidden text or metadata than on the
+  page, and comments, alt text and metadata are reported only when they contain
+  something like this.
+- **Web addresses** carrying template placeholders or very long values, and
+  **base64 or hex** that decodes to readable text.
+
+Results describe signs, not intent: an article about prompt injection will quote
+these phrases. A clean result doesn't prove a file is safe. Text inside images,
+attached files, and white text in Excel cells or on PowerPoint slides aren't
+checked. Text covered by a later shape isn't detected. The check only reports:
+creating a copy can remove invisible characters and some metadata, but hidden
+text and comments stay.
+
 ## Word editing traces
 
 Import a DOCX and turn on **Change Word editing history** on the Changes tab.

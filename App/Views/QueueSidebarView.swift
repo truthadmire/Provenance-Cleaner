@@ -17,11 +17,15 @@ struct QueueSidebarView: View {
                             Button("Show in Finder") {
                                 FilePanelService.reveal(job.sourceURL)
                             }
+                            Button("Check for Prompt Injection") {
+                                Task { await store.scanForInjection(jobID: job.id) }
+                            }
+                            .disabled(!store.canScanForInjection(job))
                             Divider()
                             Button("Remove from List", role: .destructive) {
                                 store.remove(jobIDs: [job.id])
                             }
-                            .disabled(job.status.isBusy)
+                            .disabled(job.status.isBusy || job.isScanningForInjection)
                         }
                 }
             } header: {
@@ -88,7 +92,7 @@ private struct QueueRow: View {
                     .truncationMode(.middle)
                     .accessibilityIdentifier("queue.row.\(job.displayName)")
                 HStack(spacing: 5) {
-                    if job.status.isBusy {
+                    if job.status.isBusy || job.isScanningForInjection {
                         ProgressView().controlSize(.mini)
                     } else {
                         Circle()
@@ -96,9 +100,15 @@ private struct QueueRow: View {
                             .frame(width: 6, height: 6)
                             .accessibilityHidden(true)
                     }
-                    Text(job.queueLabel)
+                    Text(job.isScanningForInjection ? "Checking for prompt injection…" : job.queueLabel)
                         .lineLimit(1)
                         .accessibilityIdentifier("queue.status.\(job.displayName)")
+                    if let verdict = job.injectionVerdictToFlag {
+                        Image(systemName: "exclamationmark.shield.fill")
+                            .foregroundStyle(verdict == .likely ? Clay.danger : Clay.warning)
+                            .help("Prompt injection check: \(verdict.title)")
+                            .accessibilityLabel("Prompt injection check: \(verdict.title)")
+                    }
                 }
                 .font(Clay.caption)
                 .foregroundStyle(.secondary)

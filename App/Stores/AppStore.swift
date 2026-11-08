@@ -61,7 +61,7 @@ final class AppStore {
     }
 
     var isBusy: Bool {
-        isCleaningSequentially || isSaving || jobs.contains { $0.status.isBusy }
+        isCleaningSequentially || isSaving || jobs.contains { $0.status.isBusy || $0.isScanningForInjection }
     }
 
     var hasCleanableJobs: Bool {
@@ -121,6 +121,42 @@ final class AppStore {
         for job in newJobs where job.kind != .unknown {
             guard !Task.isCancelled, !cancellationRequested else { break }
             await inspect(jobID: job.id)
+        }
+    }
+
+    /// Adds the files (any already queued stay as they are), checks them as
+    /// usual, then runs the prompt-injection check on all of them.
+    func addAndScan(_ inputURLs: [URL]) async {
+        await addAndInspect(inputURLs)
+        let paths = Set(SupportedFileTypes.expandInputURLs(inputURLs).map { $0.standardizedFileURL.path })
+        let ids = jobs.filter { paths.contains($0.sourceURL.standardizedFileURL.path) }.map(\.id)
+        if let first = ids.first {
+            selectedJobID = first
+        }
+        for id in ids {
+            guard !Task.isCancelled, !cancellationRequested else { break }
+            await scanForInjection(jobID: id)
+        }
+    }
+
+    func canScanForInjection(_ job: CleanerJob) -> Bool {
+        // After a replace the file on disk is the copy, not the original.
+        job.kind != .unknown && !job.isReplaced && !job.status.isBusy && !job.isScanningForInjection
+    }
+
+    func scanForInjection(jobID: CleanerJob.ID) async {
+        guard let job = job(withID: jobID), canScanForInjection(job) else { return }
+        let previous = job.injectionScan
+        update(jobID) { $0.injectionScan = .scanning }
+        do {
+            let scan = try await withTrackedRequest(for: jobID) { requestID in
+                try await engine.scan(fileAt: job.sourceURL, requestID: requestID)
+            }
+            update(jobID) { $0.injectionScan = .finished(scan) }
+        } catch where isCancellation(error) {
+            update(jobID) { $0.injectionScan = previous }
+        } catch {
+            update(jobID) { $0.injectionScan = .failed(error.localizedDescription) }
         }
     }
 

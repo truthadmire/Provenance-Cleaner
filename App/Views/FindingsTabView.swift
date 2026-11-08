@@ -4,11 +4,21 @@ import SwiftUI
 /// the Review tab describes the copy.
 struct FindingsTabView: View {
     let job: CleanerJob
+    var canScanForInjection = false
     var onInspect: () -> Void
     var onShowChanges: () -> Void
+    var onScanForInjection: () -> Void = {}
+
+    private var injectionCard: PromptInjectionCard {
+        PromptInjectionCard(state: job.injectionScan, canScan: canScanForInjection, onScan: onScanForInjection)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: Clay.space4) {
+            if job.injectionScan != .notScanned {
+                injectionCard
+            }
+
             if let report = job.inspection {
                 if report.inspectionIncomplete {
                     IncompleteChecksCard(reasons: report.incompleteReasons)
@@ -47,6 +57,10 @@ struct FindingsTabView: View {
                         WordReviewMarkupCard(inspection: inspection)
                     }
                     WordHistorySummaryCard(inspection: inspection, onShowChanges: onShowChanges)
+                }
+
+                if job.injectionScan == .notScanned, !job.isReplaced {
+                    injectionCard
                 }
 
                 VStack(alignment: .leading, spacing: Clay.space2) {

@@ -13,6 +13,7 @@ qpdf validates and serializes the result.
 """
 from __future__ import annotations
 
+import base64
 import json
 import re
 import secrets
@@ -208,18 +209,26 @@ class _Document:
                 stack.extend(self.dictionary(kid) for kid in reversed(node["/Kids"]))
 
     def stream_data(self, stream: dict) -> bytes | None:
-        """Decoded data of a content stream, or None if its filter isn't Flate."""
-        raw = Path(stream["datafile"]).read_bytes()
-        filters = stream["dict"].get("/Filter")
+        """Decoded data of a content stream, or None if a filter can't be undone here."""
+        data = Path(stream["datafile"]).read_bytes()
+        filters = self.get(stream["dict"].get("/Filter"))
         filters = [filters] if isinstance(filters, str) else (filters or [])
-        if not filters:
-            return raw
-        if filters != ["/FlateDecode"] or stream["dict"].get("/DecodeParms"):
+        if filters and stream["dict"].get("/DecodeParms"):
             return None
         try:
-            return zlib.decompress(raw)
-        except zlib.error:
+            for name in filters:
+                if name == "/FlateDecode":
+                    data = zlib.decompress(data)
+                elif name == "/ASCII85Decode":
+                    data = base64.a85decode(data.strip().removesuffix(b"~>"), ignorechars=b" \t\n\r\v\f\x00")
+                elif name == "/ASCIIHexDecode":
+                    digits = re.sub(rb"[^0-9A-Fa-f]", b"", data.split(b">", 1)[0])
+                    data = bytes.fromhex((digits + b"0" * (len(digits) % 2)).decode("ascii"))
+                else:
+                    return None
+        except (zlib.error, ValueError):
             return None
+        return data
 
     def set_stream_data(self, stream: dict, data: bytes) -> None:
         target = self.temp / f"new-{secrets.token_hex(8)}"

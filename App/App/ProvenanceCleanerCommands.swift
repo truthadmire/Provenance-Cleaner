@@ -2,6 +2,7 @@ import SwiftUI
 
 struct CleanerCommandActions {
     var addFiles: () -> Void
+    var checkForInjection: () -> Void
     var createCopy: () -> Void
     var saveCopy: () -> Void
     var showTab: (JobDetailTab) -> Void
@@ -9,6 +10,7 @@ struct CleanerCommandActions {
     var createAllCopies: () -> Void
     var saveAll: () -> Void
     var removeSelected: () -> Void
+    var canCheckForInjection: Bool
     var canInspect: Bool
     var canCreateCopy: Bool
     var canSaveCopy: Bool
@@ -38,6 +40,12 @@ struct ProvenanceCleanerCommands: Commands {
                 actions?.addFiles()
             }
             .keyboardShortcut("o", modifiers: .command)
+
+            Button("Check Files for Prompt Injection…") {
+                actions?.checkForInjection()
+            }
+            .keyboardShortcut("o", modifiers: [.command, .shift])
+            .disabled(actions?.canCheckForInjection != true)
         }
 
         CommandGroup(replacing: .saveItem) {

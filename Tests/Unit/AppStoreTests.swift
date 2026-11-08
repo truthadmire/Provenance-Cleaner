@@ -665,6 +665,72 @@ final class AppStoreTests: XCTestCase {
     }
 
     @MainActor
+    func testAddAndScanChecksNewAndAlreadyQueuedFilesWithoutDuplicates() async throws {
+        let fixture = try TemporaryFixture()
+        defer { fixture.remove() }
+        let queued = try fixture.write("queued.txt", contents: "one")
+        let added = try fixture.write("added.txt", contents: "two")
+        let engine = RecordingEngine(scanVerdict: "likely")
+        let store = AppStore(engine: engine, preferences: try makePreferences(), stagingRoot: fixture.root.appendingPathComponent("stage"))
+        await store.addAndInspect([added])
+
+        await store.addAndScan([queued, added])
+
+        XCTAssertEqual(store.jobs.count, 2)
+        let scanned = await engine.scannedSourceNames()
+        XCTAssertEqual(Set(scanned), ["queued.txt", "added.txt"])
+        XCTAssertEqual(scanned.count, 2)
+        XCTAssertEqual(store.jobs.map(\.injectionVerdictToFlag), [.likely, .likely])
+        XCTAssertNotNil(store.selectedJob)
+        XCTAssertFalse(store.isBusy)
+        // Scanning changes nothing about the cleaning state.
+        XCTAssertEqual(store.jobs[0].status, .findings(1))
+        XCTAssertNil(store.jobs[0].stagedOutputURL)
+    }
+
+    @MainActor
+    func testScanFailureStaysOnTheScanAndCancellingRestoresThePreviousResult() async throws {
+        let fixture = try TemporaryFixture()
+        defer { fixture.remove() }
+        let source = try fixture.write("input.txt", contents: "one")
+        let engine = RecordingEngine(scanVerdict: "none")
+        let store = AppStore(engine: engine, preferences: try makePreferences(), stagingRoot: fixture.root.appendingPathComponent("stage"))
+        await store.addAndInspect([source])
+        let id = try XCTUnwrap(store.selectedJobID)
+        XCTAssertEqual(store.selectedJob?.injectionScan, .notScanned)
+
+        await store.scanForInjection(jobID: id)
+        guard case let .finished(scan) = store.selectedJob?.injectionScan else { return XCTFail("Scan should finish") }
+        XCTAssertEqual(scan.verdict, .none)
+        XCTAssertNil(store.selectedJob?.injectionVerdictToFlag)
+
+        await engine.setScanError(.cancelled)
+        await store.scanForInjection(jobID: id)
+        XCTAssertEqual(store.selectedJob?.injectionScan, .finished(scan))
+
+        await engine.setScanError(.helperFailed("boom"))
+        await store.scanForInjection(jobID: id)
+        guard case let .failed(message) = store.selectedJob?.injectionScan else { return XCTFail("Scan should fail") }
+        XCTAssertTrue(message.contains("boom"))
+        XCTAssertEqual(store.selectedJob?.status, .findings(1))
+    }
+
+    @MainActor
+    func testUnsupportedFilesAreNotScanned() async throws {
+        let fixture = try TemporaryFixture()
+        defer { fixture.remove() }
+        let source = try fixture.write("input.xyz", contents: "one")
+        let engine = RecordingEngine()
+        let store = AppStore(engine: engine, preferences: try makePreferences(), stagingRoot: fixture.root.appendingPathComponent("stage"))
+
+        await store.addAndScan([source])
+
+        let scanned = await engine.scannedSourceNames()
+        XCTAssertTrue(scanned.isEmpty)
+        XCTAssertEqual(store.jobs.first?.injectionScan, .notScanned)
+    }
+
+    @MainActor
     private func makePreferences() throws -> AppPreferences {
         let suiteName = "ProvenanceCleanerStoreTests.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
@@ -683,12 +749,17 @@ private actor RecordingEngine: WatermarkEngine {
     private let cleanDelayNanoseconds: UInt64
     private var cleanOutcomes: [PlannedCleanOutcome]
     private let pdfDeepCleaningIncomplete: Bool
+    private let scanVerdict: String
+    private var scanError: WatermarkEngineError?
+    private var scans: [String] = []
 
     init(
         cleanDelayNanoseconds: UInt64 = 0,
         cleanOutcomes: [PlannedCleanOutcome] = [],
-        pdfDeepCleaningIncomplete: Bool = false
+        pdfDeepCleaningIncomplete: Bool = false,
+        scanVerdict: String = "none"
     ) {
+        self.scanVerdict = scanVerdict
         self.cleanDelayNanoseconds = cleanDelayNanoseconds
         self.cleanOutcomes = cleanOutcomes
         self.pdfDeepCleaningIncomplete = pdfDeepCleaningIncomplete
@@ -758,8 +829,16 @@ private actor RecordingEngine: WatermarkEngine {
         )
     }
 
+    func scan(_ input: EngineInput) async throws -> PromptInjectionScan {
+        if let scanError { throw scanError }
+        scans.append(input.inputURL.lastPathComponent)
+        return PromptInjectionScan(raw: .object(["available": .bool(true), "verdict": .string(scanVerdict), "findings": .array([])]))
+    }
+
     func cancel(requestID: UUID) async {}
 
+    func setScanError(_ error: WatermarkEngineError?) { scanError = error }
+    func scannedSourceNames() -> [String] { scans }
     func allInspectedSourceNames() -> [String] { allInspections }
     func inspectedSourceNames() -> [String] { inspections }
     func cleanedSourceNames() -> [String] { cleans }
