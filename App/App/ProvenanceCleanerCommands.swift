@@ -97,7 +97,7 @@ struct ProvenanceCleanerCommands: Commands {
         CommandGroup(after: .sidebar) {
             Divider()
             ForEach(Array(JobDetailTab.allCases.enumerated()), id: \.element) { index, tab in
-                Button("Show \(tab.rawValue)") {
+                Button("Show \(tab.title)") {
                     actions?.showTab(tab)
                 }
                 .keyboardShortcut(KeyEquivalent(Character(String(index + 1))), modifiers: .command)

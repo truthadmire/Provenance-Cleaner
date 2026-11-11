@@ -5,9 +5,9 @@ import UniformTypeIdentifiers
 enum FilePanelService {
     static func chooseInputs() -> [URL] {
         let panel = NSOpenPanel()
-        panel.title = "Choose files to inspect"
-        panel.prompt = "Inspect"
-        panel.message = "Select files you own or are authorized to process."
+        panel.title = String(localized: "Choose files to inspect")
+        panel.prompt = String(localized: "Inspect")
+        panel.message = String(localized: "Select files you own or are authorized to process.")
         panel.canChooseFiles = true
         panel.canChooseDirectories = false
         panel.allowsMultipleSelection = true
@@ -18,8 +18,8 @@ enum FilePanelService {
 
     static func chooseCopyDestination(for job: CleanerJob) -> URL? {
         let panel = NSSavePanel()
-        panel.title = "Save cleaned copy"
-        panel.prompt = "Save Copy"
+        panel.title = String(localized: "Save cleaned copy")
+        panel.prompt = String(localized: "Save Copy")
         panel.nameFieldStringValue = SupportedFileTypes.cleanedFilename(for: job.sourceURL)
         panel.directoryURL = job.sourceURL.deletingLastPathComponent()
         return panel.runModal() == .OK ? panel.url : nil
@@ -27,8 +27,8 @@ enum FilePanelService {
 
     static func chooseBatchExportDirectory() -> URL? {
         let panel = NSOpenPanel()
-        panel.title = "Choose a folder for cleaned copies"
-        panel.prompt = "Export"
+        panel.title = String(localized: "Choose a folder for cleaned copies")
+        panel.prompt = String(localized: "Export")
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
         panel.canCreateDirectories = true
@@ -41,9 +41,9 @@ enum FilePanelService {
     /// and a backup is a new file. Returns nil unless that exact folder is chosen.
     static func requestFolderAccess(for folderURL: URL) -> URL? {
         let panel = NSOpenPanel()
-        panel.title = "Allow backups in this folder"
-        panel.prompt = "Allow"
-        panel.message = "To keep a backup beside the original, Provenance Cleaner needs permission to write in “\(folderURL.lastPathComponent)”. Choose Allow to grant it until you quit."
+        panel.title = String(localized: "Allow backups in this folder")
+        panel.prompt = String(localized: "Allow")
+        panel.message = String(localized: "To keep a backup beside the original, Provenance Cleaner needs permission to write in “\(folderURL.lastPathComponent)”. Choose Allow to grant it until you quit.")
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
         panel.canCreateDirectories = false

@@ -66,23 +66,23 @@ enum AIProvider: String, CaseIterable, Identifiable, Codable, Sendable {
         }
         switch self {
         case .claude:
-            return [endpoint("default", "Default", "https://api.anthropic.com/v1/messages")]
+            return [endpoint("default", String(localized: "Default"), "https://api.anthropic.com/v1/messages")]
         case .openAI:
-            return [endpoint("default", "Default", "https://api.openai.com/v1/responses")]
+            return [endpoint("default", String(localized: "Default"), "https://api.openai.com/v1/responses")]
         case .gemini:
-            return [endpoint("default", "Default", "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions")]
+            return [endpoint("default", String(localized: "Default"), "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions")]
         case .deepSeek:
-            return [endpoint("default", "Default", "https://api.deepseek.com/chat/completions")]
+            return [endpoint("default", String(localized: "Default"), "https://api.deepseek.com/chat/completions")]
         case .glm:
             return [
-                endpoint("international", "International (z.ai)", "https://api.z.ai/api/paas/v4/chat/completions"),
-                endpoint("china", "China (bigmodel.cn)", "https://open.bigmodel.cn/api/paas/v4/chat/completions"),
+                endpoint("international", String(localized: "International (z.ai)"), "https://api.z.ai/api/paas/v4/chat/completions"),
+                endpoint("china", String(localized: "China (bigmodel.cn)"), "https://open.bigmodel.cn/api/paas/v4/chat/completions"),
             ]
         case .qwen:
             return [
-                endpoint("singapore", "Singapore", "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions"),
-                endpoint("virginia", "Virginia", "https://dashscope-us.aliyuncs.com/compatible-mode/v1/chat/completions"),
-                endpoint("beijing", "Beijing", "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions"),
+                endpoint("singapore", String(localized: "Singapore"), "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions"),
+                endpoint("virginia", String(localized: "Virginia"), "https://dashscope-us.aliyuncs.com/compatible-mode/v1/chat/completions"),
+                endpoint("beijing", String(localized: "Beijing"), "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions"),
             ]
         }
     }

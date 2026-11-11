@@ -23,9 +23,9 @@ struct EmptyQueueView: View {
                 dropZone
 
                 HStack(alignment: .top, spacing: Clay.space6) {
-                    step(1, title: "Check", detail: "See credentials, metadata and hidden characters.")
-                    step(2, title: "Choose changes", detail: "Clean, edit properties or Word editing history.")
-                    step(3, title: "Review and save", detail: "Compare the copy with the original, then save.")
+                    step(1, title: String(localized: "Check"), detail: String(localized: "See credentials, metadata and hidden characters."))
+                    step(2, title: String(localized: "Choose changes"), detail: String(localized: "Clean, edit properties or Word editing history."))
+                    step(3, title: String(localized: "Review and save"), detail: String(localized: "Compare the copy with the original, then save."))
                 }
 
                 Rectangle().fill(Clay.hairline).frame(height: 1)
@@ -78,7 +78,7 @@ struct EmptyQueueView: View {
 
     private func step(_ number: Int, title: String, detail: String) -> some View {
         VStack(alignment: .leading, spacing: Clay.space2) {
-            Text("\(number)")
+            Text(verbatim: "\(number)")
                 .font(Clay.captionMedium)
                 .foregroundStyle(Clay.accentText)
                 .frame(width: 22, height: 22)

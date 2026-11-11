@@ -16,19 +16,19 @@ enum CleanerJobStatus: Equatable, Sendable {
     /// Short label for the queue sidebar.
     var label: String {
         switch self {
-        case .queued: "Waiting"
-        case .inspecting: "Checking…"
-        case .inspectedClean: "Nothing found"
-        case let .findings(count): "\(count) finding\(count == 1 ? "" : "s")"
+        case .queued: String(localized: "Waiting")
+        case .inspecting: String(localized: "Checking…")
+        case .inspectedClean: String(localized: "Nothing found")
+        case let .findings(count): String(localized: "\(count) findings")
         case let .inspectionIncomplete(count):
-            count > 0 ? "\(count) finding\(count == 1 ? "" : "s") · check incomplete" : "Check incomplete"
-        case .cleaning: "Creating copy…"
+            count > 0 ? String(localized: "\(count) findings · check incomplete") : String(localized: "Check incomplete")
+        case .cleaning: String(localized: "Creating copy…")
         case let .readyToExport(residualCount):
-            residualCount > 0 ? "Copy ready · \(residualCount) remain\(residualCount == 1 ? "s" : "")" : "Copy ready"
-        case .cleanedInspectionIncomplete: "Copy ready · check incomplete"
-        case .cancelled: "Stopped"
-        case .unsupported: "Not supported"
-        case .failed: "Failed"
+            residualCount > 0 ? String(localized: "Copy ready · \(residualCount) remain") : String(localized: "Copy ready")
+        case .cleanedInspectionIncomplete: String(localized: "Copy ready · check incomplete")
+        case .cancelled: String(localized: "Stopped")
+        case .unsupported: String(localized: "Not supported")
+        case .failed: String(localized: "Failed")
         }
     }
 
@@ -120,21 +120,21 @@ enum BuildStepKind: String, CaseIterable, Equatable, Sendable {
 
     var title: String {
         switch self {
-        case .provenance: "Remove provenance markers"
-        case .wordTraces: "Change Word editing history"
-        case .properties: "Update document properties"
-        case .downloadSource: "Set the download source"
-        case .checking: "Check the copy"
+        case .provenance: String(localized: "Remove provenance markers")
+        case .wordTraces: String(localized: "Change Word editing history")
+        case .properties: String(localized: "Update document properties")
+        case .downloadSource: String(localized: "Set the download source")
+        case .checking: String(localized: "Check the copy")
         }
     }
 
     var progressTitle: String {
         switch self {
-        case .provenance: "Removing provenance markers…"
-        case .wordTraces: "Changing Word editing history…"
-        case .properties: "Updating document properties…"
-        case .downloadSource: "Setting the download source…"
-        case .checking: "Checking the copy…"
+        case .provenance: String(localized: "Removing provenance markers…")
+        case .wordTraces: String(localized: "Changing Word editing history…")
+        case .properties: String(localized: "Updating document properties…")
+        case .downloadSource: String(localized: "Setting the download source…")
+        case .checking: String(localized: "Checking the copy…")
         }
     }
 }
@@ -230,15 +230,15 @@ struct CleanerJob: Identifiable, Equatable, Sendable {
 
     /// Short label for the queue sidebar, including save state.
     var queueLabel: String {
-        if isReplaced { return "Original replaced" }
+        if isReplaced { return String(localized: "Original replaced") }
         guard isSaved, !status.isBusy else { return status.label }
         switch status {
         case let .readyToExport(remaining) where remaining > 0:
-            return "Saved · \(remaining) remain\(remaining == 1 ? "s" : "")"
+            return String(localized: "Saved · \(remaining) remain")
         case .cleanedInspectionIncomplete:
-            return "Saved · check incomplete"
+            return String(localized: "Saved · check incomplete")
         case .readyToExport:
-            return "Saved"
+            return String(localized: "Saved")
         default:
             return status.label
         }

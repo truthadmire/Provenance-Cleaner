@@ -39,7 +39,7 @@ struct AIReviewSheet: View {
             } else {
                 providerList
                 disclosure
-                ClayDisclosure(title: "Show what will be sent") {
+                ClayDisclosure(title: String(localized: "Show what will be sent")) {
                     ScrollView {
                         Text(verbatim: "Offline findings:\n\(AIReviewPrompt.offlineSummary(of: scan))\n\n\(scan.reviewText.prefix(20_000))")
                             .font(Clay.code)
@@ -53,7 +53,7 @@ struct AIReviewSheet: View {
                     Spacer()
                     Button("Cancel") { dismiss() }
                         .keyboardShortcut(.cancelAction)
-                    Button("Send to \(chosen.count) provider\(chosen.count == 1 ? "" : "s")") {
+                    Button("Send to \(chosen.count) providers") {
                         let providers = chosen
                         dismiss()
                         Task { await store.reviewWithAI(jobID: jobID, providers: providers) }
@@ -88,13 +88,13 @@ struct AIReviewSheet: View {
     }
 
     private var disclosure: some View {
-        let companies = chosen.isEmpty ? "the providers you choose" : chosen.map(\.company).formatted(.list(type: .and))
+        let companies = chosen.isEmpty ? String(localized: "the providers you choose") : AppLocale.list(chosen.map(\.company))
         return VStack(alignment: .leading, spacing: Clay.space2) {
             Text("This file's extracted text, including hidden text, comments and metadata, and a summary of the offline findings go to \(companies) under your API keys, and those companies' terms and pricing apply. The file itself isn't sent.")
                 .font(Clay.body)
                 .foregroundStyle(Clay.ink)
                 .fixedSize(horizontal: false, vertical: true)
-            Text("About \(characters.formatted()) characters, roughly \((characters / 4).formatted()) tokens, in \(requests) request\(requests == 1 ? "" : "s") per provider.")
+            Text("About \(characters.formatted()) characters, roughly \((characters / 4).formatted()) tokens, in \(requests) requests per provider.")
                 .font(Clay.caption)
                 .foregroundStyle(Clay.inkMuted)
             if scan.reviewTextTruncated {
@@ -163,12 +163,12 @@ struct AIReviewResultView: View {
                     .fixedSize(horizontal: false, vertical: true)
                 }
                 if outcome.findings.isEmpty {
-                    Text(outcome.removedClaims > 0 ? "This model reported nothing it could back up with a quote." : "This model found nothing.")
+                    Text(outcome.removedClaims > 0 ? String(localized: "This model reported nothing it could back up with a quote.") : String(localized: "This model found nothing."))
                         .font(Clay.caption)
                         .foregroundStyle(tint)
                 }
                 if outcome.removedClaims > 0 {
-                    Text("\(outcome.removedClaims) claim\(outcome.removedClaims == 1 ? " was" : "s were") left out because the quoted text isn't in this file.")
+                    Text("\(outcome.removedClaims) claims were left out because the quoted text isn't in this file.")
                         .font(Clay.caption)
                         .foregroundStyle(Clay.inkMuted)
                         .fixedSize(horizontal: false, vertical: true)
@@ -183,7 +183,7 @@ struct AIReviewResultView: View {
         case .running:
             EmptyView()
         case .failed:
-            ClayBadge(text: "No answer", tone: .neutral)
+            ClayBadge(text: String(localized: "No answer"), tone: .neutral)
         case let .finished(outcome):
             switch outcome.verdict {
             case .none: ClayBadge(text: outcome.verdict.title, tone: .success)
@@ -324,7 +324,7 @@ private struct AIProviderSettingsSection: View {
             if let failure {
                 show(failure, isError: true)
             } else {
-                show("It works: \(provider.displayName) answered in the expected form.")
+                show(String(localized: "It works: \(provider.displayName) answered in the expected form."))
             }
         }
     }

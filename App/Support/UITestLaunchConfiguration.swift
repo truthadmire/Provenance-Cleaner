@@ -52,12 +52,12 @@ struct UITestAppearanceProbe: View {
 
     var body: some View {
         if UITestLaunchConfiguration.isEnabled {
-            Text("UI Test Appearance")
+            Text(verbatim: "UI Test Appearance")
                 .font(.system(size: 1))
                 .foregroundStyle(.clear)
                 .frame(width: 1, height: 1)
                 .accessibilityIdentifier("ui-test.appearance")
-                .accessibilityValue(colorScheme == .dark ? "dark" : "light")
+                .accessibilityValue(Text(verbatim: colorScheme == .dark ? "dark" : "light"))
                 .allowsHitTesting(false)
         }
     }

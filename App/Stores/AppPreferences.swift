@@ -16,23 +16,23 @@ final class AppPreferences {
 
         var displayName: String {
             switch self {
-            case .auto: "Automatic"
-            case .lossless: "Lossless pass only"
-            case .always: "Deep clean every PDF"
-            case .never: "Document metadata only"
+            case .auto: String(localized: "Automatic")
+            case .lossless: String(localized: "Lossless pass only")
+            case .always: String(localized: "Deep clean every PDF")
+            case .never: String(localized: "Document metadata only")
             }
         }
 
         var explanation: String {
             switch self {
             case .auto:
-                "Clean document metadata first, then embedded images only when provenance markers remain. Images may be re-encoded if needed."
+                String(localized: "Clean document metadata first, then embedded images only when provenance markers remain. Images may be re-encoded if needed.")
             case .lossless:
-                "Run the pass-through image pass without escalating to lossy re-encoding. JPEG and JPEG2000 data is passed through where supported; other codecs may be rewritten. Some metadata may remain."
+                String(localized: "Run the pass-through image pass without escalating to lossy re-encoding. JPEG and JPEG2000 data is passed through where supported; other codecs may be rewritten. Some metadata may remain.")
             case .always:
-                "Deep-clean every PDF, including ordinary camera and editor metadata inside images. Images may be re-encoded if needed."
+                String(localized: "Deep-clean every PDF, including ordinary camera and editor metadata inside images. Images may be re-encoded if needed.")
             case .never:
-                "Clean document metadata only. Skip the embedded-image pass and preserve the image streams."
+                String(localized: "Clean document metadata only. Skip the embedded-image pass and preserve the image streams.")
             }
         }
     }
@@ -46,7 +46,25 @@ final class AppPreferences {
         static let aiProviders = "aiProviders"
     }
 
+    /// The language the running app chose at launch, compared with `language`
+    /// to tell whether a relaunch is still needed.
+    let launchLanguage: AppLanguage
+
     @ObservationIgnored private let defaults: UserDefaults
+
+    /// Kept in the per-app `AppleLanguages` preference, the one macOS reads at
+    /// launch. "System default" removes it, leaving no override behind.
+    var language: AppLanguage {
+        didSet {
+            if language == .system {
+                defaults.removeObject(forKey: AppLanguage.defaultsKey)
+            } else {
+                defaults.set([language.rawValue], forKey: AppLanguage.defaultsKey)
+            }
+        }
+    }
+
+    var languageNeedsRelaunch: Bool { language != launchLanguage }
 
     var acceptedOwnershipNotice: Bool {
         didSet { defaults.set(acceptedOwnershipNotice, forKey: Key.acceptedOwnershipNotice) }
@@ -119,8 +137,15 @@ final class AppPreferences {
         wordDateMode != .randomize || wordDateStart < wordDateEnd
     }
 
-    init(defaults: UserDefaults = .standard) {
+    /// - Parameter languageDomain: the preferences domain to read the language
+    ///   override from. It has to be read from the domain itself: a plain lookup
+    ///   of `AppleLanguages` would also find the system-wide list.
+    init(defaults: UserDefaults = .standard, languageDomain: String? = nil) {
         self.defaults = defaults
+        let domain = languageDomain ?? (defaults === UserDefaults.standard ? Bundle.main.bundleIdentifier : nil)
+        let stored = domain.flatMap { defaults.persistentDomain(forName: $0)?[AppLanguage.defaultsKey] as? [String] }
+        self.language = AppLanguage(preferredLanguages: stored)
+        self.launchLanguage = AppLanguage(preferredLanguages: stored)
         self.wordSessionMode = defaults.string(forKey: "wordSessionMode").flatMap(WordTraceMode.init(rawValue:)) ?? .randomize
         self.wordDateMode = defaults.string(forKey: "wordDateMode").flatMap(WordTraceMode.init(rawValue:)) ?? .keep
         self.wordDateStart = defaults.object(forKey: "wordDateStart") as? Date ?? Date().addingTimeInterval(-30 * 86400)

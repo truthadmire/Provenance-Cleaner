@@ -7,17 +7,17 @@ struct ContentCredentialsCard: View {
     private var assets: [JSONValue] { raw?["embeddedAssets"]?.arrayValue ?? [] }
 
     private var summaryTone: ClayTone {
-        switch report.credentialSummary {
-        case "Validation failed": .danger
-        case "Unable to verify", "Credentials detected", "Markers detected": .warning
-        case "No credentials found": .success
-        default: .neutral
+        switch report.credentialStatus {
+        case .validationFailed: .danger
+        case .unableToVerify, .detected, .markersDetected: .warning
+        case .noCredentials: .success
+        case .notInspected: .neutral
         }
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: Clay.space4) {
-            ClayCardHeader(title: "Content credentials", subtitle: subtitle ?? "C2PA signatures, checked offline") {
+            ClayCardHeader(title: String(localized: "Content credentials"), subtitle: subtitle ?? String(localized: "C2PA signatures, checked offline")) {
                 ClayBadge(text: report.credentialSummary, tone: summaryTone)
             }
 
@@ -59,14 +59,14 @@ struct ContentCredentialsCard: View {
                 EmbeddedAssetRow(asset: asset)
             }
             ForEach(raw?["coverageErrors"]?.arrayValue?.compactMap(\.stringValue) ?? [], id: \.self) { error in
-                Label(error, systemImage: "exclamationmark.triangle")
+                Label(EngineText.localized(error), systemImage: "exclamationmark.triangle")
                     .font(Clay.caption)
                     .foregroundStyle(Clay.warning)
             }
         }
 
         if let scope = raw?["scope"]?.stringValue {
-            Text(scope)
+            Text(EngineText.localized(scope))
                 .font(Clay.caption)
                 .foregroundStyle(Clay.inkMuted)
                 .fixedSize(horizontal: false, vertical: true)
@@ -84,7 +84,7 @@ private struct EmbeddedAssetRow: View {
                 .padding(.top, Clay.space2)
         } label: {
             HStack(spacing: Clay.space3) {
-                Text(asset["path"]?.stringValue ?? "Embedded image")
+                Text(asset["path"]?.stringValue ?? String(localized: "Embedded image"))
                     .font(Clay.code)
                     .foregroundStyle(Clay.ink)
                     .lineLimit(1)

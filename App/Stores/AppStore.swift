@@ -104,8 +104,8 @@ final class AppStore {
             let skipped = newURLs.count - remainingCapacity
             newURLs = Array(newURLs.prefix(remainingCapacity))
             issue = AppIssue(
-                title: "Queue limit reached",
-                message: "Added \(newURLs.count) and skipped \(skipped). Provenance Cleaner works on up to \(Self.maximumQueueCount) files at a time."
+                title: String(localized: "Queue limit reached"),
+                message: String(localized: "Added \(newURLs.count) and skipped \(skipped). Provenance Cleaner works on up to \(Self.maximumQueueCount) files at a time.")
             )
         }
 
@@ -113,9 +113,9 @@ final class AppStore {
             var job = CleanerJob(sourceURL: url)
             job.kind = SupportedFileTypes.kind(for: url)
             if !fileManager.fileExists(atPath: url.path) {
-                job.status = .failed("The file no longer exists.")
+                job.status = .failed(String(localized: "The file no longer exists."))
             } else if job.kind == .unknown {
-                job.status = .unsupported("This file type isn't supported.")
+                job.status = .unsupported(String(localized: "This file type isn't supported."))
             }
             return job
         }
@@ -204,7 +204,7 @@ final class AppStore {
                         do {
                             return (item.provider, .finished(try await reviewer.review(request)))
                         } catch is CancellationError {
-                            return (item.provider, .failed("Stopped before it finished."))
+                            return (item.provider, .failed(String(localized: "Stopped before it finished.")))
                         } catch {
                             return (item.provider, .failed(error.localizedDescription))
                         }
@@ -478,7 +478,7 @@ final class AppStore {
                 throw error
             } catch {
                 postInspectionCompleted = false
-                engineAvailabilityMessage = "The copy was created, but checking it failed: \(error.localizedDescription)"
+                engineAvailabilityMessage = String(localized: "The copy was created, but checking it failed: \(error.localizedDescription)")
             }
 
             let cleanStep = results.first { $0.kind == .provenance }
@@ -517,7 +517,7 @@ final class AppStore {
         } catch {
             stagingDirectories.forEach { try? fileManager.removeItem(at: $0) }
             let message = steps.count > 1
-                ? "\(currentStep.title) failed: \(error.localizedDescription)"
+                ? String(localized: "\(currentStep.title) failed: \(error.localizedDescription)")
                 : error.localizedDescription
             update(jobID) { current in
                 current.status = .failed(message)
@@ -556,14 +556,14 @@ final class AppStore {
     /// Writes the selected job's copy to the exact file chosen in the save panel.
     func saveCopy(jobID: CleanerJob.ID, to destinationURL: URL) async {
         guard let job = job(withID: jobID), let stagedURL = job.stagedOutputURL else {
-            present(FileExportError.noStagedOutput, title: "Nothing to save")
+            present(FileExportError.noStagedOutput, title: String(localized: "Nothing to save"))
             return
         }
         guard canSaveCopy(job) else { return }
         // Save copy is the non-destructive path: it never overwrites an
         // original in the list or a backup this app made.
         if let protected = protectedFileName(at: destinationURL) {
-            present(FileExportError.destinationIsProtected(protected), title: "Couldn't save the copy")
+            present(FileExportError.destinationIsProtected(protected), title: String(localized: "Couldn't save the copy"))
             return
         }
         isSaving = true
@@ -572,7 +572,7 @@ final class AppStore {
             let savedURL = try await exporter.saveCopy(from: stagedURL, to: destinationURL)
             update(jobID) { $0.savedCopies.append(savedURL) }
         } catch {
-            present(error, title: "Couldn't save the copy")
+            present(error, title: String(localized: "Couldn't save the copy"))
         }
     }
 
@@ -594,19 +594,23 @@ final class AppStore {
                 update(id) { $0.savedCopies.append(savedURL) }
                 saved += 1
             } catch {
-                failures.append("\(job.displayName): \(error.localizedDescription)")
+                failures.append(String(localized: "\(job.displayName): \(error.localizedDescription)"))
             }
         }
         reportBatch(
-            verb: "Saved", done: saved, noun: "cop", plural: ("y", "ies"),
-            skipped: [(plan.outdated, "outdated, so not saved; update them first"), (plan.alreadySaved, "already saved")],
+            title: String(localized: "Saved \(saved) copies"),
+            skipped: [
+                plan.outdated > 0 ? String(localized: "\(plan.outdated) copies outdated, so not saved; update them first.") : nil,
+                plan.alreadySaved > 0 ? String(localized: "\(plan.alreadySaved) copies already saved.") : nil,
+            ],
+            failed: String(localized: "\(failures.count) copies couldn't be done:"),
             failures: failures, stopped: cancellationRequested && saved + failures.count < plan.ready.count
         )
     }
 
     func replaceSelectedOriginal() async {
         guard let selectedJobID else {
-            present(FileExportError.noStagedOutput, title: "Nothing to replace")
+            present(FileExportError.noStagedOutput, title: String(localized: "Nothing to replace"))
             return
         }
         await replaceOriginal(jobID: selectedJobID)
@@ -614,7 +618,7 @@ final class AppStore {
 
     func replaceOriginal(jobID: CleanerJob.ID) async {
         guard let job = job(withID: jobID), job.canExport else {
-            present(FileExportError.noStagedOutput, title: "Nothing to replace")
+            present(FileExportError.noStagedOutput, title: String(localized: "Nothing to replace"))
             return
         }
         guard canReplaceOriginal(job) else { return }
@@ -624,7 +628,7 @@ final class AppStore {
         do {
             try await replace(job)
         } catch {
-            present(error, title: "Couldn't replace the original")
+            present(error, title: String(localized: "Couldn't replace the original"))
         }
     }
 
@@ -643,12 +647,16 @@ final class AppStore {
                 try await replace(job)
                 replaced += 1
             } catch {
-                failures.append("\(job.displayName): \(error.localizedDescription)")
+                failures.append(String(localized: "\(job.displayName): \(error.localizedDescription)"))
             }
         }
         reportBatch(
-            verb: "Replaced", done: replaced, noun: "original", plural: ("", "s"),
-            skipped: [(plan.outdated, "outdated, so not used; update them first"), (plan.alreadyReplaced, "already replaced")],
+            title: String(localized: "Replaced \(replaced) originals"),
+            skipped: [
+                plan.outdated > 0 ? String(localized: "\(plan.outdated) originals outdated, so not used; update them first.") : nil,
+                plan.alreadyReplaced > 0 ? String(localized: "\(plan.alreadyReplaced) originals already replaced.") : nil,
+            ],
+            failed: String(localized: "\(failures.count) originals couldn't be done:"),
             failures: failures, stopped: cancellationRequested && replaced + failures.count < plan.ready.count
         )
     }
@@ -699,20 +707,16 @@ final class AppStore {
         return nil
     }
 
-    private func reportBatch(
-        verb: String, done: Int, noun: String, plural: (String, String),
-        skipped: [(Int, String)], failures: [String], stopped: Bool
-    ) {
-        func count(_ n: Int) -> String { "\(n) \(noun)\(n == 1 ? plural.0 : plural.1)" }
-        var lines = skipped.filter { $0.0 > 0 }.map { "\(count($0.0)) \($0.1)." }
-        if stopped { lines.append("Stopped before finishing.") }
+    private func reportBatch(title: String, skipped: [String?], failed: String, failures: [String], stopped: Bool) {
+        var lines = skipped.compactMap { $0 }
+        if stopped { lines.append(String(localized: "Stopped before finishing.")) }
         if !failures.isEmpty {
-            lines.append("\(count(failures.count)) couldn't be done:")
+            lines.append(failed)
             lines.append(contentsOf: failures)
         }
         // A clean, complete batch needs no alert: each file shows its own state.
         guard !lines.isEmpty else { return }
-        issue = AppIssue(title: "\(verb) \(count(done))", message: lines.joined(separator: "\n"))
+        issue = AppIssue(title: title, message: lines.joined(separator: "\n"))
     }
 
     func removeSelected() {
@@ -738,7 +742,7 @@ final class AppStore {
 
     nonisolated static func inspectionStatus(kind: WatermarkKind, report: WatermarkReport) -> CleanerJobStatus {
         if kind == .unknown {
-            return .unsupported("The engine couldn't classify this file.")
+            return .unsupported(String(localized: "The engine couldn't classify this file."))
         }
         if report.inspectionIncomplete {
             return .inspectionIncomplete(report.actionableFindings.count)

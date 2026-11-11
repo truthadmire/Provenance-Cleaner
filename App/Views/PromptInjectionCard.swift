@@ -9,15 +9,15 @@ struct PromptInjectionCard: View {
     var onScan: () -> Void
     var onReviewWithAI: () -> Void = {}
 
-    private static let title = "Prompt injection"
-    private static let purpose = "Instructions hidden from you but readable by an AI assistant that opens this file."
+    private static let title = String(localized: "Prompt injection")
+    private static let purpose = String(localized: "Instructions hidden from you but readable by an AI assistant that opens this file.")
 
     var body: some View {
         VStack(alignment: .leading, spacing: Clay.space3) {
             switch state {
             case .notScanned:
                 ClayCardHeader(title: Self.title, subtitle: Self.purpose) {
-                    scanButton("Check")
+                    scanButton(String(localized: "Check"))
                 }
             case .scanning:
                 ClayCardHeader(title: Self.title, subtitle: Self.purpose)
@@ -29,7 +29,7 @@ struct PromptInjectionCard: View {
                 }
             case let .failed(message):
                 ClayCardHeader(title: Self.title, subtitle: Self.purpose) {
-                    scanButton("Try again")
+                    scanButton(String(localized: "Try again"))
                 }
                 explanation(message)
             case let .finished(scan):
@@ -44,10 +44,10 @@ struct PromptInjectionCard: View {
     private func finished(_ scan: PromptInjectionScan) -> some View {
         if !scan.available {
             ClayCardHeader(title: Self.title, subtitle: Self.purpose) {
-                ClayBadge(text: "Not checked", tone: .warning)
+                ClayBadge(text: String(localized: "Not checked"), tone: .warning)
             }
             explanation(scan.reason)
-            scanButton("Check again")
+            scanButton(String(localized: "Check again"))
         } else {
             ClayCardHeader(title: Self.title, subtitle: subtitle(for: scan.verdict)) {
                 ClayBadge(text: scan.verdict.title, tone: tone(for: scan.verdict))
@@ -65,7 +65,7 @@ struct PromptInjectionCard: View {
             }
             if !scan.lesserFindings.isEmpty {
                 let count = scan.lesserFindings.count
-                ClayDisclosure(title: "\(count) lesser note\(count == 1 ? "" : "s")") {
+                ClayDisclosure(title: String(localized: "\(count) lesser notes")) {
                     VStack(alignment: .leading, spacing: Clay.space2) {
                         ForEach(scan.lesserFindings) { finding in
                             InjectionFindingRow(finding: finding)
@@ -74,12 +74,12 @@ struct PromptInjectionCard: View {
                 }
             }
             if scan.findingsTotal > scan.findings.count {
-                explanation("Showing the first \(scan.findings.count) of \(scan.findingsTotal) signs.")
+                explanation(String(localized: "Showing the first \(scan.findings.count) of \(scan.findingsTotal) signs."))
             }
             ForEach(scan.notes, id: \.self) { note in
                 explanation(note)
             }
-            explanation("This check only reports. Creating a copy can remove invisible characters and some metadata, but hidden text and comments stay in it.")
+            explanation(String(localized: "This check only reports. Creating a copy can remove invisible characters and some metadata, but hidden text and comments stay in it."))
             if !aiReviews.isEmpty {
                 Rectangle().fill(Clay.hairline).frame(height: 1)
                 Text("AI review")
@@ -89,10 +89,10 @@ struct PromptInjectionCard: View {
                 ForEach(aiReviews) { review in
                     AIReviewResultView(review: review)
                 }
-                explanation("A second opinion from the models you chose. It can miss things or be misled by the file, so it doesn't replace the checks above.")
+                explanation(String(localized: "A second opinion from the models you chose. It can miss things or be misled by the file, so it doesn't replace the checks above."))
             }
             HStack(spacing: Clay.space2) {
-                scanButton("Check again")
+                scanButton(String(localized: "Check again"))
                 Button("Review with AI…", action: onReviewWithAI)
                     .buttonStyle(.clayGhost)
                     .disabled(!canScan)
@@ -104,11 +104,11 @@ struct PromptInjectionCard: View {
     private func subtitle(for verdict: PromptInjectionScan.Verdict) -> String {
         switch verdict {
         case .none:
-            "These checks found no hidden instructions. They can't rule out every technique."
+            String(localized: "These checks found no hidden instructions. They can't rule out every technique.")
         case .suspicious:
-            "Worth reading before an AI assistant opens this file. It may have an innocent explanation."
+            String(localized: "Worth reading before an AI assistant opens this file. It may have an innocent explanation.")
         case .likely:
-            "Text here is hidden from you or written to instruct an AI. Avoid giving this file to an AI assistant until you've read it."
+            String(localized: "Text here is hidden from you or written to instruct an AI. Avoid giving this file to an AI assistant until you've read it.")
         }
     }
 
@@ -154,14 +154,14 @@ private struct InjectionFindingRow: View {
                 .padding(.top, 7)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 3) {
-                Text(verbatim: finding.summary)
+                Text(verbatim: finding.localizedSummary)
                     .font(Clay.body)
                     .foregroundStyle(Clay.ink)
-                Text(verbatim: finding.location)
+                Text(verbatim: finding.localizedLocation)
                     .font(Clay.caption)
                     .foregroundStyle(Clay.inkMuted)
                 if let decoded = finding.decoded {
-                    Text(verbatim: "Decoded: \(decoded)")
+                    Text(verbatim: String(localized: "Decoded: \(decoded)"))
                         .font(Clay.code)
                         .foregroundStyle(Clay.ink)
                 } else if !finding.excerpt.isEmpty {

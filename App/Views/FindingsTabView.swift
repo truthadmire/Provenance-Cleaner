@@ -33,9 +33,9 @@ struct FindingsTabView: View {
 
                 VStack(alignment: .leading, spacing: Clay.space4) {
                     ClayCardHeader(
-                        title: "What we found",
-                        subtitle: job.replacement.map { "In the original file, now saved as \($0.backupURL.lastPathComponent)" }
-                            ?? "In the original file"
+                        title: String(localized: "What we found"),
+                        subtitle: job.replacement.map { String(localized: "In the original file, now saved as \($0.backupURL.lastPathComponent)") }
+                            ?? String(localized: "In the original file")
                     )
                     if report.findings.isEmpty {
                         Text(report.inspectionIncomplete
@@ -72,10 +72,10 @@ struct FindingsTabView: View {
 
                 VStack(alignment: .leading, spacing: Clay.space2) {
                     if !report.notes.isEmpty {
-                        ClayDisclosure(title: "About these checks") {
+                        ClayDisclosure(title: String(localized: "About these checks")) {
                             VStack(alignment: .leading, spacing: Clay.space2) {
                                 ForEach(report.notes, id: \.self) { note in
-                                    Text(note)
+                                    Text(EngineText.localized(note))
                                         .font(Clay.caption)
                                         .foregroundStyle(Clay.inkMuted)
                                         .fixedSize(horizontal: false, vertical: true)
@@ -100,8 +100,8 @@ struct FindingsTabView: View {
             } else {
                 VStack(alignment: .leading, spacing: Clay.space3) {
                     ClayCardHeader(
-                        title: "Not checked yet",
-                        subtitle: "Checking is read-only and normally runs when you add a file."
+                        title: String(localized: "Not checked yet"),
+                        subtitle: String(localized: "Checking is read-only and normally runs when you add a file.")
                     )
                     if job.kind != .unknown {
                         Button("Check now", action: onInspect)
@@ -156,7 +156,7 @@ struct FindingRow: View {
                 .frame(width: 7, height: 7)
                 .padding(.top, 7)
                 .accessibilityHidden(true)
-            Text(finding.displayMessage)
+            Text(finding.localizedDisplayMessage)
                 .font(Clay.body)
                 .foregroundStyle(Clay.ink)
                 .textSelection(.enabled)
@@ -171,12 +171,12 @@ struct FindingRow: View {
 
 struct IncompleteChecksCard: View {
     let reasons: [String]
-    var title = "What couldn't be checked"
+    var title = String(localized: "What couldn't be checked")
 
     var body: some View {
         VStack(alignment: .leading, spacing: Clay.space3) {
             ClayCardHeader(title: title) {
-                ClayBadge(text: "Incomplete", tone: .warning)
+                ClayBadge(text: String(localized: "Incomplete"), tone: .warning)
             }
             VStack(alignment: .leading, spacing: Clay.space2) {
                 ForEach(reasons, id: \.self) { reason in
@@ -206,7 +206,7 @@ struct TechnicalReportDisclosure: View {
     let report: WatermarkReport
 
     var body: some View {
-        ClayDisclosure(title: "Technical report (JSON)") {
+        ClayDisclosure(title: String(localized: "Technical report (JSON)")) {
             Text(report.raw.prettyPrinted)
                 .font(Clay.code)
                 .foregroundStyle(Clay.ink)
@@ -222,21 +222,27 @@ struct TechnicalReportDisclosure: View {
 private struct PDFOriginCard: View {
     let inspection: PDFTraceInspection
 
+    private static func generatorSentence(_ generator: PDFTraceInspection.Generator) -> String {
+        let separator = String(localized: "list.semicolon", defaultValue: "; ")
+        let evidence = generator.evidence.map(EngineText.localized).joined(separator: separator)
+        return String(localized: "Edited or made with \(generator.name): \(evidence).")
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: Clay.space3) {
             ClayCardHeader(
-                title: "How this PDF was made",
-                subtitle: "Document properties and the naming some PDF libraries leave in the file's structure."
+                title: String(localized: "How this PDF was made"),
+                subtitle: String(localized: "Document properties and the naming some PDF libraries leave in the file's structure.")
             ) {
                 if !inspection.generators.isEmpty {
-                    ClayBadge(text: "Tool traces", tone: .warning)
+                    ClayBadge(text: String(localized: "Tool traces"), tone: .warning)
                 }
             }
             if !inspection.properties.isEmpty {
                 Grid(alignment: .leading, horizontalSpacing: Clay.space6, verticalSpacing: Clay.space2) {
                     ForEach(inspection.properties, id: \.label) { property in
                         ClayKeyValueRow(
-                            key: property.label,
+                            key: EngineText.localized(property.label),
                             value: ["Created", "Modified"].contains(property.label) ? ClayDate.display(property.value) : property.value
                         )
                     }
@@ -248,7 +254,7 @@ private struct PDFOriginCard: View {
                         .font(.system(size: 12))
                         .foregroundStyle(Clay.warning)
                         .padding(.top, 3)
-                    Text("Edited or made with \(generator.name): \(generator.evidence.joined(separator: "; ")).")
+                    Text(Self.generatorSentence(generator))
                         .font(Clay.body)
                         .foregroundStyle(Clay.ink)
                         .textSelection(.enabled)
@@ -257,7 +263,7 @@ private struct PDFOriginCard: View {
                 .accessibilityElement(children: .combine)
             }
             if let reason = inspection.reason {
-                Text(reason)
+                Text(EngineText.localized(reason))
                     .font(Clay.caption)
                     .foregroundStyle(Clay.inkMuted)
             }
@@ -279,23 +285,23 @@ private struct WordReviewMarkupCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Clay.space3) {
             ClayCardHeader(
-                title: "Tracked changes and comments",
-                subtitle: "Anyone who opens this document can read them, including deleted text and who made each change. The copy keeps them too."
+                title: String(localized: "Tracked changes and comments"),
+                subtitle: String(localized: "Anyone who opens this document can read them, including deleted text and who made each change. The copy keeps them too.")
             ) {
-                ClayBadge(text: "Still in the file", tone: .warning)
+                ClayBadge(text: String(localized: "Still in the file"), tone: .warning)
             }
             Grid(alignment: .leading, horizontalSpacing: Clay.space6, verticalSpacing: Clay.space2) {
                 if inspection.trackedChanges > 0 {
-                    ClayKeyValueRow(key: "Tracked changes", value: inspection.trackedChangeSummary)
+                    ClayKeyValueRow(key: String(localized: "Tracked changes"), value: inspection.trackedChangeSummary)
                 }
                 if let authors = inspection.authors("changeAuthor") {
-                    ClayKeyValueRow(key: "Changes by", value: authors)
+                    ClayKeyValueRow(key: String(localized: "Changes by"), value: authors)
                 }
                 if inspection.comments > 0 {
-                    ClayKeyValueRow(key: "Comments", value: String(inspection.comments))
+                    ClayKeyValueRow(key: String(localized: "Comments"), value: String(inspection.comments))
                 }
                 if let authors = inspection.authors("commentAuthor") {
-                    ClayKeyValueRow(key: "Comments by", value: authors)
+                    ClayKeyValueRow(key: String(localized: "Comments by"), value: authors)
                 }
             }
             Text("To remove them, accept or reject all changes and delete the comments in Word, then add the saved file again.")
@@ -315,21 +321,21 @@ private struct WordHistorySummaryCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Clay.space3) {
             ClayCardHeader(
-                title: "Word editing history",
-                subtitle: "Session IDs and recorded dates show when and in how many sittings the document was edited."
+                title: String(localized: "Word editing history"),
+                subtitle: String(localized: "Session IDs and recorded dates show when and in how many sittings the document was edited.")
             ) {
                 Button("Change…", action: onShowChanges)
                     .buttonStyle(.clayGhost)
             }
             if inspection.available {
                 Grid(alignment: .leading, horizontalSpacing: Clay.space6, verticalSpacing: Clay.space2) {
-                    ClayKeyValueRow(key: "Session IDs", value: String(inspection.count("sessionIDs")))
+                    ClayKeyValueRow(key: String(localized: "Session IDs"), value: String(inspection.count("sessionIDs")))
                     ClayKeyValueRow(
                         key: "Recorded dates",
-                        value: "\(inspection.count("annotationDates") + inspection.count("documentDates"))"
+                        value: String(inspection.count("annotationDates") + inspection.count("documentDates"))
                     )
                     if let earliest = inspection.earliest, let latest = inspection.latest {
-                        ClayKeyValueRow(key: "Date range", value: "\(ClayDate.display(earliest)) – \(ClayDate.display(latest))")
+                        ClayKeyValueRow(key: String(localized: "Date range"), value: "\(ClayDate.display(earliest)) – \(ClayDate.display(latest))")
                     }
                 }
                 if inspection.signed {
@@ -350,7 +356,7 @@ private struct WordHistorySummaryCard: View {
 /// Dates from the engine arrive as ISO 8601 or OpenSSL-style strings.
 enum ClayDate {
     static func display(_ value: String) -> String {
-        date(from: value)?.formatted(date: .abbreviated, time: .shortened) ?? value
+        date(from: value)?.formatted(Date.FormatStyle(date: .abbreviated, time: .shortened, locale: AppLocale.current)) ?? value
     }
 
     static func date(from value: String) -> Date? {

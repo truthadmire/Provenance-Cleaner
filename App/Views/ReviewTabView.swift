@@ -12,13 +12,13 @@ struct ReviewTabView: View {
         VStack(alignment: .leading, spacing: Clay.space4) {
             if job.stagedOutputURL == nil {
                 noCopyCard
-                previewCard(title: "Preview", subtitle: "The original file")
+                previewCard(title: String(localized: "Preview"), subtitle: String(localized: "The original file"))
             } else {
                 if store.copyNeedsUpdate(job), !job.status.isBusy {
                     ClayBanner(
                         tone: .warning,
-                        title: "This copy doesn't include your latest changes",
-                        message: "Update the copy to apply them, or review the copy as it is."
+                        title: String(localized: "This copy doesn't include your latest changes"),
+                        message: String(localized: "Update the copy to apply them, or review the copy as it is.")
                     ) {
                         Button("Update copy") {
                             Task { await store.createCopy(jobID: job.id) }
@@ -30,12 +30,12 @@ struct ReviewTabView: View {
                 ChangesAppliedCard(job: job)
                 remainingCard
                 if let report = job.postCleanInspection, report.raw["c2pa"] != nil {
-                    ContentCredentialsCard(report: report, subtitle: "In your copy, checked offline")
+                    ContentCredentialsCard(report: report, subtitle: String(localized: "In your copy, checked offline"))
                 }
                 if let replacement = job.replacement {
                     replacedCard(replacement)
                 } else {
-                    previewCard(title: "Compare", subtitle: "Original and your copy, side by side")
+                    previewCard(title: String(localized: "Compare"), subtitle: String(localized: "Original and your copy, side by side"))
                     saveCard
                 }
             }
@@ -45,8 +45,8 @@ struct ReviewTabView: View {
     private var noCopyCard: some View {
         VStack(alignment: .leading, spacing: Clay.space3) {
             ClayCardHeader(
-                title: "No copy yet",
-                subtitle: "Choose what to change, then create a copy. You'll review it here before you save anything."
+                title: String(localized: "No copy yet"),
+                subtitle: String(localized: "Choose what to change, then create a copy. You'll review it here before you save anything.")
             )
             Button("Choose changes", action: onShowChanges)
                 .buttonStyle(.claySecondary)
@@ -60,11 +60,11 @@ struct ReviewTabView: View {
             if report.inspectionIncomplete || job.cleanReport?.pdfDeepCleaningIncomplete == true {
                 IncompleteChecksCard(
                     reasons: Self.mergedReasons(report, job.cleanReport),
-                    title: "What couldn't be checked in the copy"
+                    title: String(localized: "What couldn't be checked in the copy")
                 )
             }
             VStack(alignment: .leading, spacing: Clay.space4) {
-                ClayCardHeader(title: "Still in the copy")
+                ClayCardHeader(title: String(localized: "Still in the copy"))
                 if report.actionableFindings.isEmpty {
                     if report.hasActionableFindings {
                         Label("The checks still flag provenance data, but gave no details. See the technical report.", systemImage: "exclamationmark.triangle")
@@ -97,8 +97,8 @@ struct ReviewTabView: View {
         } else {
             ClayBanner(
                 tone: .warning,
-                title: "The copy couldn't be checked",
-                message: "It was created, but checking it again failed. Review it carefully before you save."
+                title: String(localized: "The copy couldn't be checked"),
+                message: String(localized: "It was created, but checking it again failed. Review it carefully before you save.")
             )
         }
     }
@@ -116,8 +116,8 @@ struct ReviewTabView: View {
         let outdated = store.copyNeedsUpdate(job)
         return VStack(alignment: .leading, spacing: Clay.space3) {
             ClayCardHeader(
-                title: "Save",
-                subtitle: "Save copy suggests the name \(SupportedFileTypes.cleanedFilename(for: job.sourceURL)). Replacing the original keeps the old version as \(job.displayName).bak, next to it."
+                title: String(localized: "Save"),
+                subtitle: String(localized: "Save copy suggests the name \(SupportedFileTypes.cleanedFilename(for: job.sourceURL)). Replacing the original keeps the old version as \(job.displayName).bak, next to it.")
             )
             if outdated {
                 Label("Update the copy before saving it or replacing the original.", systemImage: "exclamationmark.triangle")
@@ -140,7 +140,7 @@ struct ReviewTabView: View {
                         Button {
                             FilePanelService.reveal(url)
                         } label: {
-                            Label("Saved as \(url.lastPathComponent)", systemImage: "checkmark")
+                            Label(String(localized: "Saved as \(url.lastPathComponent)"), systemImage: "checkmark")
                         }
                         .buttonStyle(ClayLinkButtonStyle())
                         .help(url.path)
@@ -154,8 +154,8 @@ struct ReviewTabView: View {
     private func replacedCard(_ replacement: ReplacementResult) -> some View {
         VStack(alignment: .leading, spacing: Clay.space3) {
             ClayCardHeader(
-                title: "Original replaced",
-                subtitle: "\(job.displayName) now contains this copy. The previous version is \(replacement.backupURL.lastPathComponent), next to it."
+                title: String(localized: "Original replaced"),
+                subtitle: String(localized: "\(job.displayName) now contains this copy. The previous version is \(replacement.backupURL.lastPathComponent), next to it.")
             )
             if replacement.removedDownloadSource {
                 Text("The original's download-source record (Finder's \"Where from\") was not carried over. Tags, comments and permissions were kept.")
@@ -163,13 +163,13 @@ struct ReviewTabView: View {
                     .foregroundStyle(Clay.inkMuted)
                     .fixedSize(horizontal: false, vertical: true)
             } else if !replacement.downloadSource.isEmpty {
-                Text("Finder's \"Where from\" now shows \(replacement.downloadSource.joined(separator: ", ")). Tags, comments and permissions were kept.")
+                Text(String(localized: "Finder's \"Where from\" now shows \(replacement.downloadSource.joined(separator: ", ")). Tags, comments and permissions were kept."))
                     .font(Clay.caption)
                     .foregroundStyle(Clay.inkMuted)
                     .textSelection(.enabled)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            Text("Checking and rebuilding are turned off for this file, because the file on disk is now the copy. To work from the previous version, add \(replacement.backupURL.lastPathComponent) after renaming it back.")
+            Text(String(localized: "Checking and rebuilding are turned off for this file, because the file on disk is now the copy. To work from the previous version, add \(replacement.backupURL.lastPathComponent) after renaming it back."))
                 .font(Clay.caption)
                 .foregroundStyle(Clay.inkMuted)
                 .fixedSize(horizontal: false, vertical: true)
@@ -197,7 +197,7 @@ private struct ChangesAppliedCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Clay.space4) {
-            ClayCardHeader(title: "What changed")
+            ClayCardHeader(title: String(localized: "What changed"))
 
             ForEach(Array(job.buildSteps.enumerated()), id: \.offset) { _, step in
                 VStack(alignment: .leading, spacing: Clay.space2) {
@@ -206,7 +206,7 @@ private struct ChangesAppliedCard: View {
                         .foregroundStyle(Clay.inkMuted)
                     let actions = step.report.changeDescriptions
                     if actions.isEmpty {
-                        Text(step.report.didChange == false ? "Nothing needed changing." : "Done. The engine gave no details.")
+                        Text(step.report.didChange == false ? String(localized: "Nothing needed changing.") : String(localized: "Done. The engine gave no details."))
                             .font(Clay.body)
                             .foregroundStyle(Clay.inkMuted)
                     } else {
@@ -248,14 +248,14 @@ private struct ChangesAppliedCard: View {
                                 Text(change.label)
                                     .font(Clay.caption)
                                     .foregroundStyle(Clay.inkMuted)
-                                Text(change.before.isEmpty ? "Not set" : change.before)
+                                Text(change.before.isEmpty ? String(localized: "Not set") : change.before)
                                     .font(Clay.body)
                                     .foregroundStyle(Clay.inkMuted)
                                     .strikethrough(!change.before.isEmpty, color: Clay.inkMuted)
                                 Image(systemName: "arrow.right")
                                     .font(.system(size: 11))
                                     .foregroundStyle(Clay.inkMuted)
-                                Text(change.after.isEmpty ? "Removed" : change.after)
+                                Text(change.after.isEmpty ? String(localized: "Removed") : change.after)
                                     .font(Clay.bodyMedium)
                                     .foregroundStyle(Clay.ink)
                                     .textSelection(.enabled)
@@ -277,7 +277,7 @@ private struct ChangesAppliedCard: View {
         return before.compactMap { field in
             guard let afterValue = after.first(where: { $0.id == field.id })?.value,
                   afterValue != field.value else { return nil }
-            return (field.label, field.value, afterValue)
+            return (EngineText.localized(field.label), field.value, afterValue)
         }
     }
 
@@ -290,19 +290,19 @@ private struct ChangesAppliedCard: View {
 
     private func pdfSummary(_ report: WatermarkReport) -> String {
         if report.pdfDeepCleaningIncomplete {
-            return "The embedded-image pass didn't finish. Image metadata may remain."
+            return String(localized: "The embedded-image pass didn't finish. Image metadata may remain.")
         }
         let meta = report.raw["meta"]
         if meta?["images_reencoded"]?.boolValue == true {
-            return "Embedded images were re-encoded to remove remaining metadata."
+            return String(localized: "Embedded images were re-encoded to remove remaining metadata.")
         }
         if meta?["deep_image_pass"]?.boolValue == true {
-            return "Embedded images were cleaned without lossy re-encoding."
+            return String(localized: "Embedded images were cleaned without lossy re-encoding.")
         }
         if meta?["deep_images"]?.stringValue == "never" {
-            return "Embedded images were left untouched."
+            return String(localized: "Embedded images were left untouched.")
         }
-        return "Embedded images didn't need cleaning."
+        return String(localized: "Embedded images didn't need cleaning.")
     }
 }
 
@@ -315,14 +315,14 @@ private struct WordTraceChangesDisclosure: View {
                 .font(Clay.caption)
                 .foregroundStyle(Clay.inkMuted)
                 .accessibilityIdentifier("word-traces.result")
-            ClayDisclosure(title: "Show each change") {
+            ClayDisclosure(title: String(localized: "Show each change")) {
                 VStack(alignment: .leading, spacing: Clay.space2) {
                     ForEach(Array((result["changes"]?.arrayValue ?? []).enumerated()), id: \.offset) { _, change in
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(change["part"]?.stringValue ?? "Document metadata")
+                            Text(change["part"]?.stringValue ?? String(localized: "Document metadata"))
                                 .font(Clay.code)
                                 .foregroundStyle(Clay.inkMuted)
-                            Text("\(change["before"]?.stringValue ?? "Empty") → \(change["after"]?.stringValue ?? "Removed")")
+                            Text(verbatim: "\(change["before"]?.stringValue ?? String(localized: "Empty")) → \(change["after"]?.stringValue ?? String(localized: "Removed"))")
                                 .font(Clay.caption)
                                 .foregroundStyle(Clay.ink)
                                 .textSelection(.enabled)

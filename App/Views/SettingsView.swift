@@ -3,9 +3,19 @@ import SwiftUI
 struct SettingsView: View {
     @Bindable var preferences: AppPreferences
     @Bindable var store: AppStore
+    @State private var showingRelaunchConfirmation = false
+    @State private var relaunchFailure: String?
 
     var body: some View {
         TabView {
+            Form {
+                languageSection
+            }
+            .formStyle(.grouped)
+            .tabItem {
+                Label("General", systemImage: "gearshape")
+            }
+
             Form {
                 Section {
                     Toggle("Keep ordinary metadata", isOn: $preferences.keepNonAIMetadata)
@@ -135,6 +145,60 @@ struct SettingsView: View {
             }
         }
     }
+
+    private var languageSection: some View {
+        Section {
+            Picker("Language", selection: $preferences.language) {
+                ForEach(AppLanguage.allCases) { language in
+                    Text(verbatim: language.displayName).tag(language)
+                }
+            }
+            .accessibilityIdentifier("settings.language")
+            if preferences.languageNeedsRelaunch {
+                Label("Relaunch Provenance Cleaner to use this language.", systemImage: "arrow.clockwise")
+                    .font(Clay.caption)
+                    .foregroundStyle(Clay.warning)
+                    .accessibilityIdentifier("settings.language.pending")
+                Button("Relaunch now") {
+                    if store.jobs.isEmpty {
+                        relaunch()
+                    } else {
+                        showingRelaunchConfirmation = true
+                    }
+                }
+                .disabled(store.isBusy)
+                .accessibilityIdentifier("settings.language.relaunch")
+            }
+            if let relaunchFailure {
+                Text(String(localized: "The app couldn't relaunch: \(relaunchFailure)"))
+                    .font(Clay.caption)
+                    .foregroundStyle(Clay.danger)
+            }
+            Text("System default follows the language order in System Settings. The language applies to the whole app the next time it opens, so nothing is left half translated.")
+                .font(Clay.caption)
+                .foregroundStyle(Clay.inkMuted)
+            Text("Translations haven't been reviewed by a native speaker. Text from your files and from AI models is never translated. Technical findings from the cleaning engine, error messages from bundled tools and the third-party notices stay in English.")
+                .font(Clay.caption)
+                .foregroundStyle(Clay.inkMuted)
+        } header: {
+            Text("Language")
+        }
+        .confirmationDialog(
+            "Relaunch now?",
+            isPresented: $showingRelaunchConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Relaunch") { relaunch() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("The file list is cleared, and copies you haven't saved are lost. Your original files aren't changed.")
+        }
+    }
+
+    private func relaunch() {
+        relaunchFailure = nil
+        AppRelauncher.relaunch { relaunchFailure = $0 }
+    }
 }
 
 struct NoticesView: View {
@@ -144,7 +208,7 @@ struct NoticesView: View {
         let info = Bundle.main.infoDictionary
         let short = info?["CFBundleShortVersionString"] as? String ?? "?"
         let build = info?["CFBundleVersion"] as? String ?? "?"
-        return "Version \(short) (\(build))"
+        return String(localized: "Version \(short) (\(build))")
     }
 
     var body: some View {
@@ -153,7 +217,7 @@ struct NoticesView: View {
                 Text("Provenance Cleaner")
                     .font(Clay.heading2)
                     .foregroundStyle(Clay.ink)
-                Text("\(version) · Licenses and third-party notices")
+                Text(String(localized: "\(version) · Licenses and third-party notices"))
                     .font(Clay.caption)
                     .foregroundStyle(Clay.inkMuted)
             }
@@ -180,7 +244,7 @@ struct NoticesView: View {
             let url = Bundle.main.url(forResource: "THIRD_PARTY_NOTICES", withExtension: "md"),
             let text = try? String(contentsOf: url, encoding: .utf8)
         else {
-            return "Third-party notices couldn't be loaded. See THIRD_PARTY_NOTICES.md in the release package."
+            return String(localized: "Third-party notices couldn't be loaded. See THIRD_PARTY_NOTICES.md in the release package.")
         }
         return text
     }

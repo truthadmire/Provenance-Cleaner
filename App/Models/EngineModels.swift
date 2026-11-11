@@ -9,11 +9,11 @@ enum WatermarkKind: String, Codable, CaseIterable, Sendable {
 
     var displayName: String {
         switch self {
-        case .text: "Text"
-        case .image: "Image"
-        case .container: "Document"
-        case .av: "Audio or video"
-        case .unknown: "Unknown"
+        case .text: String(localized: "Text")
+        case .image: String(localized: "Image")
+        case .container: String(localized: "Document")
+        case .av: String(localized: "Audio or video")
+        case .unknown: String(localized: "Unknown")
         }
     }
 
@@ -83,10 +83,10 @@ enum FindingConfidence: String, Codable, CaseIterable, Comparable, Sendable {
 
     var displayName: String {
         switch self {
-        case .confirmed: "Confirmed"
-        case .probable: "Probable"
-        case .informational: "Informational"
-        case .likelyFalsePositive: "Likely false positive"
+        case .confirmed: String(localized: "Confirmed")
+        case .probable: String(localized: "Probable")
+        case .informational: String(localized: "Informational")
+        case .likelyFalsePositive: String(localized: "Likely false positive")
         }
     }
 
@@ -108,10 +108,10 @@ enum FindingCategory: String, CaseIterable, Comparable, Sendable {
 
     var title: String {
         switch self {
-        case .credentials: "Content credentials"
-        case .metadata: "Metadata"
-        case .invisibleText: "Invisible characters"
-        case .other: "Other signals"
+        case .credentials: String(localized: "Content credentials")
+        case .metadata: String(localized: "Metadata")
+        case .invisibleText: String(localized: "Invisible characters")
+        case .other: String(localized: "Other signals")
         }
     }
 
@@ -120,7 +120,7 @@ enum FindingCategory: String, CaseIterable, Comparable, Sendable {
     }
 
     /// Groups engine messages by what they are about. Keyword-based, so an
-    /// unrecognised message lands in "Other signals" rather than being hidden.
+    /// unrecognised message lands in String(localized: "Other signals") rather than being hidden.
     static func classify(_ message: String) -> FindingCategory {
         let lowered = message.lowercased()
         if ["c2pa", "jumbf", "manifest", "credential"].contains(where: lowered.contains) {
@@ -162,6 +162,26 @@ struct WatermarkFinding: Identifiable, Equatable, Sendable {
         let unique = items.filter { seen.insert($0.lowercased()).inserted }
         guard unique.count < items.count else { return message }
         return message[..<colon.upperBound] + unique.joined(separator: ", ")
+    }
+
+    /// `displayMessage` in the app's language, where the engine's wording is translated.
+    var localizedDisplayMessage: String { EngineText.localized(displayMessage) }
+}
+
+/// What an offline credential check established. The app's logic reads this,
+/// never the wording shown for it.
+enum CredentialStatus: Sendable {
+    case validationFailed, unableToVerify, detected, markersDetected, noCredentials, notInspected
+
+    var title: String {
+        switch self {
+        case .validationFailed: String(localized: "Validation failed")
+        case .unableToVerify: String(localized: "Unable to verify")
+        case .detected: String(localized: "Credentials detected")
+        case .markersDetected: String(localized: "Markers detected")
+        case .noCredentials: String(localized: "No credentials found")
+        case .notInspected: String(localized: "Not inspected")
+        }
     }
 }
 
@@ -241,13 +261,14 @@ struct WatermarkReport: Equatable, Sendable {
     /// Readable change lines: the engine's actions, or its text statistics
     /// when a text clean reports counts instead of actions.
     var changeDescriptions: [String] {
-        if !actions.isEmpty { return actions }
+        if !actions.isEmpty { return actions.map(EngineText.localized) }
         guard let stats = raw["stats"]?.objectValue else { return [] }
         var lines: [String] = []
-        for (key, verb) in [("removed", "Removed"), ("replaced", "Replaced")] {
-            for (label, count) in (stats[key]?.objectValue ?? [:]).sorted(by: { $0.key < $1.key }) {
-                lines.append("\(verb) \(label) ×\(Int(count.numberValue ?? 0))")
-            }
+        for (label, count) in (stats["removed"]?.objectValue ?? [:]).sorted(by: { $0.key < $1.key }) {
+            lines.append(String(localized: "Removed \(label) ×\(Int(count.numberValue ?? 0))"))
+        }
+        for (label, count) in (stats["replaced"]?.objectValue ?? [:]).sorted(by: { $0.key < $1.key }) {
+            lines.append(String(localized: "Replaced \(label) ×\(Int(count.numberValue ?? 0))"))
         }
         return lines
     }
@@ -290,43 +311,43 @@ struct WatermarkReport: Equatable, Sendable {
 
         let c2pa = raw["c2pa"]
         if pdfDeepCleaningIncomplete {
-            add("The embedded-image pass for this PDF didn't finish, so image metadata may remain.")
+            add(String(localized: "The embedded-image pass for this PDF didn't finish, so image metadata may remain."))
         }
         if let error = c2pa?["error"]?.stringValue {
-            add("Content credentials couldn't be read: \(toolMessage(error)).")
+            add(String(localized: "Content credentials couldn't be read: \(toolMessage(error))."))
         }
         if c2pa?["document"]?["inspectionIncomplete"]?.boolValue == true {
-            let error = c2pa?["document"]?["error"]?.stringValue.map(toolMessage) ?? "verification didn't complete"
-            add("The document's own credential couldn't be checked: \(error).")
+            let error = c2pa?["document"]?["error"]?.stringValue.map(toolMessage) ?? String(localized: "verification didn't complete")
+            add(String(localized: "The document's own credential couldn't be checked: \(error)."))
         }
         for asset in c2pa?["embeddedAssets"]?.arrayValue ?? [] where asset["inspectionIncomplete"]?.boolValue == true {
-            let path = asset["path"]?.stringValue ?? "An embedded file"
-            let error = asset["error"]?.stringValue.map(toolMessage) ?? "verification didn't complete"
-            add("\(path) couldn't be checked for content credentials (\(error)).")
+            let path = asset["path"]?.stringValue ?? String(localized: "An embedded file")
+            let error = asset["error"]?.stringValue.map(toolMessage) ?? String(localized: "verification didn't complete")
+            add(String(localized: "\(path) couldn't be checked for content credentials (\(error))."))
         }
         for error in c2pa?["coverageErrors"]?.arrayValue?.compactMap(\.stringValue) ?? [] {
-            add(error)
+            add(EngineText.localized(error))
         }
         if let error = c2pa?["certificateError"]?.stringValue {
-            add("The signing certificates couldn't be read: \(toolMessage(error)).")
+            add(String(localized: "The signing certificates couldn't be read: \(toolMessage(error))."))
         }
         if raw["metadata"]?["incomplete"]?.boolValue == true {
-            add(raw["metadata"]?["note"]?.stringValue ?? "Some metadata couldn't be read.")
+            add(raw["metadata"]?["note"]?.stringValue.map(EngineText.localized) ?? String(localized: "Some metadata couldn't be read."))
         }
         for (name, value) in (raw["tools"]?.objectValue ?? [:]).sorted(by: { $0.key < $1.key }) {
             if value.objectValue?["available"]?.boolValue == false {
-                add("\(name) isn't available, so its checks didn't run.")
+                add(String(localized: "\(name) isn't available, so its checks didn't run."))
             } else if let error = value.objectValue?["error"]?.stringValue {
-                add("\(name): \(toolMessage(error))")
+                add(String(localized: "\(name): \(toolMessage(error))"))
             }
         }
         let phrases = ["not fully inspected", "unavailable", "inconclusive", "unsupported", "skipped"]
         for text in notes + strings(for: "findings") + postFindings
         where phrases.contains(where: text.lowercased().contains) {
-            add(text)
+            add(EngineText.localized(text))
         }
         if reasons.isEmpty, inspectionIncomplete {
-            add("Some checks couldn't run on this file.")
+            add(String(localized: "Some checks couldn't run on this file."))
         }
         return reasons
     }
@@ -335,18 +356,24 @@ struct WatermarkReport: Equatable, Sendable {
         raw["c2pa"]?["inspectionIncomplete"]?.boolValue == true || raw["c2pa"]?["validationFailed"]?.boolValue == true
     }
 
-    var credentialSummary: String {
-        Self.credentialSummary(for: raw["c2pa"], markersDetected: raw["has_c2pa"]?.boolValue == true)
+    var credentialStatus: CredentialStatus {
+        Self.credentialStatus(for: raw["c2pa"], markersDetected: raw["has_c2pa"]?.boolValue == true)
     }
 
+    var credentialSummary: String { credentialStatus.title }
+
     static func credentialSummary(for value: JSONValue?, markersDetected: Bool = false) -> String {
-        if value?["validationFailed"]?.boolValue == true { return "Validation failed" }
-        if value?["inspectionIncomplete"]?.boolValue == true { return "Unable to verify" }
+        credentialStatus(for: value, markersDetected: markersDetected).title
+    }
+
+    static func credentialStatus(for value: JSONValue?, markersDetected: Bool = false) -> CredentialStatus {
+        if value?["validationFailed"]?.boolValue == true { return .validationFailed }
+        if value?["inspectionIncomplete"]?.boolValue == true { return .unableToVerify }
         switch value?["state"]?.stringValue {
-        case "present": return "Credentials detected"
-        case "absent": return markersDetected ? "Markers detected" : "No credentials found"
-        case nil: return "Not inspected"
-        default: return "Unable to verify"
+        case "present": return .detected
+        case "absent": return markersDetected ? .markersDetected : .noCredentials
+        case nil: return .notInspected
+        default: return .unableToVerify
         }
     }
 

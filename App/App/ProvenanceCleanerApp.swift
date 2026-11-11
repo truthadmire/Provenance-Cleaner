@@ -15,6 +15,7 @@ struct ProvenanceCleanerApp: App {
     var body: some Scene {
         WindowGroup(id: "main") {
             mainWindowContent
+                .environment(\.locale, AppLocale.current)
                 .frame(minWidth: 900, minHeight: 620)
         }
         .defaultSize(width: 1120, height: 760)
@@ -28,10 +29,12 @@ struct ProvenanceCleanerApp: App {
 
         Settings {
             SettingsView(preferences: store.preferences, store: store)
+                .environment(\.locale, AppLocale.current)
         }
 
         Window("Third-Party Notices", id: "notices") {
             NoticesView()
+                .environment(\.locale, AppLocale.current)
         }
         .defaultSize(width: 720, height: 620)
     }

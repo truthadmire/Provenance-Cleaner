@@ -28,15 +28,15 @@ enum FileExportError: LocalizedError, Equatable, Sendable {
     var errorDescription: String? {
         switch self {
         case .noStagedOutput:
-            "There is no copy to save."
+            String(localized: "There is no copy to save.")
         case let .backupAlreadyExists(url):
-            "A backup already exists at \(url.path). Move it elsewhere before replacing the original."
+            String(localized: "A backup already exists at \(url.path). Move it elsewhere before replacing the original.")
         case .originalChanged:
-            "The original changed after this copy was made. Update the copy, then try again."
+            String(localized: "The original changed after this copy was made. Update the copy, then try again.")
         case let .destinationIsProtected(name):
-            "“\(name)” is an original or a backup in the file list, so Save copy won't overwrite it. Choose another name, or use Replace original, which keeps a backup."
+            String(localized: "“\(name)” is an original or a backup in the file list, so Save copy won't overwrite it. Choose another name, or use Replace original, which keeps a backup.")
         case let .folderAccessDeclined(folder):
-            "A backup can't be written without permission to the folder “\(folder.lastPathComponent)”. Use Save copy instead, or try again and choose Allow."
+            String(localized: "A backup can't be written without permission to the folder “\(folder.lastPathComponent)”. Use Save copy instead, or try again and choose Allow.")
         }
     }
 }

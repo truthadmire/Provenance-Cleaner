@@ -361,7 +361,7 @@ struct ClayLinkButtonStyle: ButtonStyle {
 struct ClayTextField: View {
     let label: String
     @Binding var text: String
-    var prompt = "Not set"
+    var prompt = String(localized: "Not set")
     @FocusState private var isFocused: Bool
 
     var body: some View {
@@ -486,7 +486,7 @@ struct ClayKeyValueRow: View {
                 .font(Clay.caption)
                 .foregroundStyle(Clay.inkMuted)
                 .gridColumnAlignment(.leading)
-            Text(value?.isEmpty == false ? value! : "Not provided")
+            Text(value?.isEmpty == false ? value! : String(localized: "Not provided"))
                 .font(monospaced ? Clay.code : Clay.body)
                 .foregroundStyle(value?.isEmpty == false ? Clay.ink : Clay.inkMuted)
                 .textSelection(.enabled)

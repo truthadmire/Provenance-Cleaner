@@ -100,14 +100,14 @@ private struct QueueRow: View {
                             .frame(width: 6, height: 6)
                             .accessibilityHidden(true)
                     }
-                    Text(job.isScanningForInjection ? "Checking for prompt injection…" : job.isReviewingWithAI ? "Reviewing with AI…" : job.queueLabel)
+                    Text(job.isScanningForInjection ? String(localized: "Checking for prompt injection…") : job.isReviewingWithAI ? String(localized: "Reviewing with AI…") : job.queueLabel)
                         .lineLimit(1)
                         .accessibilityIdentifier("queue.status.\(job.displayName)")
                     if let verdict = job.injectionVerdictToFlag {
                         Image(systemName: "exclamationmark.shield.fill")
                             .foregroundStyle(verdict == .likely ? Clay.danger : Clay.warning)
-                            .help("Prompt injection check: \(verdict.title)")
-                            .accessibilityLabel("Prompt injection check: \(verdict.title)")
+                            .help(String(localized: "Prompt injection check: \(verdict.title)"))
+                            .accessibilityLabel(String(localized: "Prompt injection check: \(verdict.title)"))
                     }
                 }
                 .font(Clay.caption)

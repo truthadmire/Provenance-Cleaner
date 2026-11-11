@@ -122,12 +122,12 @@ struct ContentView: View {
             let saveCount = store.saveAllPlan().ready.count
             let replaceCount = store.replaceAllPlan().ready.count
             if saveCount > 0 {
-                Button("Save \(saveCount) cop\(saveCount == 1 ? "y" : "ies") to a folder…") {
+                Button("Save \(saveCount) copies to a folder…") {
                     saveAllCopies()
                 }
             }
             if replaceCount > 0 {
-                Button("Replace \(replaceCount) original\(replaceCount == 1 ? "" : "s")…", role: .destructive) {
+                Button("Replace \(replaceCount) originals…", role: .destructive) {
                     showingReplaceAllConfirmation = true
                 }
             }
@@ -151,8 +151,8 @@ struct ContentView: View {
     private var subtitle: String {
         guard !store.jobs.isEmpty else { return "" }
         let ready = store.jobs.filter { $0.canExport && !$0.isSaved && !$0.isReplaced }.count
-        let files = "\(store.jobs.count) file\(store.jobs.count == 1 ? "" : "s")"
-        return ready > 0 ? "\(files) · \(ready) cop\(ready == 1 ? "y" : "ies") ready" : files
+        let files = String(localized: "\(store.jobs.count) files")
+        return ready > 0 ? "\(files) · " + String(localized: "\(ready) copies ready") : files
     }
 
     private var ownershipNoticePresented: Binding<Bool> {
@@ -174,13 +174,13 @@ struct ContentView: View {
     }
 
     private var replacementTitle: String {
-        "Replace \(replacementJob?.displayName ?? "the original")?"
+        replacementJob.map { String(localized: "Replace \($0.displayName)?") } ?? String(localized: "Replace the original?")
     }
 
     private var replacementMessage: String {
-        var message = "The original is first copied to \(replacementJob?.displayName ?? "filename.ext").bak. An existing backup is never overwritten."
+        var message = String(localized: "The original is first copied to \(replacementJob?.displayName ?? "filename.ext").bak. An existing backup is never overwritten.")
         if replacementJob?.cleaningOptions?.stripAllMetadata == true {
-            message += " This copy had all removable metadata stripped, including author, dates, camera, location and copyright."
+            message += String(localized: " This copy had all removable metadata stripped, including author, dates, camera, location and copyright.")
         }
         return message
     }
@@ -234,23 +234,23 @@ struct ContentView: View {
     private var batchExportDisclosure: String {
         let save = store.saveAllPlan()
         let replace = store.replaceAllPlan()
-        var parts = ["Saving copies to a folder is safest. Replacing originals keeps a .bak backup beside every file."]
+        var parts = [String(localized: "Saving copies to a folder is safest. Replacing originals keeps a .bak backup beside every file.")]
         if save.outdated > 0 {
-            parts.append("\(save.outdated) outdated cop\(save.outdated == 1 ? "y is" : "ies are") skipped; update \(save.outdated == 1 ? "it" : "them") first.")
+            parts.append(String(localized: "\(save.outdated) outdated copies are skipped; update them first."))
         }
         if save.alreadySaved > 0 {
-            parts.append("\(save.alreadySaved) already saved cop\(save.alreadySaved == 1 ? "y is" : "ies are") skipped.")
+            parts.append(String(localized: "\(save.alreadySaved) already saved copies are skipped."))
         }
         if replace.alreadyReplaced > 0 {
-            parts.append("\(replace.alreadyReplaced) original\(replace.alreadyReplaced == 1 ? " was" : "s were") already replaced.")
+            parts.append(String(localized: "\(replace.alreadyReplaced) originals were already replaced."))
         }
         let warnings = save.ready.filter { $0.status.tone == .warning }.count
         if warnings > 0 {
-            parts.append("\(warnings) of the copies still \(warnings == 1 ? "has" : "have") markers or an unfinished check; see each file's Review tab.")
+            parts.append(String(localized: "\(warnings) of the copies still have markers or an unfinished check; see each file's Review tab."))
         }
         if store.jobs.contains(where: { $0.canExport && $0.cleaningOptions?.stripAllMetadata == true }) {
-            parts.append("At least one copy had all removable metadata stripped, including author, dates, camera, location and copyright.")
+            parts.append(String(localized: "At least one copy had all removable metadata stripped, including author, dates, camera, location and copyright."))
         }
-        return parts.joined(separator: " ")
+        return parts.joined(separator: AppLocale.isEnglish ? " " : "")
     }
 }

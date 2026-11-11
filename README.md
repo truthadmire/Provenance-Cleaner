@@ -256,6 +256,43 @@ dates may be kept or removed, but cannot be randomized. Opening and saving the
 output in Word can create new editing metadata. This feature does not change
 OneDrive/SharePoint history or external copies of the document.
 
+## Languages
+
+The app is in English, Simplified Chinese, Traditional Chinese, Japanese and
+Spanish. By default it follows the order in
+System Settings > General > Language & Region. To choose a language for this app
+only, use Settings > General > Language (or the app's entry under Language &
+Region > Applications). The choice takes effect when the app opens again, and
+Settings offers to relaunch it. Relaunching clears the file list, so copies you
+haven't saved are lost. The app asks before doing that. Dates and lists follow the
+chosen language, with your region.
+
+None of the translations has been reviewed by a native speaker. Toolbar labels are
+shortened in Japanese and Spanish so that the toolbar fits as it does in English.
+
+What stays as it was:
+
+- Text from your files and from AI models is never translated. It's shown as
+  plain text, never as a format string or Markdown.
+- The engine's reports stay in English, and so does the protocol between the
+  app and the helper. The app translates the engine's sentences only when it
+  shows them, using `App/Localization/EngineText.xcstrings`. Low-level
+  findings, such as `JPEG APP11: c2pa, jumb`, error text from bundled tools
+  (ExifTool, c2patool, qpdf) and anything the catalog doesn't cover are shown in
+  English. The technical report (JSON) and the third-party notices are always
+  in English.
+- An AI review gets the same English prompt and offline summary in every
+  language, and its verdict comes from severities, not from wording. The
+  confirmation sheet's preview of what will be sent says that the summary is in
+  English.
+
+Interface text is in `App/Localization/Localizable.xcstrings`. The English plural
+forms live there too. To add a language, add its translations to both catalogs
+and a case to `AppLanguage` in `App/Support/AppLanguage.swift`. The tests in
+`Tests/HelperIntegration/test_localization_catalogs.py` fail if a string is left
+untranslated, if a translation's arguments don't match the source, or if the
+helper's wording moves away from the engine catalog.
+
 ## Architecture
 
 The SwiftUI application uses `NavigationSplitView`, a queue capped at 50 files,

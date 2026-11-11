@@ -41,7 +41,7 @@ private struct TextComparisonPreview: View {
                     if document.wasTruncated {
                         previewLimitLabel
                     }
-                    PreviewPane(title: "Original") {
+                    PreviewPane(title: String(localized: "Original")) {
                         textPane([TextDiffSegment(text: document.text, kind: .unchanged)])
                     }
                 }
@@ -49,11 +49,11 @@ private struct TextComparisonPreview: View {
                 VStack(alignment: .leading, spacing: 10) {
                     diffSummary(diff)
                     HStack(spacing: 12) {
-                        PreviewPane(title: "Original") {
+                        PreviewPane(title: String(localized: "Original")) {
                             textPane(diff.originalSegments)
                         }
 
-                        PreviewPane(title: "Your copy", identifier: "cleaned") {
+                        PreviewPane(title: String(localized: "Your copy"), identifier: "cleaned") {
                             textPane(diff.cleanedSegments)
                         }
                     }
@@ -77,7 +77,7 @@ private struct TextComparisonPreview: View {
 
     private var previewLimitLabel: some View {
         Label(
-            "Preview limited to the first \(Int64(TextPreviewLoader.maximumBytes).formatted(.byteCount(style: .file)))",
+            String(localized: "Preview limited to the first \(Int64(TextPreviewLoader.maximumBytes).formatted(.byteCount(style: .file)))"),
             systemImage: "text.badge.ellipsis"
         )
         .font(Clay.caption)
@@ -124,9 +124,9 @@ private struct TextComparisonPreview: View {
 
     private func diffLimitLabel(for diff: TextDiffResult) -> String {
         switch (diff.wasTruncated, diff.usedSimplifiedDiff) {
-        case (true, true): "Partial block comparison"
-        case (true, false): "Partial comparison"
-        case (false, true): "Large change shown as blocks"
+        case (true, true): String(localized: "Partial block comparison")
+        case (true, false): String(localized: "Partial comparison")
+        case (false, true): String(localized: "Large change shown as blocks")
         case (false, false): ""
         }
     }
@@ -135,15 +135,14 @@ private struct TextComparisonPreview: View {
         var parts: [String] = []
         if diff.usedSimplifiedDiff {
             parts.append(
-                "To keep the preview responsive, a large changed region is shown as removed and inserted blocks instead of a minimal edit. Counts describe the displayed blocks."
+                String(localized: "To keep the preview responsive, a large changed region is shown as removed and inserted blocks instead of a minimal edit. Counts describe the displayed blocks.")
             )
         }
         if diff.wasTruncated {
+            let visible = TextDiffLimits.preview.maximumVisibleCodePointsPerSide.formatted()
+            let changed = TextDiffLimits.preview.maximumChangedCodePointsPerSide.formatted()
             parts.append(
-                "Counts cover the displayed comparison. Each side is limited to "
-                    + "\(TextDiffLimits.preview.maximumVisibleCodePointsPerSide.formatted()) Unicode code points, "
-                    + "with at most \(TextDiffLimits.preview.maximumChangedCodePointsPerSide.formatted()) "
-                    + "code points from a large changed region."
+                String(localized: "Counts cover the displayed comparison. Each side is limited to \(visible) Unicode code points, with at most \(changed) code points from a large changed region.")
             )
         }
         return parts.joined(separator: " ")
@@ -220,11 +219,11 @@ private struct TextComparisonPreview: View {
         guard !Task.isCancelled else { return }
 
         if let errorDescription = original.errorDescription {
-            loadState = .failed("Original: \(errorDescription)")
+            loadState = .failed(String(localized: "Original: \(errorDescription)"))
             return
         }
         if let errorDescription = cleaned.errorDescription {
-            loadState = .failed("Cleaned: \(errorDescription)")
+            loadState = .failed(String(localized: "Cleaned: \(errorDescription)"))
             return
         }
 
@@ -246,12 +245,12 @@ private struct ImageComparisonPreview: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            PreviewPane(title: "Original") {
+            PreviewPane(title: String(localized: "Original")) {
                 image(at: originalURL)
             }
 
             if let cleanedURL {
-                PreviewPane(title: "Your copy", identifier: "cleaned") {
+                PreviewPane(title: String(localized: "Your copy"), identifier: "cleaned") {
                     image(at: cleanedURL)
                 }
             }
@@ -277,12 +276,12 @@ private struct QuickLookComparisonPreview: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            PreviewPane(title: "Original") {
+            PreviewPane(title: String(localized: "Original")) {
                 QuickLookPreview(url: originalURL)
             }
 
             if let cleanedURL {
-                PreviewPane(title: "Your copy", identifier: "cleaned") {
+                PreviewPane(title: String(localized: "Your copy"), identifier: "cleaned") {
                     QuickLookPreview(url: cleanedURL)
                 }
             }
@@ -638,10 +637,10 @@ enum TextDiffEngine {
 
 enum TextDiffSummary {
     static func removedLabel(for count: Int) -> String {
-        "\(count.formatted()) code point\(count == 1 ? "" : "s") removed"
+        count == 1 ? String(localized: "1 code point removed") : String(localized: "\(count.formatted()) code points removed")
     }
 
     static func insertedLabel(for count: Int) -> String {
-        "\(count.formatted()) code point\(count == 1 ? "" : "s") inserted"
+        count == 1 ? String(localized: "1 code point inserted") : String(localized: "\(count.formatted()) code points inserted")
     }
 }

@@ -7,6 +7,14 @@ enum JobDetailTab: String, CaseIterable, Identifiable {
     case review = "Review"
 
     var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .findings: String(localized: "Findings")
+        case .changes: String(localized: "Changes")
+        case .review: String(localized: "Review")
+        }
+    }
 }
 
 struct JobDetailView: View {
@@ -28,7 +36,7 @@ struct JobDetailView: View {
                 ClayTabBar(
                     tabs: JobDetailTab.allCases,
                     selection: $selectedTab,
-                    title: \.rawValue,
+                    title: \.title,
                     badge: badge(for:),
                     identifier: { "detail.tab.\($0.rawValue.lowercased())" }
                 )
@@ -99,16 +107,16 @@ struct JobDetailView: View {
                 HStack(spacing: 6) {
                     Text(fileFacts)
                         .lineLimit(1)
-                    Text("·").accessibilityHidden(true)
+                    Text(verbatim: "·").accessibilityHidden(true)
                     Button {
                         FilePanelService.reveal(job.sourceURL)
                     } label: {
-                        Text("In \(job.sourceURL.deletingLastPathComponent().lastPathComponent)")
+                        Text(String(localized: "In \(job.sourceURL.deletingLastPathComponent().lastPathComponent)"))
                             .lineLimit(1)
                             .truncationMode(.middle)
                     }
                     .buttonStyle(ClayLinkButtonStyle())
-                    .help("Show in Finder: \(job.sourceURL.deletingLastPathComponent().path)")
+                    .help(String(localized: "Show in Finder: \(job.sourceURL.deletingLastPathComponent().path)"))
                     .accessibilityLabel("Show original in Finder")
                 }
                 .font(Clay.caption)
@@ -125,7 +133,7 @@ struct JobDetailView: View {
                         Label("Show backup", systemImage: "folder")
                     }
                     .buttonStyle(ClayButtonStyle(kind: .secondary, isLarge: true))
-                    .help("Show \(replacement.backupURL.lastPathComponent) in Finder")
+                    .help(String(localized: "Show \(replacement.backupURL.lastPathComponent) in Finder"))
                     .accessibilityIdentifier("detail.show-backup")
                 } else {
                     Button(action: inspect) {
@@ -172,13 +180,14 @@ struct JobDetailView: View {
     }
 
     private var createHelp: String {
-        if job.plan.isEmpty { return "Choose at least one change on the Changes tab." }
-        return "Make a copy of the original with the changes on the Changes tab."
+        if job.plan.isEmpty { return String(localized: "Choose at least one change on the Changes tab.") }
+        return String(localized: "Make a copy of the original with the changes on the Changes tab.")
     }
 
     private var fileFacts: String {
-        let short = ["docx": "Word document", "xlsx": "Excel workbook", "pptx": "PowerPoint presentation",
-                     "pdf": "PDF document", "md": "Markdown", "markdown": "Markdown", "txt": "Plain text"]
+        let short = ["docx": String(localized: "Word document"), "xlsx": String(localized: "Excel workbook"),
+                     "pptx": String(localized: "PowerPoint presentation"), "pdf": String(localized: "PDF document"),
+                     "md": "Markdown", "markdown": "Markdown", "txt": String(localized: "Plain text")]
         let type = short[job.fileExtension]
             ?? UTType(filenameExtension: job.fileExtension)?.localizedDescription
             ?? job.kind.displayName
@@ -248,18 +257,19 @@ struct JobVerdict {
             return
         }
         // A save or replace never hides a warning about the copy itself.
-        let caution = base.tone == .warning ? " Note: \(base.title.prefix(1).lowercased() + base.title.dropFirst())." : ""
+        let cautionText = base.title.prefix(1).lowercased() + base.title.dropFirst()
+        let caution = base.tone == .warning ? String(localized: " Note: \(cautionText).") : ""
         if let replacement = job.replacement {
             tone = base.tone == .warning ? .warning : .success
-            title = "Original replaced"
-            message = "The previous version is \(replacement.backupURL.lastPathComponent)."
-                + (replacement.removedDownloadSource ? " Its download-source record was not carried over." : "")
-                + (replacement.downloadSource.isEmpty ? "" : " Its download source is now the one you set.")
+            title = String(localized: "Original replaced")
+            message = String(localized: "The previous version is \(replacement.backupURL.lastPathComponent).")
+                + (replacement.removedDownloadSource ? String(localized: " Its download-source record was not carried over.") : "")
+                + (replacement.downloadSource.isEmpty ? "" : String(localized: " Its download source is now the one you set."))
                 + caution
         } else if let saved = job.savedCopies.last {
             tone = base.tone == .warning ? .warning : .success
-            title = "Saved as \(saved.lastPathComponent)"
-            message = "The original is unchanged." + caution
+            title = String(localized: "Saved as \(saved.lastPathComponent)")
+            message = String(localized: "The original is unchanged.") + caution
         } else {
             self = base
         }
@@ -269,64 +279,64 @@ struct JobVerdict {
         let hasCopy = job.stagedOutputURL != nil
         switch job.status {
         case .queued:
-            (tone, title, message) = (.neutral, "Waiting to be checked", nil)
+            (tone, title, message) = (.neutral, String(localized: "Waiting to be checked"), nil)
         case .inspecting:
             (tone, title, message) = (
-                .progress, "Checking this file…",
-                "Looking for content credentials, provenance metadata and invisible characters."
+                .progress, String(localized: "Checking this file…"),
+                String(localized: "Looking for content credentials, provenance metadata and invisible characters.")
             )
         case .cleaning:
             (tone, title, message) = (
-                .progress, job.activeStep?.progressTitle ?? "Creating your copy…",
-                "Your original isn't changed."
+                .progress, job.activeStep?.progressTitle ?? String(localized: "Creating your copy…"),
+                String(localized: "Your original isn't changed.")
             )
         case let .unsupported(reason):
-            (tone, title, message) = (.neutral, "Not supported", reason)
+            (tone, title, message) = (.neutral, String(localized: "Not supported"), reason)
         case let .failed(reason):
             (tone, title, message) = (
-                .danger, "Something went wrong",
-                hasCopy ? "\(reason) Your previous copy is unchanged." : reason
+                .danger, String(localized: "Something went wrong"),
+                hasCopy ? String(localized: "\(reason) Your previous copy is unchanged.") : reason
             )
         case .cancelled:
             (tone, title, message) = (
-                .neutral, "Stopped",
-                hasCopy ? "Your previous copy is unchanged." : "Nothing was changed."
+                .neutral, String(localized: "Stopped"),
+                hasCopy ? String(localized: "Your previous copy is unchanged.") : String(localized: "Nothing was changed.")
             )
         case .inspectedClean:
             (tone, title, message) = (
-                .success, "No provenance markers found",
-                "The available checks found nothing to remove. You can still change properties and create a copy."
+                .success, String(localized: "No provenance markers found"),
+                String(localized: "The available checks found nothing to remove. You can still change properties and create a copy.")
             )
         case let .findings(count):
             let report = job.inspection
             (tone, title, message) = (
-                .warning, "\(count) provenance marker\(count == 1 ? "" : "s") found",
-                Self.categorySentence(report).map { "\($0) Create a copy to remove them." }
-                    ?? "Create a copy to remove them."
+                .warning, String(localized: "\(count) provenance markers found"),
+                Self.categorySentence(report).map { String(localized: "\($0) Create a copy to remove them.") }
+                    ?? String(localized: "Create a copy to remove them.")
             )
         case let .inspectionIncomplete(count):
             (tone, title, message) = (
                 .warning,
-                count > 0 ? "\(count) marker\(count == 1 ? "" : "s") found, but checking didn't finish" : "Checking didn't finish",
+                count > 0 ? String(localized: "\(count) markers found, but checking didn't finish") : String(localized: "Checking didn't finish"),
                 Self.reasonSentence(job.inspection?.incompleteReasons ?? [])
             )
         case let .readyToExport(remaining):
             if remaining > 0 {
                 (tone, title, message) = (
-                    .warning, "Your copy is ready, but \(remaining) marker\(remaining == 1 ? "" : "s") remain\(remaining == 1 ? "s" : "")",
-                    "See what's left on the Review tab before you save."
+                    .warning, String(localized: "Your copy is ready, but \(remaining) markers remain"),
+                    String(localized: "See what's left on the Review tab before you save.")
                 )
             } else {
                 (tone, title, message) = (
-                    .success, "Your copy is ready",
-                    "The checks found nothing left to remove. Review the changes, then save the copy."
+                    .success, String(localized: "Your copy is ready"),
+                    String(localized: "The checks found nothing left to remove. Review the changes, then save the copy.")
                 )
             }
         case .cleanedInspectionIncomplete:
             (tone, title, message) = (
-                .warning, "Your copy is ready, but checking it didn't finish",
+                .warning, String(localized: "Your copy is ready, but checking it didn't finish"),
                 Self.reasonSentence(ReviewTabView.mergedReasons(job.postCleanInspection, job.cleanReport))
-                    ?? "Review the copy carefully before you save it."
+                    ?? String(localized: "Review the copy carefully before you save it.")
             )
         }
     }
@@ -337,15 +347,20 @@ struct JobVerdict {
         for category in categories where !unique.contains(category) { unique.append(category) }
         guard !unique.isEmpty else { return nil }
         let names = unique.map { $0.title.lowercased() }
-        let list = names.count == 1
-            ? names[0]
-            : names.dropLast().joined(separator: ", ") + " and " + names.last!
-        return "In \(list)."
+        let list: String
+        if !AppLocale.isEnglish {
+            list = AppLocale.list(names)
+        } else if names.count == 1 {
+            list = names[0]
+        } else {
+            list = names.dropLast().joined(separator: ", ") + " and " + names.last!
+        }
+        return String(localized: "In \(list).")
     }
 
     private static func reasonSentence(_ reasons: [String]) -> String? {
         guard let first = reasons.first else { return nil }
         let extra = reasons.count - 1
-        return extra > 0 ? "\(first) (\(extra) more below.)" : first
+        return extra > 0 ? String(localized: "\(first) (\(extra) more below.)") : first
     }
 }

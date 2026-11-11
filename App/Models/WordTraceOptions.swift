@@ -5,9 +5,9 @@ enum WordTraceMode: String, Codable, CaseIterable, Identifiable, Sendable {
     var id: String { rawValue }
     var displayName: String {
         switch self {
-        case .keep: "Keep"
-        case .randomize: "Randomize"
-        case .remove: "Remove"
+        case .keep: String(localized: "Keep")
+        case .randomize: String(localized: "Randomize")
+        case .remove: String(localized: "Remove")
         }
     }
 }
@@ -32,7 +32,7 @@ struct WordTraceOptions: Codable, Equatable, Sendable {
 struct WordTraceInspection {
     let raw: JSONValue
     var available: Bool { raw["available"]?.boolValue == true }
-    var reason: String { raw["reason"]?.stringValue ?? "Editing traces could not be inspected." }
+    var reason: String { raw["reason"]?.stringValue.map(EngineText.localized) ?? String(localized: "Editing traces could not be inspected.") }
     var signed: Bool { raw["signed"]?.boolValue == true }
     func count(_ key: String) -> Int { Int(raw[key]?.numberValue ?? 0) }
     var earliest: String? { raw["earliest"]?.stringValue }
@@ -47,14 +47,14 @@ struct WordTraceInspection {
     /// "3 (1 insertion, 2 deletions)", leaving out kinds that don't occur.
     var trackedChangeSummary: String {
         let kinds = [
-            ("insertions", "insertion", "insertions"), ("deletions", "deletion", "deletions"),
-            ("moves", "move", "moves"), ("formattingChanges", "formatting change", "formatting changes"),
-        ]
-            .compactMap { key, one, many in
-                let n = count(key)
-                return n > 0 ? "\(n) \(n == 1 ? one : many)" : nil
-            }
-        return kinds.count == 1 ? kinds[0] : "\(trackedChanges) (\(kinds.joined(separator: ", ")))"
+            count("insertions").nonZero.map { String(localized: "\($0) insertions") },
+            count("deletions").nonZero.map { String(localized: "\($0) deletions") },
+            count("moves").nonZero.map { String(localized: "\($0) moves") },
+            count("formattingChanges").nonZero.map { String(localized: "\($0) formatting changes") },
+        ].compactMap { $0 }
+        if kinds.count == 1 { return kinds[0] }
+        let list = kinds.joined(separator: AppLocale.listSeparator)
+        return String(localized: "\(trackedChanges) (\(list))")
     }
 
     /// Author names as listed by the engine, noting any it left out of the list.
@@ -62,6 +62,11 @@ struct WordTraceInspection {
         let names = raw[key + "s"]?.arrayValue?.compactMap(\.stringValue) ?? []
         guard !names.isEmpty else { return nil }
         let more = count(key + "Count") - names.count
-        return names.joined(separator: ", ") + (more > 0 ? " and \(more) more" : "")
+        let list = names.joined(separator: AppLocale.listSeparator)
+        return more > 0 ? String(localized: "\(list) and \(more) more") : list
     }
+}
+
+private extension Int {
+    var nonZero: Int? { self > 0 ? self : nil }
 }

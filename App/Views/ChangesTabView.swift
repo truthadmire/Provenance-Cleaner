@@ -14,14 +14,14 @@ struct ChangesTabView: View {
             if let replacement = job.replacement {
                 ClayBanner(
                     tone: .neutral,
-                    title: "This file's original was replaced",
-                    message: "Changes can't be applied again: the file on disk is now the copy. The previous version is \(replacement.backupURL.lastPathComponent)."
+                    title: String(localized: "This file's original was replaced"),
+                    message: String(localized: "Changes can't be applied again: the file on disk is now the copy. The previous version is \(replacement.backupURL.lastPathComponent).")
                 )
             } else if store.copyNeedsUpdate(job) {
                 ClayBanner(
                     tone: .warning,
-                    title: "Your copy doesn't include these changes yet",
-                    message: "Choose Update copy to make a new copy from the original."
+                    title: String(localized: "Your copy doesn't include these changes yet"),
+                    message: String(localized: "Choose Update copy to make a new copy from the original.")
                 )
             }
 
@@ -42,7 +42,7 @@ struct ChangesTabView: View {
     private var provenanceCard: some View {
         VStack(alignment: .leading, spacing: Clay.space4) {
             ClayToggleRow(
-                title: "Remove provenance markers",
+                title: String(localized: "Remove provenance markers"),
                 detail: provenanceDetail,
                 isOn: planBinding(\.removeProvenance),
                 identifier: "changes.remove-provenance"
@@ -53,23 +53,23 @@ struct ChangesTabView: View {
                 Rectangle().fill(Clay.hairline).frame(height: 1)
                 VStack(alignment: .leading, spacing: Clay.space4) {
                     ClayToggleRow(
-                        title: "Keep ordinary metadata",
+                        title: String(localized: "Keep ordinary metadata"),
                         detail: keepMetadataDetail,
                         isOn: Bindable(preferences).keepNonAIMetadata,
                         identifier: "changes.keep-metadata"
                     )
                     if job.kind == .container {
                         ClayToggleRow(
-                            title: "Remove invisible characters in the text",
-                            detail: "Zero-width and other hidden Unicode characters in the document's text.",
+                            title: String(localized: "Remove invisible characters in the text"),
+                            detail: String(localized: "Zero-width and other hidden Unicode characters in the document's text."),
                             isOn: Bindable(preferences).alsoLayerAText,
                             identifier: "changes.layer-a"
                         )
                     }
                     if job.kind == .text || job.kind == .container {
                         ClayToggleRow(
-                            title: "Replace unusual spaces",
-                            detail: "Off by default: non-breaking and narrow spaces can be correct typography, for example in French.",
+                            title: String(localized: "Replace unusual spaces"),
+                            detail: String(localized: "Off by default: non-breaking and narrow spaces can be correct typography, for example in French."),
                             isOn: Bindable(preferences).normalizeSpaces,
                             identifier: "changes.normalize-spaces"
                         )
@@ -105,7 +105,7 @@ struct ChangesTabView: View {
                 .fixedSize()
                 .accessibilityIdentifier("pdf.deep-image-mode")
             }
-            Text(preferences.deepImageMode.explanation + " Rewriting a PDF can affect forms and other interactive features.")
+            Text(preferences.deepImageMode.explanation + String(localized: " Rewriting a PDF can affect forms and other interactive features."))
                 .font(Clay.caption)
                 .foregroundStyle(Clay.inkMuted)
                 .lineSpacing(2)
@@ -120,21 +120,21 @@ struct ChangesTabView: View {
 
     private var provenanceDetail: String {
         switch job.kind {
-        case .image: "Content credentials (C2PA) and AI-related metadata in the image."
-        case .text: "Invisible characters such as zero-width spaces."
-        case .av: "Provenance metadata in the media file."
-        case .container, .unknown: "Content credentials, provenance metadata and invisible characters in the document."
+        case .image: String(localized: "Content credentials (C2PA) and AI-related metadata in the image.")
+        case .text: String(localized: "Invisible characters such as zero-width spaces.")
+        case .av: String(localized: "Provenance metadata in the media file.")
+        case .container, .unknown: String(localized: "Content credentials, provenance metadata and invisible characters in the document.")
         }
     }
 
     private var keepMetadataDetail: String {
         guard preferences.keepNonAIMetadata else {
-            return "Off: all removable metadata is stripped, including camera, location, copyright and descriptive fields."
+            return String(localized: "Off: all removable metadata is stripped, including camera, location, copyright and descriptive fields.")
         }
         if job.isOfficeDocument {
-            return "Keeps ordinary details where the format allows. Office files always lose author, last saved by, subject, keywords, description and company; set them again under Document properties."
+            return String(localized: "Keeps ordinary details where the format allows. Office files always lose author, last saved by, subject, keywords, description and company; set them again under Document properties.")
         }
-        return "Keeps camera, date, location and other ordinary details. Only fields related to AI generation or provenance are removed."
+        return String(localized: "Keeps camera, date, location and other ordinary details. Only fields related to AI generation or provenance are removed.")
     }
 
     private func planBinding(_ keyPath: WritableKeyPath<JobPlan, Bool>) -> Binding<Bool> {
@@ -164,8 +164,8 @@ private struct PropertiesCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Clay.space4) {
             ClayCardHeader(
-                title: "Document properties",
-                subtitle: job.stagedOutputURL == nil ? "Values in the original" : "Values in your current copy"
+                title: String(localized: "Document properties"),
+                subtitle: job.stagedOutputURL == nil ? String(localized: "Values in the original") : String(localized: "Values in your current copy")
             ) {
                 if !edits.isEmpty {
                     Button("Reset all") {
@@ -194,7 +194,7 @@ private struct PropertiesCard: View {
                                 }
                                 .buttonStyle(.clayGhost)
                                 .help("Undo this change")
-                                .accessibilityLabel("Undo change to \(field.label)")
+                                .accessibilityLabel(String(localized: "Undo change to \(field.label)"))
                             } else {
                                 Color.clear
                             }
@@ -207,8 +207,8 @@ private struct PropertiesCard: View {
 
             if !job.plan.propertyEditsAreValid {
                 Label(invalidNumbers.isEmpty
-                      ? "Use at most 4,096 characters per field, without control characters."
-                      : "\(ListFormatter.localizedString(byJoining: invalidNumbers)) must be a whole number.",
+                      ? String(localized: "Use at most 4,096 characters per field, without control characters.")
+                      : String(localized: "\(AppLocale.list(invalidNumbers)) must be a whole number."),
                       systemImage: "exclamationmark.triangle")
                     .font(Clay.caption)
                     .foregroundStyle(Clay.danger)
@@ -216,8 +216,8 @@ private struct PropertiesCard: View {
 
             VStack(alignment: .leading, spacing: Clay.space1) {
                 Text(edits.isEmpty
-                     ? "Type to change a value. Leave a field empty to remove it."
-                     : "\(edits.count) propert\(edits.count == 1 ? "y" : "ies") will change. An empty field removes that property.")
+                     ? String(localized: "Type to change a value. Leave a field empty to remove it.")
+                     : String(localized: "\(edits.count) properties will change. An empty field removes that property."))
                 if job.isOfficeDocument, job.plan.removeProvenance {
                     Text("Removing provenance clears author, last saved by, subject, keywords and description first. Values you enter here are applied afterwards, so they're kept.")
                 }
@@ -225,7 +225,7 @@ private struct PropertiesCard: View {
                     Text("Revision number counts saves and total editing time counts minutes. Saving the copy in Office again can update both.")
                 }
                 if let note = metadata?["note"]?.stringValue {
-                    Text(note)
+                    Text(EngineText.localized(note))
                 }
             }
             .font(Clay.caption)
@@ -257,7 +257,7 @@ private struct MetadataField: Identifiable {
     init?(_ raw: JSONValue) {
         guard let id = raw["id"]?.stringValue, let label = raw["label"]?.stringValue else { return nil }
         self.id = id
-        self.label = label
+        self.label = EngineText.localized(label)
         self.value = raw["value"]?.stringValue ?? ""
     }
 }
@@ -278,7 +278,7 @@ private struct DownloadSourceCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Clay.space4) {
-            ClayCardHeader(title: "Download source", subtitle: "Finder's “Where from”") {
+            ClayCardHeader(title: String(localized: "Download source"), subtitle: String(localized: "Finder's “Where from”")) {
                 HStack(spacing: Clay.space2) {
                     if !original.isEmpty, job.plan.downloadSourceEntries != original {
                         Button("Use the original's") {
@@ -320,9 +320,9 @@ private struct DownloadSourceCard: View {
                 ForEach(rows.indices, id: \.self) { index in
                     HStack(spacing: Clay.space2) {
                         ClayTextField(
-                            label: index == 0 ? "Download link" : "Entry \(index + 1)",
+                            label: index == 0 ? String(localized: "Download link") : String(localized: "Entry \(index + 1)"),
                             text: binding(for: index),
-                            prompt: index == 0 ? "None" : "Page it came from"
+                            prompt: index == 0 ? String(localized: "None") : String(localized: "Page it came from")
                         )
                         .accessibilityIdentifier("download-source.entry.\(index)")
                         if rows.count > 1 {
@@ -336,7 +336,7 @@ private struct DownloadSourceCard: View {
                             }
                             .buttonStyle(.clayGhost)
                             .help("Remove this entry")
-                            .accessibilityLabel("Remove entry \(index + 1)")
+                            .accessibilityLabel(String(localized: "Remove entry \(index + 1)"))
                         }
                     }
                 }
@@ -400,7 +400,7 @@ private struct WordTracesCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Clay.space4) {
             ClayToggleRow(
-                title: "Change Word editing history",
+                title: String(localized: "Change Word editing history"),
                 detail: summary,
                 isOn: Binding(
                     get: { job.plan.changeWordTraces },
@@ -413,8 +413,8 @@ private struct WordTracesCard: View {
             if let inspection, inspection.available, job.plan.changeWordTraces {
                 Rectangle().fill(Clay.hairline).frame(height: 1)
                 VStack(alignment: .leading, spacing: Clay.space4) {
-                    modePicker("Session IDs", selection: Bindable(preferences).wordSessionMode, id: "word-traces.sessions")
-                    modePicker("Recorded dates", selection: Bindable(preferences).wordDateMode, id: "word-traces.dates")
+                    modePicker(String(localized: "Session IDs"), selection: Bindable(preferences).wordSessionMode, id: "word-traces.sessions")
+                    modePicker(String(localized: "Recorded dates"), selection: Bindable(preferences).wordDateMode, id: "word-traces.dates")
                     if preferences.wordDateMode == .randomize {
                         HStack(spacing: Clay.space3) {
                             Text("Between").font(Clay.body).foregroundStyle(Clay.inkMuted)
@@ -441,8 +441,8 @@ private struct WordTracesCard: View {
                         }
                     }
                     ClayToggleRow(
-                        title: "Reset ZIP entry dates",
-                        detail: "Sets the dates of the files inside the package to 1 January 1980. Finder dates and cloud version history aren't affected.",
+                        title: String(localized: "Reset ZIP entry dates"),
+                        detail: String(localized: "Sets the dates of the files inside the package to 1 January 1980. Finder dates and cloud version history aren't affected."),
                         isOn: Bindable(preferences).wordResetArchiveDates,
                         identifier: "word-traces.archive-dates"
                     )
@@ -450,7 +450,7 @@ private struct WordTracesCard: View {
                 .disabled(disabled)
                 .padding(.leading, Clay.space4)
 
-                ClayDisclosure(title: "What these fields reveal") {
+                ClayDisclosure(title: String(localized: "What these fields reveal")) {
                     VStack(alignment: .leading, spacing: Clay.space2) {
                         Text("Session IDs group edits made between saves. They don't record exact typing times. Randomizing keeps the grouping; removing clears the labels.")
                         Text("Recorded dates include creation, modification and printing, plus dates on revisions and comments.")
@@ -471,11 +471,11 @@ private struct WordTracesCard: View {
     }
 
     private var summary: String {
-        guard let inspection else { return "Check the document to read its editing history." }
+        guard let inspection else { return String(localized: "Check the document to read its editing history.") }
         guard inspection.available else { return inspection.reason }
-        if inspection.signed { return "This document is digitally signed, so its editing history can't be changed." }
+        if inspection.signed { return String(localized: "This document is digitally signed, so its editing history can't be changed.") }
         let dates = inspection.count("annotationDates") + inspection.count("documentDates")
-        return "\(inspection.count("sessionIDs")) session IDs and \(dates) recorded dates. These show when and in how many sittings the document was edited."
+        return String(localized: "\(inspection.count("sessionIDs")) session IDs and \(dates) recorded dates. These show when and in how many sittings the document was edited.")
     }
 
     private func modePicker(_ title: String, selection: Binding<WordTraceMode>, id: String) -> some View {
@@ -507,7 +507,7 @@ private struct PlanSummaryCard: View {
     var body: some View {
         let steps = store.buildSteps(for: job)
         VStack(alignment: .leading, spacing: Clay.space3) {
-            ClayCardHeader(title: "Your copy will")
+            ClayCardHeader(title: String(localized: "Your copy will"))
             if steps.isEmpty {
                 Text("Choose at least one change above to create a copy.")
                     .font(Clay.body)
@@ -515,7 +515,7 @@ private struct PlanSummaryCard: View {
             } else {
                 ForEach(Array(steps.enumerated()), id: \.offset) { index, step in
                     HStack(alignment: .firstTextBaseline, spacing: Clay.space3) {
-                        Text("\(index + 1)")
+                        Text(verbatim: "\(index + 1)")
                             .font(Clay.captionMedium)
                             .monospacedDigit()
                             .foregroundStyle(Clay.accentText)
@@ -545,27 +545,29 @@ private struct PlanSummaryCard: View {
     private func detail(for kind: BuildStepKind, options: CleaningOptions) -> String {
         switch kind {
         case .provenance:
-            let metadata = options.keepNonAIMetadata ? "ordinary metadata kept" : "all removable metadata stripped"
-            let spaces = options.normalizeSpaces ? "unusual spaces replaced" : "spacing kept"
+            let metadata = options.keepNonAIMetadata ? String(localized: "Ordinary metadata kept") : String(localized: "All removable metadata stripped")
+            let spaces = options.normalizeSpaces ? String(localized: "unusual spaces replaced") : String(localized: "spacing kept")
+            let images = AppPreferences.DeepImageMode(rawValue: options.deepImages)?.displayName.lowercased() ?? options.deepImages
             return job.isPDF
-                ? "\(metadata.prefix(1).uppercased() + metadata.dropFirst()); PDF images: \(AppPreferences.DeepImageMode(rawValue: options.deepImages)?.displayName.lowercased() ?? options.deepImages)."
-                : "\(metadata.prefix(1).uppercased() + metadata.dropFirst()); \(spaces)."
+                ? String(localized: "\(metadata); PDF images: \(images).")
+                : String(localized: "\(metadata); \(spaces).")
         case .wordTraces:
             guard let traces = options.wordTraces else { return "" }
-            var text = "Session IDs: \(traces.rsids.displayName.lowercased()); dates: \(traces.dates.displayName.lowercased())"
-            if traces.resetArchiveDates { text += "; ZIP dates reset" }
-            return text + "."
+            let sessions = traces.rsids.displayName.lowercased()
+            let dates = traces.dates.displayName.lowercased()
+            return traces.resetArchiveDates
+                ? String(localized: "Session IDs: \(sessions); dates: \(dates); ZIP dates reset.")
+                : String(localized: "Session IDs: \(sessions); dates: \(dates).")
         case .properties:
             let edits = options.metadataEdits ?? [:]
             let labels = edits.keys.sorted().map { MetadataLabels.label(for: $0) }
             let removed = edits.values.filter(\.isEmpty).count
-            var text = labels.joined(separator: ", ")
-            if removed > 0 { text += " (\(removed) removed)" }
-            return text + "."
+            let text = labels.joined(separator: AppLocale.listSeparator)
+            return removed > 0 ? String(localized: "\(text) (\(removed) removed).") : String(localized: "\(text).")
         case .downloadSource:
             let entries = job.plan.downloadSourceEntries
             guard let first = entries.first else { return "" }
-            return entries.count > 1 ? "\(first), and \(entries.count - 1) more." : "\(first)."
+            return entries.count > 1 ? String(localized: "\(first), and \(entries.count - 1) more.") : String(localized: "\(first).")
         case .checking:
             return ""
         }
@@ -575,9 +577,11 @@ private struct PlanSummaryCard: View {
 enum MetadataLabels {
     static func label(for id: String) -> String {
         [
-            "author": "Author", "title": "Title", "subject": "Subject", "description": "Description",
-            "keywords": "Keywords", "lastModifiedBy": "Last saved by", "copyright": "Copyright",
-            "revision": "Revision number", "totalTime": "Total editing time",
+            "author": String(localized: "Author"), "title": String(localized: "Title"),
+            "subject": String(localized: "Subject"), "description": String(localized: "Description"),
+            "keywords": String(localized: "Keywords"), "lastModifiedBy": String(localized: "Last saved by"),
+            "copyright": String(localized: "Copyright"), "revision": String(localized: "Revision number"),
+            "totalTime": String(localized: "Total editing time"),
         ][id] ?? id
     }
 }

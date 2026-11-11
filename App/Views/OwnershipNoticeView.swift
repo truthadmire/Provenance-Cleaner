@@ -18,18 +18,18 @@ struct OwnershipNoticeView: View {
             VStack(alignment: .leading, spacing: Clay.space4) {
                 NoticePoint(
                     systemImage: "person.crop.circle.badge.checkmark",
-                    title: "Use files you're allowed to change",
-                    message: "Only process files you own or have permission to modify."
+                    title: String(localized: "Use files you're allowed to change"),
+                    message: String(localized: "Only process files you own or have permission to modify.")
                 )
                 NoticePoint(
                     systemImage: "eye",
-                    title: "Review every copy",
-                    message: "Cleaning can remove information other people or tools rely on. Your originals stay as they are until you save."
+                    title: String(localized: "Review every copy"),
+                    message: String(localized: "Cleaning can remove information other people or tools rely on. Your originals stay as they are until you save.")
                 )
                 NoticePoint(
                     systemImage: "checkmark.seal",
-                    title: "No guarantee",
-                    message: "A clean report covers only the checks that ran. It doesn't prove that every possible watermark is gone."
+                    title: String(localized: "No guarantee"),
+                    message: String(localized: "A clean report covers only the checks that ran. It doesn't prove that every possible watermark is gone.")
                 )
             }
             .clayCard()

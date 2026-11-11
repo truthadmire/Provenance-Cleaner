@@ -42,19 +42,19 @@ enum AIReviewError: LocalizedError, Equatable {
 
     var errorDescription: String? {
         switch self {
-        case .missingKey: "There's no saved API key for this provider."
-        case .badKey: "The provider rejected this API key. Check the key, and for GLM and Qwen its region, in Settings."
-        case .noCredit: "This account has no credit or has reached a spending limit."
-        case .rateLimited: "The provider's rate limit was reached. Try again in a moment."
-        case .overloaded: "The provider is overloaded right now. Try again later."
-        case .declined: "The provider declined to review this text, so it gives no verdict."
-        case .truncated: "The provider's answer was cut off before it finished."
-        case .unreadableResponse: "The provider's answer wasn't in the expected form, so it was ignored."
-        case .tooLong: "This text is too long for the selected model."
+        case .missingKey: String(localized: "There's no saved API key for this provider.")
+        case .badKey: String(localized: "The provider rejected this API key. Check the key, and for GLM and Qwen its region, in Settings.")
+        case .noCredit: String(localized: "This account has no credit or has reached a spending limit.")
+        case .rateLimited: String(localized: "The provider's rate limit was reached. Try again in a moment.")
+        case .overloaded: String(localized: "The provider is overloaded right now. Try again later.")
+        case .declined: String(localized: "The provider declined to review this text, so it gives no verdict.")
+        case .truncated: String(localized: "The provider's answer was cut off before it finished.")
+        case .unreadableResponse: String(localized: "The provider's answer wasn't in the expected form, so it was ignored.")
+        case .tooLong: String(localized: "This text is too long for the selected model.")
         case let .rejected(status, message):
-            message.isEmpty ? "The provider refused the request (HTTP \(status))." : "The provider refused the request (HTTP \(status)): \(message)"
-        case let .network(message): "The provider couldn't be reached: \(message)"
-        case .timedOut: "The provider took too long to answer."
+            message.isEmpty ? String(localized: "The provider refused the request (HTTP \(status)).") : String(localized: "The provider refused the request (HTTP \(status)): \(message)")
+        case let .network(message): String(localized: "The provider couldn't be reached: \(message)")
+        case .timedOut: String(localized: "The provider took too long to answer.")
         }
     }
 }
@@ -262,7 +262,7 @@ struct AIReviewClient: AIReviewing {
             case "content_filter", "sensitive": throw AIReviewError.declined
             case "model_context_window_exceeded": throw AIReviewError.tooLong
             case "insufficient_system_resource": throw AIReviewError.overloaded
-            case "network_error": throw AIReviewError.network("the provider reported a network error")
+            case "network_error": throw AIReviewError.network(String(localized: "the provider reported a network error"))
             default: break
             }
             if choice?["message"]?["refusal"]?.stringValue?.isEmpty == false {

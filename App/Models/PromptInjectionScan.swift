@@ -8,9 +8,9 @@ struct PromptInjectionScan: Equatable, Sendable {
 
         var title: String {
             switch self {
-            case .none: "No signs found"
-            case .suspicious: "Suspicious"
-            case .likely: "Signs of prompt injection"
+            case .none: String(localized: "No signs found")
+            case .suspicious: String(localized: "Suspicious")
+            case .likely: String(localized: "Signs of prompt injection")
             }
         }
     }
@@ -28,17 +28,22 @@ struct PromptInjectionScan: Equatable, Sendable {
         let excerpt: String
         let decoded: String?
 
+        /// `summary` and `location` stay the engine's English: that's what an
+        /// AI review is told. These are for display only.
+        var localizedSummary: String { EngineText.localized(summary) }
+        var localizedLocation: String { EngineText.localized(location) }
+
         var techniqueTitle: String {
             switch technique {
-            case "smuggled_text": "Hidden messages"
-            case "hidden_text": "Hidden text"
-            case "instruction_phrase": "Instruction-like wording"
-            case "invisible_characters": "Invisible characters"
-            case "bidi_control": "Text-direction controls"
-            case "exfiltration_url": "Suspicious web addresses"
-            case "encoded_text": "Encoded text"
-            case "mixed_script": "Lookalike letters"
-            default: "Other signs"
+            case "smuggled_text": String(localized: "Hidden messages")
+            case "hidden_text": String(localized: "Hidden text")
+            case "instruction_phrase": String(localized: "Instruction-like wording")
+            case "invisible_characters": String(localized: "Invisible characters")
+            case "bidi_control": String(localized: "Text-direction controls")
+            case "exfiltration_url": String(localized: "Suspicious web addresses")
+            case "encoded_text": String(localized: "Encoded text")
+            case "mixed_script": String(localized: "Lookalike letters")
+            default: String(localized: "Other signs")
             }
         }
     }
@@ -46,9 +51,9 @@ struct PromptInjectionScan: Equatable, Sendable {
     let raw: JSONValue
 
     var available: Bool { raw["available"]?.boolValue == true }
-    var reason: String { raw["reason"]?.stringValue ?? "This file couldn't be checked." }
+    var reason: String { raw["reason"]?.stringValue.map(EngineText.localized) ?? String(localized: "This file couldn't be checked.") }
     var verdict: Verdict { raw["verdict"]?.stringValue.flatMap(Verdict.init(rawValue:)) ?? .none }
-    var notes: [String] { raw["notes"]?.arrayValue?.compactMap(\.stringValue) ?? [] }
+    var notes: [String] { raw["notes"]?.arrayValue?.compactMap(\.stringValue).map(EngineText.localized) ?? [] }
     var findingsTotal: Int { Int(raw["findingsTotal"]?.numberValue ?? Double(findings.count)) }
     var extractedCharacters: Int { Int(raw["extracted"]?["chars"]?.numberValue ?? 0) }
     var reviewText: String { raw["review_text"]?.stringValue ?? "" }

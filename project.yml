@@ -9,6 +9,7 @@ options:
     macOS: "14.0"
   createIntermediateGroups: true
   groupSortPosition: top
+  developmentLanguage: en
 settings:
   base:
     ARCHS: arm64
@@ -25,6 +26,8 @@ settings:
     CURRENT_PROJECT_VERSION: 10
     MARKETING_VERSION: 0.7.0
     ENABLE_USER_SCRIPT_SANDBOXING: NO
+    SWIFT_EMIT_LOC_STRINGS: YES
+    LOCALIZATION_PREFERS_STRING_CATALOGS: YES
 targets:
   ProvenanceCleaner:
     type: application
@@ -35,7 +38,10 @@ targets:
         excludes:
           - Resources
           - Assets.xcassets
+          - Localization
       - path: App/Resources
+        buildPhase: resources
+      - path: App/Localization
         buildPhase: resources
       - path: App/Assets.xcassets
         buildPhase: resources
@@ -122,6 +128,9 @@ schemes:
     test:
       config: DebugTests
       gatherCoverageData: true
+      # Tests compare English wording, whatever the Mac's own language is.
+      commandLineArguments:
+        "-AppleLanguages (en)": true
       targets:
         - name: ProvenanceCleanerTests
         - name: ProvenanceCleanerUITests
