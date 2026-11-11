@@ -4,6 +4,33 @@ This evidence separates the current development checks from the original
 0.1.0 release-candidate checks. Neither section claims the complete acceptance
 matrix.
 
+### 0.8.0 interface languages — 2026-11-11
+
+- New: the interface is in English, Simplified Chinese, Traditional Chinese,
+  Japanese and Spanish. It follows the system language, or the picker in
+  Settings > General, which sets the per-app `AppleLanguages` preference and
+  applies after a relaunch.
+- The engine's reports and the JSONL protocol are unchanged. The app translates
+  the engine's sentences for display only, through
+  `App/Localization/EngineText.xcstrings`. Values from files stay verbatim.
+  Low-level findings and tool errors stay in English.
+- The AI review prompt, its offline summary and its verdict logic are not
+  localized.
+- In the debug build: Simplified Chinese was checked across the main window,
+  the Changes and Review tabs, the prompt-injection card, the AI review sheet
+  (cancelled, nothing sent), the menus and Settings. Spanish and Japanese were
+  checked on the main window, the prompt-injection card, the menus and, for
+  Spanish, Settings. A saved language and System default each opened as
+  expected. English read as before.
+- 138 Swift unit tests and 139 helper tests passed against the source.
+- Not verified:
+  - a native-speaker review of any translation;
+  - Traditional Chinese screens in the running app;
+  - choosing a language from the Settings pop-up and pressing Relaunch now (the
+    saved setting was tested by writing the same value);
+  - the toolbar at the default window width in Spanish and Japanese (checked at
+    the 900-point minimum, where English also overflows).
+
 ### 0.7.0 prompt-injection check and optional AI review — 2026-11-08
 
 - New: **Check for prompt injection** reports instructions hidden from a person
