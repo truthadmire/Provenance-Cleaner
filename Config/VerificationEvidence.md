@@ -4,6 +4,50 @@ This evidence separates the current development checks from the original
 0.1.0 release-candidate checks. Neither section claims the complete acceptance
 matrix.
 
+### 0.9.0 generator fields, chat leftovers, online watermark check — 2026-11-15
+
+- New: for images, audio and video the helper reads every metadata field with
+  the bundled ExifTool, and PNG text chunks directly
+  (`Helper/generator_fields.py`), and reports and removes fields that name an
+  AI generator even when ordinary metadata is kept. Formats that can't be
+  edited field by field (MP3, WAV, trailing data) lose all metadata instead.
+- New: link tracking (`utm_source=chatgpt.com` and similar), chat citation
+  markers and chat page attributes are reported and removed in text, Markdown,
+  HTML, CSV, JSON, Office and EPUB parts and PDF link targets
+  (`Helper/chat_artifacts.py`).
+- Changed: property edits no longer leave ExifTool's `XMP Toolkit` line; Save
+  copy suggests `name 2.ext` and Save all keeps the original name.
+- New: the optional online watermark check of an image (OpenAI's content
+  provenance check), off until turned on in Settings.
+- An audit corpus of 36 seeded files (120 planted traces imitating AI-tool
+  output) was run through the source helper before and after. Before, 19 of 23
+  image, audio and video samples were unflagged and came out unchanged with
+  default settings; after, all are flagged and the seeded generator fields are
+  removed, except FLAC tags, which are reported as remaining. Pixels and audio
+  and video streams were byte-identical before and after for every sample
+  compared, and every copy opened.
+- 154 helper tests passed against the source; the 37 tests in
+  `test_generator_and_chat_traces.py` and `test_provenance_helper.py` also
+  passed against a frozen helper before release. 155 Swift unit tests passed.
+- Not verified:
+  - any of this in the running app: the new findings, change lists and save
+    names were checked through the helper and unit tests only;
+  - the online watermark check against OpenAI's real endpoint, or its card and
+    confirmation sheet in the running app, in this release session (its unit
+    tests use a stubbed network);
+  - files from the real AI tools: the corpus imitates their metadata;
+  - a native-speaker review of the new report sentences in any language.
+- Known limits:
+  - macOS tags files the sandboxed app saves with
+    `com.apple.quarantine: …;ProvenanceCleaner;`, and the sandbox refuses to
+    let the app remove it (confirmed with a sandboxed probe);
+  - FLAC tags can't be removed; ODT embedded pictures aren't cleaned; narrow
+    no-break spaces stay unless "Replace unusual spaces" is on;
+  - a product name alone in a caption, comment or author field isn't reported;
+  - the pinned engine flags any EXIF block containing "Claude";
+  - a crafted PNG with a large compressed text chunk makes the pinned engine
+    use about 3 GB of memory (fixed upstream after the pin).
+
 ### 0.8.0 interface languages — 2026-11-11
 
 - New: the interface is in English, Simplified Chinese, Traditional Chinese,
