@@ -27,6 +27,8 @@ final class AppStore {
     @ObservationIgnored private let engine: any WatermarkEngine
     @ObservationIgnored private let aiReviewer: any AIReviewing
     @ObservationIgnored private var aiReviewTasks: [CleanerJob.ID: Task<Void, Never>] = [:]
+    @ObservationIgnored private let provenanceChecker: any ProvenanceChecking
+    @ObservationIgnored private var provenanceCheckTasks: [CleanerJob.ID: Task<Void, Never>] = [:]
     @ObservationIgnored private let exporter: SafeFileExporter
     @ObservationIgnored private let fileManager: FileManager
     @ObservationIgnored private let stagingRoot: URL
@@ -47,9 +49,11 @@ final class AppStore {
         stagingRoot: URL? = nil,
         requestFolderAccess: (@MainActor (URL) -> URL?)? = nil,
         aiReviewer: any AIReviewing = AIReviewClient(),
-        apiKeys: any APIKeyStoring = KeychainAPIKeyStore()
+        apiKeys: any APIKeyStoring = KeychainAPIKeyStore(),
+        provenanceChecker: any ProvenanceChecking = OpenAIProvenanceClient()
     ) {
         self.aiReviewer = aiReviewer
+        self.provenanceChecker = provenanceChecker
         self.apiKeys = apiKeys
         self.requestFolderAccess = requestFolderAccess ?? { FilePanelService.requestFolderAccess(for: $0) }
         self.engine = engine ?? BundledWatermarkEngine()
@@ -68,7 +72,7 @@ final class AppStore {
     }
 
     var isBusy: Bool {
-        isCleaningSequentially || isSaving || jobs.contains { $0.status.isBusy || $0.isScanningForInjection || $0.isReviewingWithAI }
+        isCleaningSequentially || isSaving || jobs.contains { $0.status.isBusy || $0.isScanningForInjection || $0.isReviewingWithAI || $0.isCheckingProvenanceOnline }
     }
 
     var hasCleanableJobs: Bool {
@@ -261,6 +265,70 @@ final class AppStore {
         )
     }
 
+    // MARK: Online watermark check
+
+    /// Whether the Findings tab offers the online check for this file at all.
+    func offersOnlineProvenanceCheck(_ job: CleanerJob) -> Bool {
+        preferences.offerOnlineProvenanceCheck && OpenAIProvenanceClient.supports(job.sourceURL)
+    }
+
+    /// A finished check isn't offered again for the same file, so the app never
+    /// becomes a loop for testing a watermark against OpenAI's detector.
+    func canCheckProvenanceOnline(_ job: CleanerJob) -> Bool {
+        guard offersOnlineProvenanceCheck(job), !job.isReplaced, !job.status.isBusy else { return false }
+        switch job.onlineProvenanceCheck?.state {
+        case nil, .failed: return true
+        case .running, .finished: return false
+        }
+    }
+
+    /// Sends the original image to OpenAI's provenance check. Callers confirm
+    /// first; nothing else in the app reaches this. The result is in memory only.
+    func checkProvenanceOnline(jobID: CleanerJob.ID) async {
+        guard let job = job(withID: jobID), canCheckProvenanceOnline(job) else { return }
+        let url = job.sourceURL
+        let fingerprint = FileFingerprint(url: url)
+        let previous = job.onlineProvenanceCheck
+        update(jobID) {
+            $0.onlineProvenanceCheck = OnlineProvenanceCheck(state: .running, fingerprint: fingerprint, checkedAt: Date())
+        }
+        let key = try? apiKeys.key(for: .openAI)
+        let checker = provenanceChecker
+        let task = Task { [weak self] in
+            let state: OnlineProvenanceCheck.State
+            do {
+                guard let key, !key.isEmpty else { throw ProvenanceCheckError.missingKey }
+                let data = try await Self.readImage(at: url)
+                state = .finished(try await checker.check(imageData: data, fileExtension: url.pathExtension, apiKey: key))
+            } catch is CancellationError {
+                self?.update(jobID) { $0.onlineProvenanceCheck = previous }
+                return
+            } catch {
+                state = .failed(error.localizedDescription)
+            }
+            self?.update(jobID) { current in
+                current.onlineProvenanceCheck = OnlineProvenanceCheck(state: state, fingerprint: fingerprint, checkedAt: Date())
+            }
+        }
+        provenanceCheckTasks[jobID] = task
+        await task.value
+        provenanceCheckTasks[jobID] = nil
+    }
+
+    /// Reads the image off the main actor, refusing anything over the size limit
+    /// before reading it.
+    nonisolated private static func readImage(at url: URL) async throws -> Data {
+        try await Task.detached(priority: .userInitiated) {
+            let size = (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? 0
+            guard size <= OpenAIProvenanceClient.maximumBytes else { throw ProvenanceCheckError.tooLarge }
+            do {
+                return try Data(contentsOf: url, options: .mappedIfSafe)
+            } catch {
+                throw ProvenanceCheckError.unreadableFile(error.localizedDescription)
+            }
+        }.value
+    }
+
     func inspectSelected() async {
         guard let selectedJobID else { return }
         await inspect(jobID: selectedJobID)
@@ -293,6 +361,10 @@ final class AppStore {
                 current.inspection = original.report
                 current.inspectedFingerprint = fingerprint
                 current.originalDownloadSource = downloadSource
+                // An online result describes the bytes that were sent.
+                if let check = current.onlineProvenanceCheck, check.state != .running, check.fingerprint != fingerprint {
+                    current.onlineProvenanceCheck = nil
+                }
             }
             guard let stagedURL = job.stagedOutputURL else {
                 update(jobID) { $0.status = Self.inspectionStatus(kind: original.kind, report: original.report) }
@@ -341,6 +413,7 @@ final class AppStore {
     func cancelAllProcessing() async {
         cancellationRequested = true
         aiReviewTasks.values.forEach { $0.cancel() }
+        provenanceCheckTasks.values.forEach { $0.cancel() }
         let requestIDs = Array(Set(activeRequestIDs.values))
         for requestID in requestIDs {
             await engine.cancel(requestID: requestID)

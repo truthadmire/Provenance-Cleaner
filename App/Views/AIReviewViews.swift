@@ -209,6 +209,16 @@ struct AIReviewSettingsView: View {
             ForEach(AIProvider.allCases) { provider in
                 AIProviderSettingsSection(provider: provider, preferences: preferences, store: store)
             }
+            Section {
+                Toggle("Offer an online check for images", isOn: $preferences.offerOnlineProvenanceCheck)
+                    .accessibilityIdentifier("settings.onlineProvenance")
+                Text("Adds a card to the Findings tab of PNG, JPEG, WebP and GIF images that asks OpenAI whether the image carries its SynthID watermark or OpenAI content credentials. It uses the OpenAI key above, and an image is sent only when you press Check online and confirm. OpenAI may not have opened the check to every organization yet.")
+                    .font(Clay.caption)
+                    .foregroundStyle(Clay.inkMuted)
+                    .fixedSize(horizontal: false, vertical: true)
+            } header: {
+                Text("Online watermark check")
+            }
         }
         .formStyle(.grouped)
     }

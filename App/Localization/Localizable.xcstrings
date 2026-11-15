@@ -2455,6 +2455,34 @@
         }
       }
     },
+    "AI watermark (online)" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Marca de agua de IA (en línea)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI 透かし（オンライン）"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI 水印（在线）"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI 浮水印（線上）"
+          }
+        }
+      }
+    },
     "API key" : {
       "localizations" : {
         "es" : {
@@ -2743,6 +2771,34 @@
         }
       }
     },
+    "Adds a card to the Findings tab of PNG, JPEG, WebP and GIF images that asks OpenAI whether the image carries its SynthID watermark or OpenAI content credentials. It uses the OpenAI key above, and an image is sent only when you press Check online and confirm. OpenAI may not have opened the check to every organization yet." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Añade a la pestaña «Hallazgos» de las imágenes PNG, JPEG, WebP y GIF una tarjeta que pregunta a OpenAI si la imagen lleva su marca de agua SynthID o credenciales de contenido de OpenAI. Usa la clave de OpenAI de arriba, y la imagen solo se envía cuando pulsas «Comprobar en línea» y confirmas. Puede que OpenAI aún no haya abierto la comprobación a todas las organizaciones."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PNG、JPEG、WebP、GIF 画像の「検出結果」タブに、画像に OpenAI の SynthID 透かしや OpenAI のコンテンツ認証情報が含まれているかを OpenAI に問い合わせるカードを追加します。上の OpenAI キーを使い、「オンラインで確認」を押して確認したときだけ画像を送信します。OpenAI はまだすべての組織にこの確認を公開していない可能性があります。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在 PNG、JPEG、WebP 和 GIF 图像的“检查结果”标签页中添加一张卡片，询问 OpenAI 该图像是否带有其 SynthID 水印或 OpenAI 内容凭证。此检查使用上方的 OpenAI 密钥，只有在你点按“在线检查”并确认后才会发送图像。OpenAI 可能尚未向所有组织开放此检查。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在 PNG、JPEG、WebP 和 GIF 影像的「檢查結果」標籤頁中加入一張卡片，詢問 OpenAI 該影像是否帶有其 SynthID 浮水印或 OpenAI 內容憑證。此檢查使用上方的 OpenAI 金鑰，只有在你按下「線上檢查」並確認後才會傳送影像。OpenAI 可能尚未向所有組織開放此檢查。"
+          }
+        }
+      }
+    },
     "Algorithm" : {
       "localizations" : {
         "es" : {
@@ -2907,6 +2963,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "任何開啟此文件的人都能讀到它們，包括已刪除的文字和每處變更的作者。副本也會保留它們。"
+          }
+        }
+      }
+    },
+    "Ask OpenAI whether this image carries its SynthID watermark or content credentials from OpenAI." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pregunta a OpenAI si esta imagen lleva su marca de agua SynthID o credenciales de contenido de OpenAI."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この画像に OpenAI の SynthID 透かしや OpenAI のコンテンツ認証情報が含まれているかを OpenAI に問い合わせます。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "询问 OpenAI 此图像是否带有其 SynthID 水印或来自 OpenAI 的内容凭证。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "詢問 OpenAI 此影像是否帶有其 SynthID 浮水印或來自 OpenAI 的內容憑證。"
           }
         }
       }
@@ -3639,6 +3723,34 @@
         }
       }
     },
+    "Check for an AI watermark online" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Comprobar en línea si hay una marca de agua de IA"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI 透かしをオンラインで確認"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在线检查 AI 水印"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "線上檢查 AI 浮水印"
+          }
+        }
+      }
+    },
     "Check for prompt injection" : {
       "localizations" : {
         "es" : {
@@ -3719,6 +3831,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "立即檢查"
+          }
+        }
+      }
+    },
+    "Check online…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Comprobar en línea…"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "オンラインで確認…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在线检查…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "線上檢查…"
           }
         }
       }
@@ -3831,6 +3971,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "分享檔案之前，先檢查一下"
+          }
+        }
+      }
+    },
+    "Checked online at %@. The result isn't saved, and the same file isn't sent again." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Comprobado en línea a las %@. El resultado no se guarda y el mismo archivo no se vuelve a enviar."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ にオンラインで確認しました。結果は保存されず、同じファイルが再び送信されることはありません。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已于 %@ 在线检查。结果不会被保存，同一文件不会再次发送。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已於 %@ 線上檢查。結果不會被儲存，同一檔案不會再次傳送。"
           }
         }
       }
@@ -6655,6 +6823,34 @@
         }
       }
     },
+    "Found" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Encontrada"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "検出"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已发现"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已發現"
+          }
+        }
+      }
+    },
     "From" : {
       "localizations" : {
         "es" : {
@@ -6707,6 +6903,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "一般"
+          }
+        }
+      }
+    },
+    "Generated" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Generada"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "生成日時"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "生成时间"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "產生時間"
           }
         }
       }
@@ -7211,6 +7435,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "國際（z.ai）"
+          }
+        }
+      }
+    },
+    "Invalid" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No válida"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無効"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无效"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無效"
           }
         }
       }
@@ -7971,6 +8223,34 @@
         }
       }
     },
+    "No OpenAI signal" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sin señal de OpenAI"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenAI のシグナルなし"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无 OpenAI 信号"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無 OpenAI 訊號"
+          }
+        }
+      }
+    },
     "No answer" : {
       "localizations" : {
         "es" : {
@@ -8387,6 +8667,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "未能確定"
+          }
+        }
+      }
+    },
+    "Not found" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No encontrada"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未検出"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未发现"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未發現"
           }
         }
       }
@@ -8811,6 +9119,34 @@
         }
       }
     },
+    "Offer an online check for images" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ofrecer una comprobación en línea para imágenes"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "画像のオンライン確認を表示"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "为图像提供在线检查"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "為影像提供線上檢查"
+          }
+        }
+      }
+    },
     "Offer for reviews" : {
       "localizations" : {
         "es" : {
@@ -8835,6 +9171,62 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "提供給審查使用"
+          }
+        }
+      }
+    },
+    "Online watermark check" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Comprobación de marca de agua en línea"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "オンライン透かし確認"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在线水印检查"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "線上浮水印檢查"
+          }
+        }
+      }
+    },
+    "Only OpenAI's own signals are checked. \"Not found\" doesn't mean the image wasn't made with AI: images from other companies' models, older OpenAI images and edited images may not register." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Solo se comprueban las señales propias de OpenAI. «No encontrada» no significa que la imagen no se haya hecho con IA: las imágenes de modelos de otras empresas, las imágenes antiguas de OpenAI y las imágenes editadas pueden no detectarse."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "確認するのは OpenAI 自身のシグナルだけです。「未検出」は AI で作られていないことを意味しません。他社のモデルによる画像、古い OpenAI の画像、編集された画像は検出されないことがあります。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "只检查 OpenAI 自己的信号。“未发现”并不代表图像不是用 AI 制作的：其他公司模型生成的图像、较早的 OpenAI 图像以及经过编辑的图像可能检测不到。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "只檢查 OpenAI 自己的訊號。「未發現」並不代表影像不是用 AI 製作的：其他公司模型產生的影像、較早的 OpenAI 影像以及經過編輯的影像可能偵測不到。"
           }
         }
       }
@@ -8951,6 +9343,460 @@
         }
       }
     },
+    "OpenAI checks only for its own signals. Its terms don't allow repeated checks to remove or evade a watermark, so each file is checked once." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenAI solo comprueba sus propias señales. Sus condiciones no permiten comprobaciones repetidas para quitar o eludir una marca de agua, así que cada archivo se comprueba una vez."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenAI が確認するのは自社のシグナルだけです。透かしの除去や回避のために繰り返し確認することは規約で認められていないため、各ファイルの確認は 1 回だけです。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenAI 只检查它自己的信号。其条款不允许为去除或规避水印而反复检查，因此每个文件只检查一次。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenAI 只檢查它自己的訊號。其條款不允許為了移除或規避浮水印而反覆檢查，因此每個檔案只檢查一次。"
+          }
+        }
+      }
+    },
+    "OpenAI content credentials" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Credenciales de contenido de OpenAI"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenAI のコンテンツ認証情報"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenAI 内容凭证"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenAI 內容憑證"
+          }
+        }
+      }
+    },
+    "OpenAI couldn't be reached: %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo contactar con OpenAI: %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenAI に接続できませんでした：%@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法连接到 OpenAI：%@"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法連線到 OpenAI：%@"
+          }
+        }
+      }
+    },
+    "OpenAI credentials" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Credenciales de OpenAI"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenAI 認証情報"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenAI 凭证"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenAI 憑證"
+          }
+        }
+      }
+    },
+    "OpenAI found its own content credentials, which record that an OpenAI model made this image." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenAI encontró sus propias credenciales de contenido, que registran que un modelo de OpenAI hizo esta imagen."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenAI は自社のコンテンツ認証情報を検出しました。この画像が OpenAI のモデルで作られたことが記録されています。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenAI 发现了它自己的内容凭证，其中记录了此图像由 OpenAI 模型制作。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenAI 發現了它自己的內容憑證，其中記錄了此影像由 OpenAI 模型製作。"
+          }
+        }
+      }
+    },
+    "OpenAI found its watermark: this image was very likely made or edited with an OpenAI model." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenAI encontró su marca de agua: es muy probable que esta imagen se hiciera o editara con un modelo de OpenAI."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenAI は自社の透かしを検出しました。この画像は OpenAI のモデルで作成または編集された可能性が非常に高いです。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenAI 发现了它的水印：此图像很可能是用 OpenAI 模型制作或编辑的。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenAI 發現了它的浮水印：此影像很可能是用 OpenAI 模型製作或編輯的。"
+          }
+        }
+      }
+    },
+    "OpenAI found none of its signals in this image." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenAI no encontró ninguna de sus señales en esta imagen."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenAI はこの画像に自社のシグナルを検出しませんでした。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenAI 未在此图像中发现它的任何信号。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenAI 未在此影像中發現它的任何訊號。"
+          }
+        }
+      }
+    },
+    "OpenAI is overloaded right now. Try again later." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenAI está saturado en este momento. Inténtalo más tarde."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenAI は現在混み合っています。しばらくしてからもう一度お試しください。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenAI 目前负载过高，请稍后再试。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenAI 目前負載過高，請稍後再試。"
+          }
+        }
+      }
+    },
+    "OpenAI refused the request (HTTP %lld)." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenAI rechazó la solicitud (HTTP %lld)."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenAI がリクエストを拒否しました（HTTP %lld）。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenAI 拒绝了请求（HTTP %lld）。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenAI 拒絕了請求（HTTP %lld）。"
+          }
+        }
+      }
+    },
+    "OpenAI refused the request (HTTP %lld): %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "OpenAI refused the request (HTTP %1$lld): %2$@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenAI rechazó la solicitud (HTTP %1$lld): %2$@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenAI がリクエストを拒否しました（HTTP %1$lld）：%2$@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenAI 拒绝了请求（HTTP %1$lld）：%2$@"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenAI 拒絕了請求（HTTP %1$lld）：%2$@"
+          }
+        }
+      }
+    },
+    "OpenAI rejected this API key. Check it in Settings, under AI review." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenAI rechazó esta clave de API. Revísala en Ajustes, en «Revisión con IA»."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenAI がこの API キーを拒否しました。「設定」の「AI レビュー」で確認してください。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenAI 拒绝了此 API 密钥。请在“设置”的“AI 审查”中检查。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenAI 拒絕了此 API 金鑰。請在「設定」的「AI 審查」中檢查。"
+          }
+        }
+      }
+    },
+    "OpenAI reported no checks that apply to this image." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenAI no informó de ninguna comprobación aplicable a esta imagen."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenAI からは、この画像に該当する確認結果が返されませんでした。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenAI 没有报告适用于此图像的检查。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenAI 沒有回報適用於此影像的檢查。"
+          }
+        }
+      }
+    },
+    "OpenAI took too long to answer." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenAI tardó demasiado en responder."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenAI の応答に時間がかかりすぎました。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenAI 响应时间过长。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenAI 回應時間過長。"
+          }
+        }
+      }
+    },
+    "OpenAI watermark" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Marca de agua de OpenAI"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenAI の透かし"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenAI 水印"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenAI 浮水印"
+          }
+        }
+      }
+    },
+    "OpenAI's answer wasn't in the expected form, so it was ignored." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La respuesta de OpenAI no tenía la forma esperada, así que se ignoró."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenAI の回答が想定した形式ではなかったため、無視されました。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenAI 的回答格式不符合预期，因此已被忽略。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenAI 的回答格式不符合預期，因此已被忽略。"
+          }
+        }
+      }
+    },
+    "OpenAI's rate limit for the provenance check was reached. Try again later." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se alcanzó el límite de solicitudes de OpenAI para la comprobación de procedencia. Inténtalo más tarde."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenAI の来歴確認のレート制限に達しました。しばらくしてからもう一度お試しください。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已达到 OpenAI 来源检查的速率限制，请稍后再试。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已達到 OpenAI 來源檢查的速率限制，請稍後再試。"
+          }
+        }
+      }
+    },
     "Optional. Add a key for any provider you want to use. Nothing is sent until you press Review with AI on a file and confirm. Keys stay in your Keychain." : {
       "localizations" : {
         "es" : {
@@ -8975,6 +9821,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "選用。請為你想使用的供應商加入金鑰。只有當你在某個檔案上按下「使用 AI 審查」並確認後，才會傳送內容。金鑰保存在你的鑰匙圈中。"
+          }
+        }
+      }
+    },
+    "Optional. The image is uploaded to OpenAI only after you confirm." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opcional. La imagen solo se sube a OpenAI después de que confirmes."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "任意です。画像は確認後にのみ OpenAI にアップロードされます。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "可选。只有在你确认后，图像才会上传到 OpenAI。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "可選。只有在你確認後，影像才會上傳到 OpenAI。"
           }
         }
       }
@@ -12089,6 +12963,34 @@
         }
       }
     },
+    "Send to OpenAI" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enviar a OpenAI"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenAI に送信"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "发送到 OpenAI"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "傳送到 OpenAI"
+          }
+        }
+      }
+    },
     "Serial" : {
       "localizations" : {
         "es" : {
@@ -13283,6 +14185,34 @@
         }
       }
     },
+    "SynthID watermark" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Marca de agua SynthID"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SynthID 透かし"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SynthID 水印"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SynthID 浮水印"
+          }
+        }
+      }
+    },
     "System default" : {
       "localizations" : {
         "es" : {
@@ -13591,30 +14521,30 @@
         }
       }
     },
-    "The app removes markers it can find reliably, without any online service. It goes online only for an AI review: when you run one and confirm, the file's extracted text goes to the providers you chose, with your own keys." : {
+    "The app removes markers it can find reliably, without any online service. It goes online only for an AI review or an online watermark check, and only when you run one and confirm: an AI review sends the file's extracted text to the providers you chose, and a watermark check sends the image to OpenAI, with your own keys." : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "La app elimina los marcadores que puede encontrar con fiabilidad, sin ningún servicio en línea. Solo se conecta a internet para una revisión con IA: cuando la ejecutas y la confirmas, el texto extraído del archivo se envía a los proveedores que elegiste, con tus propias claves."
+            "value" : "La app quita las marcas que puede encontrar de forma fiable, sin ningún servicio en línea. Solo se conecta a internet para una revisión con IA o una comprobación de marca de agua en línea, y solo cuando la ejecutas y confirmas: una revisión con IA envía el texto extraído del archivo a los proveedores que elegiste, y una comprobación de marca de agua envía la imagen a OpenAI, con tus propias claves."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "このアプリは、確実に見つけられるマーカーをオンラインサービスなしで削除します。オンラインになるのは AI レビューのときだけです。レビューを実行して確認すると、ファイルから抽出したテキストが、あなた自身のキーで、選択したプロバイダに送信されます。"
+            "value" : "このアプリは、確実に見つけられるマーカーをオンラインサービスを使わずに削除します。オンラインになるのは AI レビューまたはオンライン透かし確認を実行して確認したときだけです。AI レビューはファイルから抽出したテキストを選んだプロバイダに、透かし確認は画像を OpenAI に、いずれもあなた自身のキーで送信します。"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "本 App 会移除它能可靠发现的标记，不使用任何在线服务。只有 AI 审查才会联网：当你运行审查并确认后，文件提取出的文本会使用你自己的密钥发送给你选择的服务商。"
+            "value" : "本应用不使用任何在线服务，删除它能可靠找到的标记。只有在进行 AI 审查或在线水印检查时才会联网，而且只在你运行并确认之后：AI 审查会把文件中提取的文本发送给你选择的服务商，水印检查会把图像发送给 OpenAI，都使用你自己的密钥。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "本 App 會移除它能可靠找到的標記，不使用任何線上服務。只有 AI 審查才會連線：當你執行審查並確認後，檔案擷取出的文字會使用你自己的金鑰傳送給你選擇的供應商。"
+            "value" : "本應用程式不使用任何線上服務，移除它能可靠找到的標記。只有在進行 AI 審查或線上浮水印檢查時才會連網，而且只在你執行並確認之後：AI 審查會把檔案中擷取的文字傳送給你選擇的供應商，浮水印檢查會把影像傳送給 OpenAI，都使用你自己的金鑰。"
           }
         }
       }
@@ -13671,6 +14601,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "在 %@ 找不到內建的清理引擎。"
+          }
+        }
+      }
+    },
+    "The check uses your OpenAI API key. Add one in Settings, under AI review." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La comprobación usa tu clave de API de OpenAI. Añade una en Ajustes, en «Revisión con IA»."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この確認にはあなたの OpenAI API キーを使います。「設定」の「AI レビュー」で追加してください。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此检查使用你的 OpenAI API 密钥。请在“设置”的“AI 审查”中添加。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此檢查使用你的 OpenAI API 金鑰。請在「設定」的「AI 審查」中加入。"
           }
         }
       }
@@ -14011,6 +14969,34 @@
         }
       }
     },
+    "The credentials' signature is invalid, so OpenAI doesn't treat them as reliable evidence." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La firma de las credenciales no es válida, así que OpenAI no las trata como prueba fiable."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "認証情報の署名が無効なため、OpenAI はこれを信頼できる証拠として扱いません。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这些凭证的签名无效，因此 OpenAI 不将其视为可靠证据。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "這些憑證的簽章無效，因此 OpenAI 不將其視為可靠證據。"
+          }
+        }
+      }
+    },
     "The document" : {
       "localizations" : {
         "es" : {
@@ -14207,6 +15193,34 @@
         }
       }
     },
+    "The image couldn't be read: %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo leer la imagen: %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "画像を読み込めませんでした：%@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法读取图像：%@"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法讀取影像：%@"
+          }
+        }
+      }
+    },
     "The image engine is available" : {
       "localizations" : {
         "es" : {
@@ -14287,6 +15301,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "圖片引擎無法使用，因此只能清理文件元資料。"
+          }
+        }
+      }
+    },
+    "The online check takes PNG, JPEG, WebP and GIF images only." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La comprobación en línea solo acepta imágenes PNG, JPEG, WebP y GIF."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "オンライン確認で扱えるのは PNG、JPEG、WebP、GIF 画像だけです。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在线检查只接受 PNG、JPEG、WebP 和 GIF 图像。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "線上檢查只接受 PNG、JPEG、WebP 和 GIF 影像。"
           }
         }
       }
@@ -14891,6 +15933,34 @@
         }
       }
     },
+    "The watermark is in the pixels. Creating a copy removes metadata such as content credentials, but this watermark stays in the copy." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La marca de agua está en los píxeles. Crear una copia quita metadatos como las credenciales de contenido, pero esta marca de agua se queda en la copia."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "透かしはピクセルの中にあります。コピーを作成するとコンテンツ認証情報などのメタデータは削除されますが、この透かしはコピーに残ります。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "水印位于像素之中。创建副本会删除内容凭证等元数据，但此水印会保留在副本中。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "浮水印位於像素之中。建立副本會移除內容憑證等中繼資料，但此浮水印會保留在副本中。"
+          }
+        }
+      }
+    },
     "There is no copy to save." : {
       "localizations" : {
         "es" : {
@@ -14943,6 +16013,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "此供應商沒有已儲存的 API 金鑰。"
+          }
+        }
+      }
+    },
+    "There's no saved OpenAI API key. Add one in Settings, under AI review." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No hay ninguna clave de API de OpenAI guardada. Añade una en Ajustes, en «Revisión con IA»."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenAI の API キーが保存されていません。「設定」の「AI レビュー」で追加してください。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有已存储的 OpenAI API 密钥。请在“设置”的“AI 审查”中添加。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "沒有已儲存的 OpenAI API 金鑰。請在「設定」的「AI 審查」中加入。"
           }
         }
       }
@@ -15083,6 +16181,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "無法載入第三方聲明。請查看發行套件中的 THIRD_PARTY_NOTICES.md。"
+          }
+        }
+      }
+    },
+    "This OpenAI organization doesn't have access to the provenance check yet (HTTP 404)." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta organización de OpenAI aún no tiene acceso a la comprobación de procedencia (HTTP 404)."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この OpenAI 組織はまだ来歴確認を利用できません（HTTP 404）。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此 OpenAI 组织尚无权使用来源检查（HTTP 404）。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此 OpenAI 組織尚無權使用來源檢查（HTTP 404）。"
           }
         }
       }
@@ -15335,6 +16461,62 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "此格式無法驗證"
+          }
+        }
+      }
+    },
+    "This image goes to OpenAI under your API key, and OpenAI's terms and pricing apply. Only the image is sent, not its file name." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta imagen se envía a OpenAI con tu clave de API, y se aplican las condiciones y precios de OpenAI. Solo se envía la imagen, no su nombre de archivo."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この画像はあなたの API キーで OpenAI に送信され、OpenAI の規約と料金が適用されます。送信されるのは画像だけで、ファイル名は送信されません。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此图像将使用你的 API 密钥发送给 OpenAI，适用 OpenAI 的条款和价格。只发送图像，不发送其文件名。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此影像將使用你的 API 金鑰傳送給 OpenAI，適用 OpenAI 的條款和價格。只傳送影像，不傳送其檔名。"
+          }
+        }
+      }
+    },
+    "This image is larger than 50 MB, the most the online check accepts." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta imagen ocupa más de 50 MB, el máximo que acepta la comprobación en línea."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この画像は、オンライン確認で扱える上限の 50 MB を超えています。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此图像大于 50 MB，超出在线检查可接受的上限。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此影像大於 50 MB，超出線上檢查可接受的上限。"
           }
         }
       }
@@ -15815,6 +16997,34 @@
         }
       }
     },
+    "Try again…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reintentar…"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "再試行…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重试…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重試…"
+          }
+        }
+      }
+    },
     "Type to change a value. Leave a field empty to remove it." : {
       "localizations" : {
         "es" : {
@@ -16291,6 +17501,34 @@
         }
       }
     },
+    "Valid" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Válida"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "有効"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "有效"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "有效"
+          }
+        }
+      }
+    },
     "Valid from" : {
       "localizations" : {
         "es" : {
@@ -16343,6 +17581,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "失效時間"
+          }
+        }
+      }
+    },
+    "Valid, from a trusted signer" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Válida, de un firmante de confianza"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "有効（信頼された署名者）"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "有效，来自受信任的签名者"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "有效，來自受信任的簽署者"
           }
         }
       }
@@ -16629,6 +17895,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "等待中"
+          }
+        }
+      }
+    },
+    "Waiting for OpenAI…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esperando a OpenAI…"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenAI を待機中…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在等待 OpenAI…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在等待 OpenAI…"
           }
         }
       }

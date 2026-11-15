@@ -44,6 +44,7 @@ final class AppPreferences {
         static let alsoLayerAText = "alsoLayerAText"
         static let deepImages = "deepImages"
         static let aiProviders = "aiProviders"
+        static let onlineProvenanceCheck = "onlineProvenanceCheck"
     }
 
     /// The language the running app chose at launch, compared with `language`
@@ -107,6 +108,12 @@ final class AppPreferences {
         aiProviderSettings[provider.rawValue] = settings
     }
 
+    /// Off by default: the app stays offline unless the user turns this on,
+    /// and even then sends an image only after confirming.
+    var offerOnlineProvenanceCheck: Bool {
+        didSet { defaults.set(offerOnlineProvenanceCheck, forKey: Key.onlineProvenanceCheck) }
+    }
+
     var wordSessionMode: WordTraceMode {
         didSet { defaults.set(wordSessionMode.rawValue, forKey: "wordSessionMode") }
     }
@@ -157,6 +164,7 @@ final class AppPreferences {
         self.alsoLayerAText = defaults.object(forKey: Key.alsoLayerAText) as? Bool ?? true
         self.deepImageMode = defaults.string(forKey: Key.deepImages)
             .flatMap(DeepImageMode.init(rawValue:)) ?? .auto
+        self.offerOnlineProvenanceCheck = defaults.bool(forKey: Key.onlineProvenanceCheck)
         self.aiProviderSettings = defaults.data(forKey: Key.aiProviders)
             .flatMap { try? JSONDecoder().decode([String: AIProviderSettings].self, from: $0) } ?? [:]
     }

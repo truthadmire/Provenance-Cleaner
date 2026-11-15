@@ -76,7 +76,7 @@ struct SettingsView: View {
             Form {
                 Section {
                     Label("Cleaning and checking happen on this Mac", systemImage: "lock")
-                    Text("The app removes markers it can find reliably, without any online service. It goes online only for an AI review: when you run one and confirm, the file's extracted text goes to the providers you chose, with your own keys.")
+                    Text("The app removes markers it can find reliably, without any online service. It goes online only for an AI review or an online watermark check, and only when you run one and confirm: an AI review sends the file's extracted text to the providers you chose, and a watermark check sends the image to OpenAI, with your own keys.")
                         .font(Clay.caption)
                         .foregroundStyle(Clay.inkMuted)
                 } header: {

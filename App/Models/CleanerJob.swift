@@ -183,6 +183,8 @@ struct CleanerJob: Identifiable, Equatable, Sendable {
     var injectionScan: InjectionScanState = .notScanned
     /// Optional AI reviews of that check's text, by provider.
     var aiReviews: [AIProviderReview] = []
+    /// The optional online watermark check of the original image, if one ran.
+    var onlineProvenanceCheck: OnlineProvenanceCheck?
 
     init(id: UUID = UUID(), sourceURL: URL) {
         self.id = id
@@ -205,6 +207,7 @@ struct CleanerJob: Identifiable, Equatable, Sendable {
 
     var isScanningForInjection: Bool { injectionScan == .scanning }
     var isReviewingWithAI: Bool { aiReviews.contains { $0.state == .running } }
+    var isCheckingProvenanceOnline: Bool { onlineProvenanceCheck?.state == .running }
 
     /// The verdict of a finished prompt-injection check, when it found something.
     var injectionVerdictToFlag: PromptInjectionScan.Verdict? {

@@ -9,6 +9,9 @@ struct FindingsTabView: View {
     var onShowChanges: () -> Void
     var onScanForInjection: () -> Void = {}
     var onReviewWithAI: () -> Void = {}
+    var offersOnlineCheck = false
+    var canCheckOnline = false
+    var onCheckOnline: () -> Void = {}
 
     private var injectionCard: PromptInjectionCard {
         PromptInjectionCard(
@@ -52,6 +55,10 @@ struct FindingsTabView: View {
 
                 if report.raw["c2pa"] != nil {
                     ContentCredentialsCard(report: report)
+                }
+
+                if offersOnlineCheck, !job.isReplaced || job.onlineProvenanceCheck != nil {
+                    OnlineProvenanceCard(check: job.onlineProvenanceCheck, canCheck: canCheckOnline, onCheck: onCheckOnline)
                 }
 
                 if job.isPDF, let traces = report.raw["pdf_traces"].map(PDFTraceInspection.init(raw:)), traces.hasContent {

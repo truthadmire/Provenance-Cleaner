@@ -3,8 +3,9 @@
 Provenance Cleaner is a native, offline macOS utility for inspecting and
 removing deterministic invisible-Unicode carriers and provenance metadata from
 files the user owns or is authorized to modify. It targets Apple silicon and
-macOS 14 or later. Cleaning and checking are offline; the only thing that goes
-online is the optional AI review of a prompt-injection check.
+macOS 14 or later. Cleaning and checking are offline; the only things that go
+online are the optional AI review of a prompt-injection check and the optional
+online watermark check of an image.
 
 The cleaning engine is vendored from
 [`guillaumemeyer/watermarks-remover`](https://github.com/guillaumemeyer/watermarks-remover)
@@ -36,16 +37,19 @@ default branch at build time.
 - Results describe findings and residual risk. They never claim that a file is
   universally “watermark-free.”
 - The app has no telemetry or updater. It holds a network-client entitlement for
-  one purpose: the optional AI review, which runs only when the user starts it
-  and confirms, using their own API key. The cleaning engine makes no network
+  two optional features, the AI review and the online watermark check, which run
+  only when the user starts one and confirms, using their own API key. The cleaning engine makes no network
   calls, although as a sandbox-inheriting child it has the same entitlement, so
   that rests on its code and the release checks rather than on the sandbox.
 
-Visible-logo removal, statistical text rewriting, SynthID scoring, CtrlRegen,
-MarkDiffusion, audio-waveform alteration, and image regeneration are outside
-the product scope. The helper removes the pinned engine's AI-authorship
+Visible-logo removal, statistical text rewriting, local SynthID scoring,
+CtrlRegen, MarkDiffusion, audio-waveform alteration, and image regeneration are
+outside the product scope. The helper removes the pinned engine's AI-authorship
 (stylometry) score, SynthID/pixel fields and command-line advice from every
-report, and judges text only by deterministic signals.
+report, and judges text only by deterministic signals. The one way the app
+learns about a SynthID watermark is OpenAI's own check, described under
+[Online watermark check](#online-watermark-check); nothing in the app removes
+such a watermark.
 
 Office preview images (`docProps/thumbnail.*` in DOCX, XLSX and PPTX) are kept
 with their metadata removed. A preview that can't be cleaned is dropped along
@@ -224,6 +228,35 @@ and the listed ones are only suggestions.
   isn't in the file or a decoded message is dropped and counted, and each model's verdict is worked out
   from the findings that remain. Reviews appear beside the offline findings, never
   replace them, and trigger nothing.
+
+## Online watermark check
+
+An optional card on the Findings tab of PNG, JPEG, WebP and GIF images asks
+OpenAI's content provenance check
+(`POST https://api.openai.com/v1/content_provenance_checks`) whether the original
+carries OpenAI's SynthID watermark or content credentials issued by OpenAI. It's
+off until **Offer an online check for images** is turned on in Settings under
+**AI review**, and it uses the OpenAI key saved there.
+
+- A sheet shown before every check says that the image goes to OpenAI under the
+  user's key and that OpenAI's terms and pricing apply. The upload is the image
+  alone, named `image.<ext>`, so the file's own name stays on the Mac. Files over
+  50 MB, OpenAI's limit, are refused before anything is sent. The request uses the
+  same session as the AI review: HTTPS, ephemeral and refusing redirects.
+- The card shows each signal OpenAI reports (SynthID found or not, and for content
+  credentials the signature state, issuer, model and date). A check OpenAI omits
+  stays omitted rather than shown as “not found”. An invalid credential is shown
+  as not reliable evidence, as OpenAI advises.
+- It detects OpenAI's signals only. “Not found” doesn't mean an image wasn't
+  made with AI: other companies' watermarks (including Google's SynthID),
+  older OpenAI images and edited images may not register.
+- Each original is sent once. OpenAI's terms don't allow repeated checks to remove
+  or evade a watermark, so a finished check isn't offered again until the
+  original changes on disk, and copies are never checked. The card says that a
+  SynthID watermark is in the pixels and stays in the copy.
+- Errors are named: 404 means the OpenAI organization doesn't have access to the
+  check yet, 401/403 a rejected key, and 429 a rate limit (one wait of up to 60
+  seconds when OpenAI sends `Retry-After`). Results are kept in memory only.
 
 ## Word editing traces
 

@@ -145,8 +145,11 @@ class SafetyWordingTests(unittest.TestCase):
             "of the offline findings go to %@ under your API keys, and those companies' terms and "
             "pricing apply. The file itself isn't sent.")
     PRIVACY = ("The app removes markers it can find reliably, without any online service. It goes online "
-               "only for an AI review: when you run one and confirm, the file's extracted text goes to "
-               "the providers you chose, with your own keys.")
+               "only for an AI review or an online watermark check, and only when you run one and confirm: "
+               "an AI review sends the file's extracted text to the providers you chose, and a watermark "
+               "check sends the image to OpenAI, with your own keys.")
+    IMAGE_SENT = ("This image goes to OpenAI under your API key, and OpenAI's terms and pricing apply. "
+                  "Only the image is sent, not its file name.")
     LIMITS = ("Translations haven't been reviewed by a native speaker. Text from your files and from AI "
               "models is never translated. Technical findings from the cleaning engine, error messages "
               "from bundled tools and the third-party notices stay in English.")
@@ -154,25 +157,29 @@ class SafetyWordingTests(unittest.TestCase):
     TERMS = {
         "zh-Hans": {
             "sent": ("提取", "隐藏文本", "批注", "元数据", "离线检查结果的摘要", "%@", "API 密钥", "条款", "价格", "文件本身不会被发送"),
-            "privacy": ("不使用任何在线服务", "只有 AI 审查才会联网", "确认", "你自己的密钥", "你选择的服务商"),
+            "privacy": ("不使用任何在线服务", "只有在进行 AI 审查或在线水印检查时才会联网", "确认", "你自己的密钥", "你选择的服务商", "图像发送给 OpenAI"),
+            "image": ("API 密钥", "OpenAI", "条款", "价格", "不发送其文件名"),
             "preview": ("英文",),
             "limits": ("母语人士", "绝不会被翻译", "保持英文"),
         },
         "zh-Hant": {
             "sent": ("擷取", "隱藏文字", "註解", "元資料", "離線檢查結果的摘要", "%@", "API 金鑰", "條款", "價格", "檔案本身不會被傳送"),
-            "privacy": ("不使用任何線上服務", "只有 AI 審查才會連線", "確認", "你自己的金鑰", "你選擇的供應商"),
+            "privacy": ("不使用任何線上服務", "只有在進行 AI 審查或線上浮水印檢查時才會連網", "確認", "你自己的金鑰", "你選擇的供應商", "影像傳送給 OpenAI"),
+            "image": ("API 金鑰", "OpenAI", "條款", "價格", "不傳送其檔名"),
             "preview": ("英文",),
             "limits": ("母語人士", "絕不會被翻譯", "維持英文"),
         },
         "ja": {
             "sent": ("抽出", "隠しテキスト", "コメント", "メタデータ", "オフラインのチェック結果の要約", "%@", "API キー", "規約", "料金", "ファイル自体は送信されません"),
-            "privacy": ("オンラインサービスなし", "AI レビューのときだけ", "確認", "あなた自身のキー", "選択したプロバイダ"),
+            "privacy": ("オンラインサービスを使わずに", "AI レビューまたはオンライン透かし確認を実行して確認したときだけ", "あなた自身のキー", "選んだプロバイダ", "画像を OpenAI に"),
+            "image": ("API キー", "OpenAI", "規約", "料金", "ファイル名は送信されません"),
             "preview": ("英語",),
             "limits": ("ネイティブスピーカー", "翻訳されることはありません", "英語のまま"),
         },
         "es": {
             "sent": ("texto extraído", "texto oculto", "comentarios", "metadatos", "resumen de los resultados sin conexión", "%@", "claves de API", "condiciones", "precios", "El archivo en sí no se envía"),
-            "privacy": ("sin ningún servicio en línea", "Solo se conecta a internet para una revisión con IA", "confirmas", "tus propias claves", "proveedores que elegiste"),
+            "privacy": ("sin ningún servicio en línea", "Solo se conecta a internet para una revisión con IA o una comprobación de marca de agua en línea", "confirmas", "tus propias claves", "proveedores que elegiste", "envía la imagen a OpenAI"),
+            "image": ("clave de API", "OpenAI", "condiciones", "precios", "no su nombre de archivo"),
             "preview": ("inglés",),
             "limits": ("hablante nativo", "nunca se traduce", "siguen en inglés"),
         },
@@ -192,6 +199,9 @@ class SafetyWordingTests(unittest.TestCase):
 
     def test_the_privacy_text_still_says_when_the_app_goes_online(self):
         self.check(self.PRIVACY, "privacy")
+
+    def test_the_online_check_confirmation_still_says_what_is_sent(self):
+        self.check(self.IMAGE_SENT, "image")
 
     def test_the_preview_of_what_is_sent_warns_that_its_summary_is_in_english(self):
         self.check("Show what will be sent", "preview")

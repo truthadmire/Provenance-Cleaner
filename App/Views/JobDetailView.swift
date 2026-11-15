@@ -24,6 +24,7 @@ struct JobDetailView: View {
     var onSaveCopy: () -> Void
     var onReplaceOriginal: () -> Void
     @State private var showingAIReview = false
+    @State private var showingOnlineCheck = false
 
     var body: some View {
         // The header owns its layout space so scrolled content never draws
@@ -58,7 +59,10 @@ struct JobDetailView: View {
                             onInspect: inspect,
                             onShowChanges: { selectedTab = .changes },
                             onScanForInjection: { Task { await store.scanForInjection(jobID: job.id) } },
-                            onReviewWithAI: { showingAIReview = true }
+                            onReviewWithAI: { showingAIReview = true },
+                            offersOnlineCheck: store.offersOnlineProvenanceCheck(job),
+                            canCheckOnline: store.canCheckProvenanceOnline(job) && !store.isBusy,
+                            onCheckOnline: { showingOnlineCheck = true }
                         )
                     case .changes:
                         ChangesTabView(store: store, job: job)
@@ -84,6 +88,9 @@ struct JobDetailView: View {
             if case let .finished(scan) = job.injectionScan {
                 AIReviewSheet(store: store, jobID: job.id, scan: scan)
             }
+        }
+        .sheet(isPresented: $showingOnlineCheck) {
+            OnlineProvenanceSheet(store: store, job: job)
         }
         .onChange(of: job.resultRevision) { _, _ in selectedTab = .review }
         .onChange(of: job.id) { _, _ in
