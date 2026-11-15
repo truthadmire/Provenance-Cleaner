@@ -24,6 +24,7 @@ import zlib
 from pathlib import Path
 from typing import Any
 
+import chat_artifacts
 import metadata_editor
 
 QPDF_TIMEOUT = 120
@@ -578,6 +579,30 @@ def _retag_subsets(doc: _Document) -> int:
     return len(tags)
 
 
+def _strip_link_tracking(doc: _Document) -> int:
+    """Drop `utm_source=chatgpt.com` and the like from link targets; returns how many."""
+    removed = 0
+    for dictionary in doc.dictionaries():
+        value = dictionary.get("/URI")
+        if not isinstance(value, str):
+            continue
+        if value.startswith("u:"):
+            url, count = chat_artifacts.strip_link_tracking(value[2:])
+            if count:
+                dictionary["/URI"] = "u:" + url
+        elif value.startswith("b:"):
+            try:
+                url, count = chat_artifacts.strip_link_tracking(bytes.fromhex(value[2:]).decode("latin-1"))
+            except ValueError:
+                continue
+            if count:
+                dictionary["/URI"] = "b:" + url.encode("latin-1").hex()
+        else:
+            continue
+        removed += count
+    return removed
+
+
 def normalize(path: Path) -> list[str]:
     """Rewrite *path* in place without generator traces; returns what changed."""
     if _encrypted(path):
@@ -596,6 +621,9 @@ def normalize(path: Path) -> list[str]:
         retagged = _retag_subsets(doc)
         if retagged:
             actions.append(f"gave {retagged} font subset{'s' if retagged != 1 else ''} new tags")
+        tracked = _strip_link_tracking(doc)
+        if tracked:
+            actions.append(f"removed AI chat link tracking from {tracked} link{'s' if tracked != 1 else ''}")
         doc.trailer["/ID"] = [f"b:{secrets.token_hex(16)}", f"b:{secrets.token_hex(16)}"]
         actions.append("merged page content streams and wrote a new document ID")
         target = Path(temp) / "out.pdf"

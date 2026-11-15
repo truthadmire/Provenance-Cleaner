@@ -49,9 +49,12 @@ enum SupportedFileTypes {
         }
     }
 
-    static func cleanedFilename(for sourceURL: URL) -> String {
+    /// The name suggested for a saved copy: the original's, numbered the way
+    /// Finder numbers a duplicate, so it can sit beside the original. The name
+    /// says nothing about the file having been cleaned.
+    static func copyFilename(for sourceURL: URL) -> String {
         let stem = sourceURL.deletingPathExtension().lastPathComponent
         let ext = sourceURL.pathExtension
-        return ext.isEmpty ? "\(stem).cleaned" : "\(stem).cleaned.\(ext)"
+        return ext.isEmpty ? "\(stem) 2" : "\(stem) 2.\(ext)"
     }
 }

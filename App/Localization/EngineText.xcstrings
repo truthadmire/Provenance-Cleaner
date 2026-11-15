@@ -146,6 +146,93 @@
         }
       }
     },
+    "AI chat citation markers: {n}" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Marcadores de cita de chat de IA: {n}"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI チャットの引用マーカー：{n}"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI 聊天的引用标记：{n}"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI 聊天的引用標記：{n}"
+          }
+        }
+      }
+    },
+    "AI chat link tracking (utm_source) in {n} link[s]" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Seguimiento de chat de IA (utm_source) en {n} enlace(s)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "{n} 件のリンクに AI チャットの追跡パラメータ（utm_source）があります"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "{n} 个链接带有 AI 聊天的跟踪参数（utm_source）"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "{n} 個連結帶有 AI 聊天的追蹤參數（utm_source）"
+          }
+        }
+      }
+    },
+    "AI chat page attributes (data-start, data-end and similar): {n}" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Atributos de la página de chat de IA (data-start, data-end y similares): {n}"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI チャットページの属性（data-start、data-end など）：{n}"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI 聊天页面的属性（data-start、data-end 等）：{n}"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI 聊天頁面的屬性（data-start、data-end 等）：{n}"
+          }
+        }
+      }
+    },
     "Active manifest is missing from the manifest store" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1306,6 +1393,35 @@
         }
       }
     },
+    "Data after the end of the image describes AI generation: {x}" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los datos situados tras el final de la imagen describen una generación con IA: {x}"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "画像の終端より後ろのデータに AI 生成の記述があります：{x}"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "图像结尾之后的数据提到 AI 生成：{x}"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "影像結尾之後的資料提到 AI 生成：{x}"
+          }
+        }
+      }
+    },
     "Deep PDF cleaning requires the bundled qpdf validator." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2147,6 +2263,93 @@
         }
       }
     },
+    "Generation metadata in PNG text chunk {x}" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Metadatos de generación en el fragmento de texto PNG {x}"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PNG テキストチャンク {x} に生成設定のメタデータがあります"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PNG 文本块 {x} 中有生成参数元数据"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PNG 文字區塊 {x} 中有生成參數中繼資料"
+          }
+        }
+      }
+    },
+    "Generator field {x} names an AI tool: {x2}" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El campo de generador {x} nombra una herramienta de IA: {x2}"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "生成ツールのフィールド {x} に AI ツールの名前があります：{x2}"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "生成工具字段 {x} 写有 AI 工具名称：{x2}"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "生成工具欄位 {x} 寫有 AI 工具名稱：{x2}"
+          }
+        }
+      }
+    },
+    "Generator fields were not fully inspected: the bundled metadata reader could not read this file." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los campos de generador no se inspeccionaron por completo: el lector de metadatos incluido no pudo leer este archivo."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "生成ツールのフィールドを完全には確認できませんでした：内蔵のメタデータ読み取りツールがこのファイルを読み取れませんでした。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "生成工具字段未能完整检查：内置的元数据读取工具无法读取此文件。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "生成工具欄位未能完整檢查：內建的中繼資料讀取工具無法讀取此檔案。"
+          }
+        }
+      }
+    },
     "Ghostscript couldn't extract the page text, so text was read directly from the pages." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2578,6 +2781,35 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "元資料編輯支援 DOCX、XLSX、PPTX、PDF、JPEG、PNG、TIFF 和 WebP。"
+          }
+        }
+      }
+    },
+    "Metadata field {x} describes AI generation: {x2}" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El campo de metadatos {x} describe una generación con IA: {x2}"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "メタデータのフィールド {x} に AI 生成の記述があります：{x2}"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "元数据字段 {x} 提到 AI 生成：{x2}"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "中繼資料欄位 {x} 提到 AI 生成：{x2}"
           }
         }
       }
@@ -3564,6 +3796,180 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "以 {x} 編碼的可讀文字"
+          }
+        }
+      }
+    },
+    "Removed AI chat link tracking from {n} link[s]" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se eliminó el seguimiento de chat de IA de {n} enlace(s)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "{n} 件のリンクから AI チャットの追跡パラメータを削除しました"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已从 {n} 个链接移除 AI 聊天的跟踪参数"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已從 {n} 個連結移除 AI 聊天的追蹤參數"
+          }
+        }
+      }
+    },
+    "Removed PNG text chunk {x}" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se eliminó el fragmento de texto PNG {x}"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PNG テキストチャンク {x} を削除しました"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已移除 PNG 文本块 {x}"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已移除 PNG 文字區塊 {x}"
+          }
+        }
+      }
+    },
+    "Removed all metadata: a generator field couldn't be removed on its own." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se eliminaron todos los metadatos: un campo de generador no se pudo eliminar por separado."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "すべてのメタデータを削除しました：生成ツールのフィールドだけを削除することができませんでした。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已移除全部元数据：无法单独移除某个生成工具字段。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已移除全部中繼資料：無法單獨移除某個生成工具欄位。"
+          }
+        }
+      }
+    },
+    "Removed generator field {x}" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se eliminó el campo de generador {x}"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "生成ツールのフィールド {x} を削除しました"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已移除生成工具字段 {x}"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已移除生成工具欄位 {x}"
+          }
+        }
+      }
+    },
+    "Removed {n} AI chat citation marker[s]" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se eliminaron {n} marcador(es) de cita de chat de IA"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI チャットの引用マーカーを {n} 件削除しました"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已移除 {n} 个 AI 聊天引用标记"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已移除 {n} 個 AI 聊天引用標記"
+          }
+        }
+      }
+    },
+    "Removed {n} AI chat page attribute[s]" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se eliminaron {n} atributo(s) de la página de chat de IA"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI チャットページの属性を {n} 件削除しました"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已移除 {n} 个 AI 聊天页面属性"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已移除 {n} 個 AI 聊天頁面屬性"
           }
         }
       }
@@ -4637,6 +5043,35 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "元資料讀取工具沒有傳回可用的結果。"
+          }
+        }
+      }
+    },
+    "The metadata writer left its own name in the file; no result was saved." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El escritor de metadatos dejó su propio nombre en el archivo; no se guardó ningún resultado."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "メタデータ書き込みツールが自身の名前をファイルに残したため、結果は保存されませんでした。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "元数据写入工具在文件中留下了自己的名称；未保存任何结果。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "中繼資料寫入工具在檔案中留下了自己的名稱；未儲存任何結果。"
           }
         }
       }

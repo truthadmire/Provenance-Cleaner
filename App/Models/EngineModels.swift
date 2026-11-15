@@ -258,12 +258,11 @@ struct WatermarkReport: Equatable, Sendable {
         return findings.isEmpty && (raw["suspicious_total"]?.numberValue ?? 0) > 0
     }
 
-    /// Readable change lines: the engine's actions, or its text statistics
-    /// when a text clean reports counts instead of actions.
+    /// Readable change lines: the engine's and the helper's actions, then the
+    /// counts a text clean reports instead of actions.
     var changeDescriptions: [String] {
-        if !actions.isEmpty { return actions.map(EngineText.localized) }
-        guard let stats = raw["stats"]?.objectValue else { return [] }
-        var lines: [String] = []
+        var lines = actions.map(EngineText.localized)
+        guard let stats = raw["stats"]?.objectValue else { return lines }
         for (label, count) in (stats["removed"]?.objectValue ?? [:]).sorted(by: { $0.key < $1.key }) {
             lines.append(String(localized: "Removed \(label) ×\(Int(count.numberValue ?? 0))"))
         }

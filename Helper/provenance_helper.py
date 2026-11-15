@@ -32,6 +32,8 @@ import word_editing_traces
 import metadata_editor
 import credential_inspection
 import pdf_traces
+import generator_fields
+import chat_artifacts
 
 
 PROTOCOL_VERSION = 1
@@ -538,8 +540,19 @@ def _inspect_response(request_id: str, input_path: Path) -> dict[str, Any]:
         confidences = report.setdefault("findings_confidence", ["informational"] * len(findings))
         findings.append("Potential provenance metadata inside an embedded PDF image.")
         confidences.append("probable")
+    if kind in ("image", "av"):
+        # The property reader uses the same tool; if it already failed here, don't wait for it again.
+        generator_fields.present(report, input_path, data, readable=not report["metadata"].get("incomplete"))
+    chat_artifacts.present(report, _chat_leftovers(data, input_path.suffix.lower()))
     upstream_fixes.present_report(report, inspection=True)
     return {"requestID": request_id, "ok": True, "kind": kind, "report": report}
+
+
+def _chat_leftovers(data: bytes, suffix: str) -> dict[str, int]:
+    if suffix == ".pdf":
+        # Link targets sit in compressed object streams until they are written out.
+        data = pdf_traces.expand_object_streams(data) or data
+    return chat_artifacts.count(data, suffix)
 
 
 def _scan_response(request_id: str, input_path: Path) -> dict[str, Any]:
@@ -635,6 +648,24 @@ def _clean_response(
             )
         except (zipfile.BadZipFile, ValueError, KeyError) as exc:
             raise ProtocolError("processing_error", f"Could not rebuild the document's preview image: {exc}") from exc
+    suffix = input_path.suffix.lower()
+    cleaned, chat_counts = chat_artifacts.clean(cleaned, suffix)
+    chat_actions = chat_artifacts.actions(chat_counts)
+    chat_residual = chat_artifacts.findings(_chat_leftovers(cleaned, suffix))
+    generator_actions: list[str] = []
+    generator_residual: list[str] = []
+    if result.get("kind") in ("image", "av"):
+        def strip_all() -> bytes:
+            everything = dict(options, strip_all_metadata=True, keep_non_ai_metadata=False)
+            return base64.b64decode(_upstream_clean_payload(data, input_path.name, everything)["cleaned"])
+
+        try:
+            cleaned, generator_actions, generator_residual, _ = generator_fields.clean(
+                cleaned, input_path.suffix.lower(),
+                keep_ordinary=not options.get("strip_all_metadata", False), strip_all=strip_all,
+            )
+        except (ValueError, OSError) as exc:
+            raise ProtocolError("processing_error", f"Could not remove generator fields: {exc}") from exc
     if len(cleaned) > MAX_OUTPUT_BYTES:
         raise ProtocolError(
             "output_too_large",
@@ -664,6 +695,20 @@ def _clean_response(
         report["post_findings"] = upstream_fixes.drop_findings_for_parts(
             list(report.get("post_findings", [])), preview_parts
         ) + preview_residual
+    if generator_actions or generator_residual:
+        # The engine's "nothing removed" line is no longer true of the copy.
+        kept = [a for a in report.get("actions", []) if not (isinstance(a, str) and a.startswith("no ") and "removed" in a)]
+        report["actions"] = kept + generator_actions
+        report["post_findings"] = list(report.get("post_findings", [])) + generator_residual
+        report["changed"] = cleaned != data
+        report["bytes_out"] = len(cleaned)
+        if generator_residual:
+            report["still_has_ai_metadata"] = True
+    if chat_actions or chat_residual:
+        report["actions"] = list(report.get("actions", [])) + chat_actions
+        report["post_findings"] = list(report.get("post_findings", [])) + chat_residual
+        if chat_actions:
+            report["changed"] = True
     upstream_fixes.present_report(report, inspection=False)
     if input_path.suffix.lower() == ".pdf":
         # Document-level inspection can miss a marker living inside a JPEG.

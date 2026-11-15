@@ -117,7 +117,7 @@ struct ReviewTabView: View {
         return VStack(alignment: .leading, spacing: Clay.space3) {
             ClayCardHeader(
                 title: String(localized: "Save"),
-                subtitle: String(localized: "Save copy suggests the name \(SupportedFileTypes.cleanedFilename(for: job.sourceURL)). Replacing the original keeps the old version as \(job.displayName).bak, next to it.")
+                subtitle: String(localized: "Save copy suggests the name \(SupportedFileTypes.copyFilename(for: job.sourceURL)). Replacing the original keeps the old version as \(job.displayName).bak, next to it.")
             )
             if outdated {
                 Label("Update the copy before saving it or replacing the original.", systemImage: "exclamationmark.triangle")

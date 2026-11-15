@@ -39,13 +39,12 @@ final class SafeFileExporterTests: XCTestCase {
         let fixture = try ExportFixture()
         defer { fixture.remove() }
         let staged = try fixture.write("stage.txt", "cleaned")
-        _ = try fixture.write("draft.cleaned.txt", "existing")
-        let source = fixture.root.appendingPathComponent("draft.txt")
+        let source = try fixture.write("draft.txt", "existing")
 
         let exported = try await SafeFileExporter().exportCopy(from: staged, sourceURL: source, into: fixture.root)
 
-        XCTAssertEqual(exported.lastPathComponent, "draft.cleaned 2.txt")
-        XCTAssertEqual(try String(contentsOf: fixture.root.appendingPathComponent("draft.cleaned.txt"), encoding: .utf8), "existing")
+        XCTAssertEqual(exported.lastPathComponent, "draft 2.txt", "the name doesn't say the file was cleaned")
+        XCTAssertEqual(try String(contentsOf: source, encoding: .utf8), "existing")
         XCTAssertEqual(try String(contentsOf: exported, encoding: .utf8), "cleaned")
     }
 

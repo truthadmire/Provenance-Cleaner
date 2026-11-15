@@ -93,6 +93,8 @@ if [[ "$IF_NEEDED" -eq 1 && -x "$OUTPUT_BINARY" ]]; then
     "$HELPER_DIR/pdf_traces.py"
     "$HELPER_DIR/injection_scan.py"
     "$HELPER_DIR/injection_extract.py"
+    "$HELPER_DIR/generator_fields.py"
+    "$HELPER_DIR/chat_artifacts.py"
     "$SPEC"
     "$UPSTREAM_DIR"
     "$HELPER_DIR/requirements-build.txt"

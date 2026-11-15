@@ -17,10 +17,17 @@ default branch at build time.
 
 - Files are first copied into an app-controlled job directory. Originals are
   unchanged until the user explicitly exports a result.
-- **Save copy** suggests `name.cleaned.ext` and writes exactly the file chosen
-  in the save panel. **Save all** writes into a chosen folder with
-  collision-safe numbering, and skips outdated and already-saved copies,
-  saying how many.
+- **Save copy** suggests `name 2.ext`, the way Finder numbers a duplicate, and
+  writes exactly the file chosen in the save panel. **Save all** writes into a
+  chosen folder under the original names, numbering a name that is already
+  taken, and skips outdated and already-saved copies, saying how many. Neither
+  name says that the file was cleaned.
+- macOS tags every file a sandboxed app writes with the app's name
+  (`com.apple.quarantine: …;ProvenanceCleaner;`), and the app isn't allowed to
+  remove it. The tag isn't part of the file: it is lost in an email attachment
+  or an upload, and kept by AirDrop, a ZIP made in Finder and a copy to another
+  Mac's disk. To remove it, run `xattr -d com.apple.quarantine <file>` in
+  Terminal.
 - Replacing an original requires confirmation, uses an atomic write, and keeps
   a recoverable `.bak` copy. It's refused when the original changed after the
   copy was made, and it doesn't carry the original's download-source record
@@ -30,7 +37,8 @@ default branch at build time.
 - Save and replace records are kept apart from each file's check results, so
   re-checking never erases them and they never hide a warning about the copy.
 - Space normalization is off by default to preserve typography. Metadata
-  cleaning is selective by default where the file format supports it. Office
+  cleaning is selective by default where the file format supports it: see
+  [Generator fields](#generator-fields) for what counts as AI metadata. Office
   files (DOCX, XLSX, PPTX) always lose author, last saved by, subject, keywords,
   description and company when provenance is removed; the app says so and
   lets you set those properties again on the copy.
@@ -84,6 +92,49 @@ and any PyMuPDF or ReportLab traces.
 The bundled qpdf validator checks inputs before deep cleaning; an unparseable PDF
 or one that requires a password is refused before the image pass.
 
+## Generator fields
+
+The pinned engine recognises AI metadata by a short list of keywords, so on its
+own it passes a JPEG whose EXIF Software is "Midjourney", a ComfyUI PNG or an
+MP4 commented "Made with Sora" as ordinary. For images, audio and video the
+helper therefore reads every field with the bundled ExifTool, and PNG text
+chunks directly (`Helper/generator_fields.py`), and reports:
+
+- a field that names the software or service (Software, CreatorTool, Encoder,
+  Encoded by, Credit, Producer and similar) holding an AI product's name;
+- any field with wording or settings only a generator writes: "Made with
+  Google AI", "AI-generated", `Steps: 20, Sampler: …`, `--ar 16:9 --v 6`;
+- PNG text chunks that generators use for their settings (`prompt`,
+  `workflow`, `parameters`, `invokeai_metadata` and similar);
+- the same wording in data appended after the end of a JPEG or BMP image.
+
+A product name alone in a caption, comment, title or author field isn't
+reported, because "the Gemini capsule" is ordinary text; camera Make and Model
+count only for names no camera has. With **Keep ordinary metadata** on, a copy
+loses just the reported fields. Formats whose fields can't be edited one at a
+time (MP3, WAV, trailing data) lose all their metadata instead, and the change
+list says so. FLAC tags can't be removed yet, so they are reported as remaining
+in the copy. A check that ExifTool can't finish is reported as not finished,
+never as clean.
+
+## Chat leftovers
+
+Text copied or exported from an AI chat carries marks that aren't wording
+(`Helper/chat_artifacts.py`). They are reported, and a copy removes them:
+
+- link tracking: `utm_source=chatgpt.com`, and the same parameter naming
+  OpenAI, Perplexity, Copilot, Claude or Gemini. Only that parameter goes; the
+  rest of the address stays;
+- citation markers: `citeturn0search0` (with or without its invisible
+  delimiters), `【4†source】` and `:contentReference[oaicite:0]{index=0}`;
+- in HTML, the chat page's own attributes: `data-start`, `data-end`,
+  `data-message-id` and similar.
+
+This covers plain text, Markdown, HTML, CSV and JSON, the XML parts of DOCX,
+XLSX, PPTX, ODT and EPUB (hyperlink targets included), and link targets in a
+PDF. Source-code files are left alone. A marker split across two formatting
+runs in a document, or drawn as text on a PDF page, isn't found.
+
 ## Checking, changing and reviewing a file
 
 Each file has three tabs, with one verdict banner above them that says what is
@@ -122,6 +173,8 @@ its own element in `docProps/app.xml`; other package entries retain their
 uncompressed bytes. Comment/revision author names are separate and stay unchanged.
 Signed Office packages are readable but editing is refused. PDF/image edits use
 the bundled ExifTool with explicit field mappings and read-back verification.
+ExifTool would sign the XMP it writes (`XMP Toolkit: Image::ExifTool`); that
+line is suppressed, and an edit whose result still names the tool isn't saved.
 ExifTool appends PDF edits as an incremental update, which would leave earlier
 property values recoverable, so the bundled qpdf then rewrites the whole file.
 The result must have a single revision, pass `qpdf --check` and read back the

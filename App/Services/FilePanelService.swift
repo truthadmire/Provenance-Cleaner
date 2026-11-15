@@ -20,7 +20,7 @@ enum FilePanelService {
         let panel = NSSavePanel()
         panel.title = String(localized: "Save cleaned copy")
         panel.prompt = String(localized: "Save Copy")
-        panel.nameFieldStringValue = SupportedFileTypes.cleanedFilename(for: job.sourceURL)
+        panel.nameFieldStringValue = SupportedFileTypes.copyFilename(for: job.sourceURL)
         panel.directoryURL = job.sourceURL.deletingLastPathComponent()
         return panel.runModal() == .OK ? panel.url : nil
     }

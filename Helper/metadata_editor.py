@@ -273,7 +273,8 @@ def rewrite(data, ext, edits):
         path = Path(directory) / ("result" + ext)
         path.write_bytes(data)
         tags = _tags(ext)
-        args = [tool, "-overwrite_original", "-charset", "filename=UTF8", "-charset", "IPTC=UTF8"]
+        # ExifTool signs the XMP it writes ("XMP Toolkit: Image::ExifTool 13.59") unless told not to.
+        args = [tool, "-overwrite_original", "-charset", "filename=UTF8", "-charset", "IPTC=UTF8", "-XMP-x:XMPToolkit="]
         if ext in {".jpg", ".jpeg", ".tif", ".tiff"} and any(value for key, value in edits.items() if any(tag.startswith("IPTC:") for tag in tags[key])):
             args.append("-IPTC:CodedCharacterSet=UTF8")
         for key, value in edits.items():
@@ -288,4 +289,7 @@ def rewrite(data, ext, edits):
             for tag in tags[key]:
                 if _text(actual.get(tag, "")) != value:
                     raise MetadataError(f"Could not verify {FIELDS[key][0]} in {tag}; no result was saved.")
-        return path.read_bytes()
+        result = path.read_bytes()
+        if b"Image::ExifTool" in result:
+            raise MetadataError("The metadata writer left its own name in the file; no result was saved.")
+        return result

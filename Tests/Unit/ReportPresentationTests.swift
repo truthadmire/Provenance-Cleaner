@@ -94,6 +94,17 @@ final class ReportPresentationTests: XCTestCase {
         XCTAssertEqual(report.changeDescriptions, ["Removed U+200B ZERO WIDTH SPACE (Cf) ×2"])
     }
 
+    func testHelperActionsAreListedWithTextCleanStatistics() {
+        let report = WatermarkReport(raw: .object([
+            "actions": .array([.string("Removed 2 AI chat citation markers")]),
+            "stats": .object(["removed": .object(["U+200B ZERO WIDTH SPACE (Cf)": .number(1)])]),
+        ]))
+        XCTAssertEqual(
+            report.changeDescriptions,
+            ["Removed 2 AI chat citation markers", "Removed U+200B ZERO WIDTH SPACE (Cf) ×1"]
+        )
+    }
+
     func testVerdictExplainsAnIncompleteCheck() {
         var job = CleanerJob(sourceURL: URL(fileURLWithPath: "/tmp/report.docx"))
         job.inspection = WatermarkReport(raw: .object([

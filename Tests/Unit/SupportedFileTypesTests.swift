@@ -3,6 +3,11 @@ import XCTest
 @testable import ProvenanceCleaner
 
 final class SupportedFileTypesTests: XCTestCase {
+    func testTheSuggestedCopyNameDoesNotSayTheFileWasCleaned() {
+        XCTAssertEqual(SupportedFileTypes.copyFilename(for: URL(fileURLWithPath: "/tmp/Essay draft.docx")), "Essay draft 2.docx")
+        XCTAssertEqual(SupportedFileTypes.copyFilename(for: URL(fileURLWithPath: "/tmp/notes")), "notes 2")
+    }
+
     func testInputExpansionAcceptsFilesButNeverEnumeratesDirectories() throws {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("ProvenanceCleanerInputTests-\(UUID().uuidString)", isDirectory: true)

@@ -78,13 +78,10 @@ actor SafeFileExporter {
         return destinationURL
     }
 
-    /// Saves into a folder the user chose, numbering the name instead of
-    /// overwriting anything already there.
+    /// Saves into a folder the user chose under the original's name, numbering
+    /// it ("name 2.ext") instead of overwriting anything already there.
     func exportCopy(from stagedURL: URL, sourceURL: URL, into directoryURL: URL) throws -> URL {
-        let requested = directoryURL.appendingPathComponent(
-            SupportedFileTypes.cleanedFilename(for: sourceURL),
-            isDirectory: false
-        )
+        let requested = directoryURL.appendingPathComponent(sourceURL.lastPathComponent, isDirectory: false)
         let destination = uniqueDestination(startingAt: requested)
         try fileManager.copyItem(at: stagedURL, to: destination)
         return destination

@@ -443,10 +443,10 @@ final class AppStoreTests: XCTestCase {
 
         await store.saveAllCopies(to: folder)
 
-        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: folder.path), ["ready.cleaned.txt"])
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: folder.path), ["ready.txt"])
         XCTAssertEqual(store.jobs[0].savedCopies.map(\.lastPathComponent), ["chosen.txt"])
         XCTAssertTrue(store.jobs[1].savedCopies.isEmpty)
-        XCTAssertEqual(store.jobs[2].savedCopies.map(\.lastPathComponent), ["ready.cleaned.txt"])
+        XCTAssertEqual(store.jobs[2].savedCopies.map(\.lastPathComponent), ["ready.txt"])
         XCTAssertEqual(store.issue?.title, "Saved 1 copy")
         XCTAssertEqual(store.issue?.message, "1 copy outdated, so not saved; update them first.\n1 copy already saved.")
         XCTAssertFalse(store.isBusy)
