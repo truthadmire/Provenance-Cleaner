@@ -15,9 +15,21 @@ struct FilePreviewView: View {
                     reloadToken: job.status.label
                 )
             case .image:
-                ImageComparisonPreview(originalURL: job.sourceURL, cleanedURL: job.stagedOutputURL)
-            case .container, .av, .unknown:
+                ImageComparisonPreview(
+                    originalURL: job.sourceURL,
+                    cleanedURL: job.stagedOutputURL,
+                    reloadToken: job.status.label
+                )
+            case .container, .av:
                 QuickLookComparisonPreview(originalURL: job.sourceURL, cleanedURL: job.stagedOutputURL)
+            case .unknown:
+                // The engine never accepts these, so they never pass its file
+                // checks; Quick Look isn't handed an arbitrary file either.
+                ContentUnavailableView(
+                    "Preview unavailable",
+                    systemImage: "eye.slash",
+                    description: Text(PreviewFileError.notRegularFile.localizedDescription)
+                )
             }
         }
     }
@@ -242,32 +254,77 @@ private struct TextComparisonPreview: View {
 private struct ImageComparisonPreview: View {
     let originalURL: URL
     let cleanedURL: URL?
+    let reloadToken: String
 
     var body: some View {
         HStack(spacing: 12) {
             PreviewPane(title: String(localized: "Original")) {
-                image(at: originalURL)
+                GatedImagePreview(url: originalURL, reloadToken: reloadToken)
             }
 
             if let cleanedURL {
                 PreviewPane(title: String(localized: "Your copy"), identifier: "cleaned") {
-                    image(at: cleanedURL)
+                    GatedImagePreview(url: cleanedURL, reloadToken: reloadToken)
                 }
             }
         }
     }
+}
 
-    @ViewBuilder
-    private func image(at url: URL) -> some View {
-        if let image = NSImage(contentsOf: url) {
-            Image(nsImage: image)
-                .resizable()
-                .scaledToFit()
-                .padding(12)
-        } else {
-            ContentUnavailableView("Preview unavailable", systemImage: "photo.badge.exclamationmark")
+/// Reads and decodes off the main thread through `ImagePreviewLoader`, which
+/// applies the engine's file checks and a pixel cap before decoding.
+private struct GatedImagePreview: View {
+    let url: URL
+    let reloadToken: String
+
+    @State private var state = ImagePreviewLoadState.loading
+
+    var body: some View {
+        Group {
+            switch state {
+            case .loading:
+                ProgressView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            case let .loaded(image):
+                Image(nsImage: image)
+                    .resizable()
+                    .scaledToFit()
+                    .padding(12)
+            case let .failed(message):
+                ContentUnavailableView(
+                    "Preview unavailable",
+                    systemImage: "photo.badge.exclamationmark",
+                    description: Text(message)
+                )
+            }
+        }
+        .task(id: url.path + "\n" + reloadToken) {
+            state = .loading
+            let url = url
+            let result = await Task.detached(priority: .utility) { () -> Result<CGImage, PreviewFileError> in
+                do {
+                    return .success(try ImagePreviewLoader.load(url))
+                } catch let error as PreviewFileError {
+                    return .failure(error)
+                } catch {
+                    return .failure(.unreadable)
+                }
+            }.value
+            guard !Task.isCancelled else { return }
+            switch result {
+            case let .success(image):
+                state = .loaded(NSImage(cgImage: image, size: .zero))
+            case let .failure(error):
+                state = .failed(error.localizedDescription)
+            }
         }
     }
+}
+
+private enum ImagePreviewLoadState {
+    case loading
+    case loaded(NSImage)
+    case failed(String)
 }
 
 private struct QuickLookComparisonPreview: View {
@@ -277,14 +334,30 @@ private struct QuickLookComparisonPreview: View {
     var body: some View {
         HStack(spacing: 12) {
             PreviewPane(title: String(localized: "Original")) {
-                QuickLookPreview(url: originalURL)
+                gatedQuickLook(originalURL)
             }
 
             if let cleanedURL {
                 PreviewPane(title: String(localized: "Your copy"), identifier: "cleaned") {
-                    QuickLookPreview(url: cleanedURL)
+                    gatedQuickLook(cleanedURL)
                 }
             }
+        }
+    }
+
+    /// Quick Look takes a path, so the path itself is checked first with the
+    /// engine's rules: no symlink, a regular file, within the size cap.
+    @ViewBuilder
+    private func gatedQuickLook(_ url: URL) -> some View {
+        switch Result(catching: { try PreviewFileGate.check(url) }) {
+        case .success:
+            QuickLookPreview(url: url)
+        case let .failure(error):
+            ContentUnavailableView(
+                "Preview unavailable",
+                systemImage: "eye.slash",
+                description: Text(error.localizedDescription)
+            )
         }
     }
 }
@@ -336,7 +409,7 @@ private enum TextPreviewLoader {
     static func load(_ url: URL) async -> TextPreviewDocument {
         await Task.detached(priority: .utility) {
             do {
-                let handle = try FileHandle(forReadingFrom: url)
+                let handle = try PreviewFileGate.open(url)
                 defer { try? handle.close() }
                 let data = try handle.read(upToCount: maximumBytes + 1) ?? Data()
                 let truncated = data.count > maximumBytes

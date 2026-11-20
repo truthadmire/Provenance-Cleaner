@@ -16325,6 +16325,34 @@
         }
       }
     },
+    "This file can't be previewed." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este archivo no se puede previsualizar."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このファイルはプレビューできません。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此文件无法预览。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此檔案無法預覽。"
+          }
+        }
+      }
+    },
     "This file couldn't be checked." : {
       "localizations" : {
         "es" : {
@@ -16349,6 +16377,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "無法檢查此檔案。"
+          }
+        }
+      }
+    },
+    "This file couldn't be read." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo leer este archivo."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このファイルを読み込めませんでした。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法读取此文件。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法讀取此檔案。"
           }
         }
       }
@@ -16769,6 +16825,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "若要移除它們，請在 Word 中接受或拒絕所有變更並刪除註解，然後重新加入儲存後的檔案。"
+          }
+        }
+      }
+    },
+    "Too large to preview." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Demasiado grande para previsualizar."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "大きすぎるためプレビューできません。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "文件过大，无法预览。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "檔案過大，無法預覽。"
           }
         }
       }

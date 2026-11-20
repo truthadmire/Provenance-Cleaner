@@ -32,6 +32,10 @@ from typing import Any, Callable
 
 EXIFTOOL_TIMEOUT = 30
 MAX_TEXT = 1 << 20
+# Inflated text read across all of one PNG's chunks; matches
+# png_text_limits.MAX_PNG_TEXT_BYTES, whose inspection finding already marks a
+# file that reaches it for review.
+MAX_PNG_TEXT = 16 << 20
 MAX_TAIL = 64 << 10
 UNAVAILABLE = "Generator fields were not fully inspected: the bundled metadata reader could not read this file."
 
@@ -129,19 +133,26 @@ def _png_chunks(data: bytes):
         position = end
 
 
-def _inflate(data: bytes) -> bytes:
+def _inflate(data: bytes, limit: int = MAX_TEXT) -> bytes:
+    if limit <= 0:
+        return b""
     try:
-        return zlib.decompressobj().decompress(data, MAX_TEXT)
+        return zlib.decompressobj().decompress(data, min(limit, MAX_TEXT))
     except zlib.error:
         return b""
 
 
-def _png_text(ctype: bytes, payload: bytes) -> tuple[str, str] | None:
+def _png_text(ctype: bytes, payload: bytes, budget: list[int] | None = None) -> tuple[str, str] | None:
+    """(key, text) of a text chunk. *budget* holds the bytes still allowed to be
+    inflated for this image and is reduced by what this chunk inflates."""
+    limit = MAX_TEXT if budget is None else budget[0]
     key, separator, rest = payload.partition(b"\0")
     if not separator:
         return None
     if ctype == b"zTXt":
-        rest = _inflate(rest[1:])
+        rest = _inflate(rest[1:], limit)
+        if budget is not None:
+            budget[0] -= len(rest)
     elif ctype == b"iTXt":
         if len(rest) < 2:
             return None
@@ -149,16 +160,19 @@ def _png_text(ctype: bytes, payload: bytes) -> tuple[str, str] | None:
         parts = rest[2:].split(b"\0", 2)
         if len(parts) < 3:
             return None
-        rest = _inflate(parts[2]) if compressed else parts[2]
+        rest = _inflate(parts[2], limit) if compressed else parts[2]
+        if compressed and budget is not None:
+            budget[0] -= len(rest)
     return key.decode("latin-1"), rest[:MAX_TEXT].decode("utf-8", "replace")
 
 
 def _png_hits(data: bytes) -> list[dict[str, Any]]:
     hits = []
+    budget = [MAX_PNG_TEXT]
     for ctype, payload, _, _ in _png_chunks(data):
         if ctype not in (b"tEXt", b"zTXt", b"iTXt"):
             continue
-        entry = _png_text(ctype, payload)
+        entry = _png_text(ctype, payload, budget)
         if entry is None or entry[0].startswith("XML:"):
             continue  # XMP is read by ExifTool below
         key, value = entry

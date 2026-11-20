@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		0B8CD998FB38E55E82FD0E2A /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0495223193DDFEF6ED8D196 /* ContentView.swift */; };
+		10FE2AEF89766D007716BAA4 /* PreviewFileGateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18E317BDFE43DC802AB4B192 /* PreviewFileGateTests.swift */; };
 		1370493D84234BABB54FA416 /* ContentCredentialsCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88147C408C7443995F1723AB /* ContentCredentialsCard.swift */; };
 		1DDF6D8820A7A4E46567575A /* AppStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AF5017F6965080BB7B368DE /* AppStoreTests.swift */; };
 		2146D25D56EB423A80A0F72F /* SupportedFileTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDF8AA75EB5B3B475BAAD016 /* SupportedFileTypes.swift */; };
@@ -23,6 +24,7 @@
 		490DBB4EEF2018A5FB12A7EC /* FilePanelService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3DB2E61118B8C69FD67690B6 /* FilePanelService.swift */; };
 		4B28F6304E380EA55A0C77D1 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 70773CBA3F3EE3D64DBEF0E1 /* Localizable.xcstrings */; };
 		50ABD4B910AF78D6AE6A0E6D /* OnlineProvenanceCheck.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54BAE31063E999E1ABF85C57 /* OnlineProvenanceCheck.swift */; };
+		512AD09E3D258F82F099FFAE /* PreviewFileGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = B23C1BBF5EAD2AC356E043CC /* PreviewFileGate.swift */; };
 		52757E66D63FDA5C1A73A7F7 /* AIReviewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1168B4D78543B7C58C36A55F /* AIReviewTests.swift */; };
 		54370B66CB8732A2AEC5000D /* AppPreferencesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 445BCF4ECCBBAD18B22C5365 /* AppPreferencesTests.swift */; };
 		54372BF8DBF654D9E0DEA51C /* AIProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CFA798B34964FDD1A76D6CC /* AIProvider.swift */; };
@@ -104,6 +106,7 @@
 		0F5CE4BB9561B2E377343635 /* EngineContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EngineContractTests.swift; sourceTree = "<group>"; };
 		0F7E742212ECBE24C8DE6F72 /* ChangesTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChangesTabView.swift; sourceTree = "<group>"; };
 		1168B4D78543B7C58C36A55F /* AIReviewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIReviewTests.swift; sourceTree = "<group>"; };
+		18E317BDFE43DC802AB4B192 /* PreviewFileGateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewFileGateTests.swift; sourceTree = "<group>"; };
 		19992F8D39460B3D5F728A6B /* ClayTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClayTheme.swift; sourceTree = "<group>"; };
 		1B4AF3DB5686D47A29BCBF46 /* ProvenanceCleanerCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProvenanceCleanerCommands.swift; sourceTree = "<group>"; };
 		1BCE317FD0AC5ED772BC69D6 /* FindingsTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FindingsTabView.swift; sourceTree = "<group>"; };
@@ -151,6 +154,7 @@
 		A4925813553CA144C2A12F74 /* ProvenanceCleanerUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ProvenanceCleanerUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		B0495223193DDFEF6ED8D196 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		B1A38F63F9A57BA6F3FECED6 /* watermarks-remover-LICENSE-MIT.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "watermarks-remover-LICENSE-MIT.txt"; sourceTree = "<group>"; };
+		B23C1BBF5EAD2AC356E043CC /* PreviewFileGate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewFileGate.swift; sourceTree = "<group>"; };
 		B4B4EC56644F562604ED817D /* ProvenanceCleanerUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProvenanceCleanerUITests.swift; sourceTree = "<group>"; };
 		B50A792AEF5BACE406963647 /* OwnershipNoticeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OwnershipNoticeView.swift; sourceTree = "<group>"; };
 		B5456CDB25DDA7CCC7EE5C2E /* qpdf-NOTICE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "qpdf-NOTICE.md"; sourceTree = "<group>"; };
@@ -317,6 +321,7 @@
 			children = (
 				4F5AD0D877DB420C609EE2A0 /* AppLanguage.swift */,
 				DFABCCEC42C3AA8C9970E819 /* EngineText.swift */,
+				B23C1BBF5EAD2AC356E043CC /* PreviewFileGate.swift */,
 				DDF8AA75EB5B3B475BAAD016 /* SupportedFileTypes.swift */,
 				D657C56498B592900CC5CFA3 /* UITestLaunchConfiguration.swift */,
 			);
@@ -386,6 +391,7 @@
 				54C5B67B31E2B48D9D2B0DB3 /* DownloadSourceTests.swift */,
 				0F5CE4BB9561B2E377343635 /* EngineContractTests.swift */,
 				9F899BE06228D22F944B66D9 /* LocalizationTests.swift */,
+				18E317BDFE43DC802AB4B192 /* PreviewFileGateTests.swift */,
 				3F35385FD69CF9672C3B973D /* ProvenanceCheckTests.swift */,
 				1D9ED20196752B81B45D00C3 /* ReportPresentationTests.swift */,
 				A09490140F9DCBC5170407B5 /* SafeFileExporterTests.swift */,
@@ -564,6 +570,7 @@
 				AAA9A9D131AC6881CD1A6342 /* DownloadSourceTests.swift in Sources */,
 				F7DCB4D628B49A3241C1E71A /* EngineContractTests.swift in Sources */,
 				75B0348A0FE81916FD9AFDCA /* LocalizationTests.swift in Sources */,
+				10FE2AEF89766D007716BAA4 /* PreviewFileGateTests.swift in Sources */,
 				3896E6805933B93BD6B63811 /* ProvenanceCheckTests.swift in Sources */,
 				A5D6AB4C41B6791F357B447C /* ReportPresentationTests.swift in Sources */,
 				7D569CF0CE3B70755F72E5BB /* SafeFileExporterTests.swift in Sources */,
@@ -603,6 +610,7 @@
 				50ABD4B910AF78D6AE6A0E6D /* OnlineProvenanceCheck.swift in Sources */,
 				8E0DBA83DA781186C030A958 /* OwnershipNoticeView.swift in Sources */,
 				8F7B31DF2B644FA5DF00F621 /* PDFTraceInspection.swift in Sources */,
+				512AD09E3D258F82F099FFAE /* PreviewFileGate.swift in Sources */,
 				89BA9AB2F953F3BF1BC8D61F /* PromptInjectionCard.swift in Sources */,
 				CBFC678B79CC6320E551726A /* PromptInjectionScan.swift in Sources */,
 				C755A46A8F7A0589302C73A3 /* ProvenanceCheckClient.swift in Sources */,

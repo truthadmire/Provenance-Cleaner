@@ -41,8 +41,11 @@ The script always builds the helper and app from the clean current HEAD,
 requires all four staged tools, runs the frozen-helper integration matrix,
 signs Mach-O files from the inside out with the hardened runtime, creates/signs
 a DMG, optionally notarizes and staples it, and emits source/checksum/report
-artifacts. A helper build requires an exact CPython 3.14.7 interpreter; set
-PROVENANCE_PYTHON when it is not the default python3.
+artifacts. The helper is always frozen with the CPython that
+script/stage_locked_python.sh extracts fresh from the SHA-256-locked python.org
+installer (Vendor/Artifacts/downloads; run script/fetch_dependencies.sh fetch
+first), inside a fresh venv installed only from Helper/requirements-build.txt.
+PROVENANCE_PYTHON and PROVENANCE_DYLD_* are ignored here (a notice is printed).
 USAGE
 }
 
@@ -424,21 +427,66 @@ cleanup_release_temps() {
 }
 trap cleanup_release_temps EXIT
 
-HELPER_PYTHON="${PROVENANCE_PYTHON:-$(command -v python3 || true)}"
-[[ -n "$HELPER_PYTHON" && -x "$HELPER_PYTHON" ]] || \
-  die "release helper build requires an executable CPython 3.14.7 interpreter"
-if [[ -n "${PROVENANCE_DYLD_FRAMEWORK_PATH:-}" ]]; then
-  HELPER_PYTHON_VERSION="$(DYLD_FRAMEWORK_PATH="$PROVENANCE_DYLD_FRAMEWORK_PATH" \
-    "$HELPER_PYTHON" -c 'import platform; print(platform.python_version())')" || \
-    die "could not run the selected PROVENANCE_PYTHON"
-else
-  HELPER_PYTHON_VERSION="$("$HELPER_PYTHON" -c 'import platform; print(platform.python_version())')" || \
-    die "could not run the selected helper Python"
-fi
+# Release helpers freeze only the interpreter extracted from the locked
+# python.org installer; a caller-selected interpreter is never used.
+[[ -x "$ROOT_DIR/script/stage_locked_python.sh" ]] || die "missing script/stage_locked_python.sh"
+STAGED_PYTHON_OUTPUT="$("$ROOT_DIR/script/stage_locked_python.sh")" || \
+  die "could not stage the locked CPython installer"
+LOCKED_PYTHON_ROOT=""
+HELPER_PYTHON=""
+LOCKED_FRAMEWORK_PATH=""
+LOCKED_LIBRARY_PATH=""
+LOCKED_PYTHON_PKG=""
+LOCKED_PYTHON_PKG_SHA256=""
+while IFS='=' read -r staged_key staged_value; do
+  case "$staged_key" in
+    ROOT) LOCKED_PYTHON_ROOT="$staged_value" ;;
+    PYTHON) HELPER_PYTHON="$staged_value" ;;
+    FRAMEWORK_PATH) LOCKED_FRAMEWORK_PATH="$staged_value" ;;
+    LIBRARY_PATH) LOCKED_LIBRARY_PATH="$staged_value" ;;
+    PKG_FILE) LOCKED_PYTHON_PKG="$staged_value" ;;
+    PKG_SHA256) LOCKED_PYTHON_PKG_SHA256="$staged_value" ;;
+  esac
+done <<<"$STAGED_PYTHON_OUTPUT"
+[[ -n "$LOCKED_PYTHON_ROOT" && -x "$HELPER_PYTHON" && -n "$LOCKED_FRAMEWORK_PATH" && \
+   -n "$LOCKED_LIBRARY_PATH" && -n "$LOCKED_PYTHON_PKG_SHA256" ]] || \
+  die "stage_locked_python.sh returned an incomplete result"
+[[ "$LOCKED_PYTHON_PKG_SHA256" == "$(/usr/bin/plutil -extract components.cpython.artifact.sha256 raw -o - "$DEPENDENCY_LOCK")" ]] || \
+  die "staged CPython does not come from the locked installer"
+for override_name in PROVENANCE_PYTHON PROVENANCE_DYLD_FRAMEWORK_PATH PROVENANCE_DYLD_LIBRARY_PATH; do
+  override_value="${!override_name:-}"
+  case "$override_name" in
+    PROVENANCE_PYTHON) staged_value="$HELPER_PYTHON" ;;
+    PROVENANCE_DYLD_FRAMEWORK_PATH) staged_value="$LOCKED_FRAMEWORK_PATH" ;;
+    *) staged_value="$LOCKED_LIBRARY_PATH" ;;
+  esac
+  if [[ -n "$override_value" && "$(/bin/realpath "$override_value" 2>/dev/null || echo "$override_value")" != "$(/bin/realpath "$staged_value")" ]]; then
+    echo "notice: ignoring $override_name=$override_value; release builds use only the interpreter extracted from the locked $LOCKED_PYTHON_PKG" >&2
+  fi
+done
+# PYTHONHOME, PYTHONPATH, PYTHONSTARTUP, PYTHONUSERBASE and the like would let
+# the caller's shell swap the stdlib or add modules behind the locked
+# interpreter (every -I probe would still pass).  None of them may reach the
+# helper build or the frozen-helper matrix.
+while IFS= read -r inherited_python_variable; do
+  [[ -n "$inherited_python_variable" ]] || continue
+  echo "notice: ignoring $inherited_python_variable; release builds run the locked interpreter without inherited PYTHON* settings" >&2
+  unset "$inherited_python_variable"
+done < <(compgen -e | /usr/bin/grep '^PYTHON' || true)
+export PROVENANCE_PYTHON="$HELPER_PYTHON"
+export PROVENANCE_DYLD_FRAMEWORK_PATH="$LOCKED_FRAMEWORK_PATH"
+export PROVENANCE_DYLD_LIBRARY_PATH="$LOCKED_LIBRARY_PATH"
+export PROVENANCE_REQUIRE_LOCKED_PYTHON="$LOCKED_PYTHON_ROOT"
+HELPER_PYTHON_VERSION="$(DYLD_FRAMEWORK_PATH="$LOCKED_FRAMEWORK_PATH" DYLD_LIBRARY_PATH="$LOCKED_LIBRARY_PATH" \
+  "$HELPER_PYTHON" -I -c 'import platform; print(platform.python_version())')" || \
+  die "could not run the staged CPython"
 [[ "$HELPER_PYTHON_VERSION" == "3.14.7" ]] || \
-  die "release helper requires CPython 3.14.7, got $HELPER_PYTHON_VERSION; set PROVENANCE_PYTHON"
+  die "release helper requires CPython 3.14.7, got $HELPER_PYTHON_VERSION from the locked installer"
 [[ -x "$ROOT_DIR/script/build_helper.sh" ]] || die "missing script/build_helper.sh"
-"$ROOT_DIR/script/build_helper.sh"
+PYINSTALLER_ENVIRONMENT_LOG="$DERIVED_DIR/PyInstallerEnvironment.txt"
+PROVENANCE_BUILD_ENV_REPORT="$PYINSTALLER_ENVIRONMENT_LOG" \
+  "$ROOT_DIR/script/build_helper.sh" --fresh-env
+[[ -s "$PYINSTALLER_ENVIRONMENT_LOG" ]] || die "build_helper.sh did not record its build environment"
 xcodegen generate --spec "$ROOT_DIR/project.yml" --project "$ROOT_DIR"
 /usr/bin/xcodebuild \
   -project "$PROJECT" \
@@ -484,22 +532,13 @@ CURRENT_HEAD="$(/usr/bin/git -C "$ROOT_DIR" rev-parse --verify HEAD^{commit})" |
 
 HELPER_INTEGRATION_LOG="$DERIVED_DIR/FrozenHelperIntegrationTests.txt"
 HELPER_UNDER_TEST="$BUILT_APP/Contents/Helpers/ProvenanceEngine.app/Contents/MacOS/provenance-engine"
-if [[ -n "${PROVENANCE_DYLD_FRAMEWORK_PATH:-}" ]]; then
-  if ! PROVENANCE_HELPER_UNDER_TEST="$HELPER_UNDER_TEST" \
-    DYLD_FRAMEWORK_PATH="$PROVENANCE_DYLD_FRAMEWORK_PATH" \
-    DYLD_LIBRARY_PATH="${PROVENANCE_DYLD_LIBRARY_PATH:-}" \
-    "$HELPER_PYTHON" -m unittest discover -s "$ROOT_DIR/Tests/HelperIntegration" -v \
-    >"$HELPER_INTEGRATION_LOG" 2>&1; then
-    /bin/cat "$HELPER_INTEGRATION_LOG" >&2
-    die "frozen helper integration matrix failed"
-  fi
-else
-  if ! PROVENANCE_HELPER_UNDER_TEST="$HELPER_UNDER_TEST" \
-    "$HELPER_PYTHON" -m unittest discover -s "$ROOT_DIR/Tests/HelperIntegration" -v \
-    >"$HELPER_INTEGRATION_LOG" 2>&1; then
-    /bin/cat "$HELPER_INTEGRATION_LOG" >&2
-    die "frozen helper integration matrix failed"
-  fi
+if ! PROVENANCE_HELPER_UNDER_TEST="$HELPER_UNDER_TEST" \
+  DYLD_FRAMEWORK_PATH="$LOCKED_FRAMEWORK_PATH" \
+  DYLD_LIBRARY_PATH="$LOCKED_LIBRARY_PATH" \
+  "$HELPER_PYTHON" -s -P -m unittest discover -s "$ROOT_DIR/Tests/HelperIntegration" -v \
+  >"$HELPER_INTEGRATION_LOG" 2>&1; then
+  /bin/cat "$HELPER_INTEGRATION_LOG" >&2
+  die "frozen helper integration matrix failed"
 fi
 /bin/cat "$HELPER_INTEGRATION_LOG"
 
@@ -527,6 +566,8 @@ SOURCE_ARCHIVE="$OUTPUT_DIR/ProvenanceCleaner-$VERSION-source.zip"
 /usr/bin/ditto "$HELPER_INTEGRATION_LOG" "$OUTPUT_DIR/FROZEN_HELPER_INTEGRATION_TESTS.txt"
 /usr/bin/ditto "$SIGNED_CAPABILITIES_LOG" "$OUTPUT_DIR/SIGNED_HELPER_CAPABILITIES.json"
 /usr/bin/ditto "$UPSTREAM_MANIFEST" "$OUTPUT_DIR/UPSTREAM_WATERMARKS_REMOVER_MANIFEST.sha256"
+/usr/bin/ditto "$PYINSTALLER_ENVIRONMENT_LOG" "$OUTPUT_DIR/PYINSTALLER_BUILD_ENVIRONMENT.txt"
+/usr/bin/ditto "$LOCKED_PYTHON_ROOT/LOCKED_SOURCE.txt" "$OUTPUT_DIR/CPYTHON_LOCKED_SOURCE.txt"
 
 PACKAGE_TEMP="$(/usr/bin/mktemp -d /private/tmp/provenance-release-package.XXXXXX)"
 DMG_STAGE="$PACKAGE_TEMP/dmg-root"
@@ -607,6 +648,8 @@ CHECKSUMS="$OUTPUT_DIR/SHA256SUMS.txt"
     FROZEN_HELPER_INTEGRATION_TESTS.txt
     SIGNED_HELPER_CAPABILITIES.json
     UPSTREAM_WATERMARKS_REMOVER_MANIFEST.sha256
+    PYINSTALLER_BUILD_ENVIRONMENT.txt
+    CPYTHON_LOCKED_SOURCE.txt
   )
   if [[ -f notarization.json ]]; then
     checksum_files+=(notarization.json)
@@ -633,6 +676,8 @@ REPORT="$OUTPUT_DIR/RELEASE_REPORT.md"
   echo "- Dependency lock SHA-256: $(sha256_of "$DEPENDENCY_LOCK")"
   echo "- Pinned upstream tree manifest SHA-256: $(sha256_of "$UPSTREAM_MANIFEST")"
   echo "- PyInstaller requirements lock SHA-256: $(sha256_of "$PYINSTALLER_LOCK")"
+  echo "- PyInstaller build environment: fresh venv installed with --require-hashes from that lock, RECORD-verified (see PYINSTALLER_BUILD_ENVIRONMENT.txt)"
+  echo "- Frozen CPython: extracted fresh from $LOCKED_PYTHON_PKG, SHA-256 $LOCKED_PYTHON_PKG_SHA256"
   echo
   echo "## Artifacts"
   echo

@@ -1,6 +1,11 @@
 # macOS CPython 3.14 release-helper environment. Every direct and transitive
 # package is pinned to one official wheel and SHA-256. build_helper.sh also
 # passes --require-hashes and --only-binary=:all: so this file is fail-closed.
+# Release builds (package_release.sh -> build_helper.sh --fresh-env) install
+# these wheels with --no-deps --no-cache-dir --isolated into a new temporary
+# venv every time. Any environment, fresh or the cached Helper/.venv, must also
+# pass script/verify_build_environment.py: exactly these distributions (plus the
+# ensurepip-bundled pip), every RECORD hash intact and no unrecorded files.
 
 altgraph==0.17.5 \
     --hash=sha256:f3a22400bce1b0c701683820ac4f3b159cd301acab067c51c653e06961600597

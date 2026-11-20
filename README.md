@@ -429,6 +429,12 @@ xcodebuild -project ProvenanceCleaner.xcodeproj \
   -destination 'platform=macOS,arch=arm64' test
 ```
 
+`build_helper.sh` verifies its venv with `script/verify_build_environment.py`
+(locked distributions only, every installed file checked against its RECORD
+hash, no unrecorded `.pth`/`sitecustomize`/extra files) and fails closed when
+`Helper/.venv` drifts; delete that folder or pass `--fresh-env` to build in a new
+temporary venv installed only from the hash-locked wheels.
+
 The helper integration suite can run against source or the frozen executable:
 
 ```sh
@@ -442,6 +448,18 @@ See `Config/VerificationEvidence.md` for the exact verified totals and host
 limitations of the release candidate.
 
 ## Package a release
+
+`./script/package_release.sh` does not use `PROVENANCE_PYTHON` or
+`PROVENANCE_DYLD_*` (it prints a notice if they are set). It runs
+`./script/stage_locked_python.sh`, which checks the SHA-256 of
+`Vendor/Artifacts/downloads/python-3.14.7-macos11.pkg` against
+`Config/Dependencies.lock.json` (run `./script/fetch_dependencies.sh fetch` if it
+is missing) and extracts a fresh `Python.framework` into
+`build/locked-python/<sha256>`. It then calls `build_helper.sh --fresh-env` with
+`PROVENANCE_REQUIRE_LOCKED_PYTHON` set, so the interpreter, loader paths and
+`sys.base_prefix` must all resolve inside that tree. The release folder records
+the installer hash (`CPYTHON_LOCKED_SOURCE.txt`) and the fresh environment's
+package list (`PYINSTALLER_BUILD_ENVIRONMENT.txt`).
 
 The DMG also contains Ghostscript's complete corresponding source and standalone
 build recipe under `Third-Party Source/Ghostscript`. Packaging verifies that the

@@ -34,6 +34,9 @@ import credential_inspection
 import pdf_traces
 import generator_fields
 import chat_artifacts
+import zip_guard
+import report_budget
+import png_text_limits
 
 
 PROTOCOL_VERSION = 1
@@ -41,6 +44,8 @@ ENGINE_NAME = "guillaumemeyer/watermarks-remover"
 ENGINE_COMMIT = "3f84d3e3964368b82172112b09ef3e7c02b25749"
 MAX_INPUT_BYTES = 256 << 20
 MAX_OUTPUT_BYTES = 256 << 20
+# The app rejects response lines over 16 MiB (BundledWatermarkEngine.swift).
+MAX_RESPONSE_BYTES = 15 << 20
 MAX_REQUEST_LINE_BYTES = 1 << 20
 MAX_REQUEST_ID_CHARS = 256
 
@@ -208,6 +213,12 @@ image_meta.run_optional_tools = credential_inspection.run_optional_tools
 container_meta.run_optional_tools = credential_inspection.run_optional_tools
 # PDF detection and cleaning fixes; see pdf_traces.
 pdf_traces.install(container_meta)
+# Bounded PNG text inflation (zTXt/iTXt); see png_text_limits.
+png_text_limits.install(image_meta, container_meta)
+# Bounded text and JPEG inspection; see report_budget.  Installed before
+# injection_scan, which binds inspect_text by name at import.
+import text_unicode  # noqa: E402
+report_budget.install(text_unicode, image_meta)
 
 import upstream_fixes  # noqa: E402  (needs the upstream modules on sys.path)
 import injection_scan  # noqa: E402  (needs the upstream modules on sys.path)
@@ -328,7 +339,25 @@ def _read_input(path: Path) -> bytes:
             f"input exceeds the {MAX_INPUT_BYTES}-byte limit",
             details={"maxBytes": MAX_INPUT_BYTES},
         )
+    _check_archive_complexity(data, "input_too_complex")
     return data
+
+
+def _check_archive_complexity(data: bytes, code: str) -> None:
+    # zipfile builds every central-directory entry before any per-member
+    # budget can run, and the upstream engine and several local handlers each
+    # open the same bytes. Refuse oversized directories once, up front.
+    try:
+        zip_guard.check(data)
+    except zip_guard.ZipTooComplex as exc:
+        raise ProtocolError(
+            code,
+            str(exc),
+            details={
+                "maxEntries": zip_guard.MAX_ZIP_ENTRIES,
+                "maxCentralDirectoryBytes": zip_guard.MAX_CENTRAL_DIRECTORY_BYTES,
+            },
+        ) from exc
 
 
 def _validate_output(input_path: Path, output_path: Path) -> None:
@@ -493,6 +522,8 @@ def _capabilities_response(request_id: str) -> dict[str, Any]:
     return {"requestID": request_id, "ok": True, "kind": "capabilities", "report": report}
 
 
+@report_budget.per_request  # one inspection budget per request; see report_budget
+@png_text_limits.per_request  # one PNG text inflation budget per request
 def _inspect_response(request_id: str, input_path: Path) -> dict[str, Any]:
     data = _read_input(input_path)
     try:
@@ -555,6 +586,8 @@ def _chat_leftovers(data: bytes, suffix: str) -> dict[str, int]:
     return chat_artifacts.count(data, suffix)
 
 
+@report_budget.per_request  # one inspection budget per request; see report_budget
+@png_text_limits.per_request  # one PNG text inflation budget per request
 def _scan_response(request_id: str, input_path: Path) -> dict[str, Any]:
     data = _read_input(input_path)
     try:
@@ -564,6 +597,8 @@ def _scan_response(request_id: str, input_path: Path) -> dict[str, Any]:
     return {"requestID": request_id, "ok": True, "kind": "unknown", "report": {"prompt_injection": report}}
 
 
+@report_budget.per_request  # one inspection budget per request; see report_budget
+@png_text_limits.per_request  # one PNG text inflation budget per request
 def _clean_response(
     request_id: str,
     input_path: Path,
@@ -638,6 +673,7 @@ def _clean_response(
         cleaned = base64.b64decode(encoded, validate=True)
     except (binascii.Error, ValueError) as exc:
         raise RuntimeError("upstream cleaning returned invalid encoded bytes") from exc
+    _check_archive_complexity(cleaned, "processing_error")
     preview_actions: list[str] = []
     preview_residual: list[str] = []
     preview_parts: list[str] = []
@@ -798,6 +834,21 @@ def _emit(response: dict[str, Any]) -> None:
         sort_keys=True,
         separators=(",", ":"),
     ).encode("utf-8")
+    if len(data) > MAX_RESPONSE_BYTES:
+        request_id = response.get("requestID")
+        data = json.dumps(
+            _error_response(
+                request_id if isinstance(request_id, str) else "",
+                ProtocolError(
+                    "report_too_large",
+                    f"the report is larger than the {MAX_RESPONSE_BYTES}-byte response limit",
+                    details={"actualBytes": len(data), "maxBytes": MAX_RESPONSE_BYTES},
+                ),
+            ),
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
     sys.stdout.buffer.write(data + b"\n")
     sys.stdout.buffer.flush()
 

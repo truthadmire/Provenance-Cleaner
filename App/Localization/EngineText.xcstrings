@@ -3539,6 +3539,35 @@
         }
       }
     },
+    "PNG text chunks expand beyond the 16 MiB inspection limit; the rest was not examined" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los fragmentos de texto PNG superan al descomprimirse el límite de inspección de 16 MiB; el resto no se examinó"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PNG テキストチャンクが展開後に 16 MiB の検査上限を超えています。残りは確認していません"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PNG 文本块解压后超过 16 MiB 的检查上限；其余部分未经检查"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PNG 文字區塊解壓縮後超過 16 MiB 的檢查上限；其餘部分未經檢查"
+          }
+        }
+      }
+    },
     "Page" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -7943,6 +7972,35 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "{x}：預覽圖中仍有來源標記。"
+          }
+        }
+      }
+    },
+    "PNG text in this file's images expands beyond the 64 MiB inspection limit in all; the rest was not examined, treat this file as unverified" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El texto PNG de las imágenes de este archivo supera en total al descomprimirse el límite de inspección de 64 MiB; el resto no se examinó, trate este archivo como no verificado"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このファイルの画像の PNG テキストは展開後に合計で 64 MiB の検査上限を超えています。残りは確認していないため、このファイルは未検証として扱ってください"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此文件中图像的 PNG 文本解压后总计超过 64 MiB 的检查上限；其余部分未经检查，请将此文件视为未验证"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此檔案中影像的 PNG 文字解壓縮後總計超過 64 MiB 的檢查上限；其餘部分未經檢查，請將此檔案視為未驗證"
           }
         }
       }

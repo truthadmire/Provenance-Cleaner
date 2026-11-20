@@ -27,6 +27,11 @@ ARCHIVE_PARTS = {
     ".odt": (".xml",), ".epub": (".xhtml", ".html", ".htm", ".opf", ".ncx"),
 }
 MAX_PART_BYTES = 64 << 20
+# Rebuilding an archive holds every member in memory, so all of them together
+# are capped. Member sizes come from the archive itself, so each read is bounded
+# by what remains rather than by the declared size.
+MAX_EXPANDED_BYTES = 256 << 20
+UNCHECKED_FINDING = "AI chat leftovers were not checked: the archive expands past the size the helper processes"
 
 _SOURCES = r"(?:chatgpt\.com|chat\.openai\.com|openai\.com|openai|perplexity\.ai|perplexity|copilot\.com|claude\.ai|gemini\.google\.com)"
 # In XML and HTML the separator is written &amp;.
@@ -84,10 +89,20 @@ def _archive(data: bytes, endings: tuple[str, ...]) -> tuple[bytes, dict[str, in
     total = {"links": 0, "citations": 0, "attributes": 0}
     try:
         with zipfile.ZipFile(io.BytesIO(data)) as archive:
-            entries = [(info, archive.read(info)) for info in archive.infolist()
-                       if info.file_size <= MAX_PART_BYTES or not info.filename.lower().endswith(endings)]
-            if len(entries) != len(archive.infolist()):
+            infos = archive.infolist()
+            if any(info.file_size > MAX_PART_BYTES and info.filename.lower().endswith(endings) for info in infos):
                 return data, total
+            entries = []
+            expanded = 0
+            for info in infos:
+                remaining = MAX_EXPANDED_BYTES - expanded
+                with archive.open(info) as stream:
+                    raw = stream.read(remaining + 1)
+                expanded += len(raw)
+                if expanded > MAX_EXPANDED_BYTES:
+                    # Not silently clean: the archive was not looked at.
+                    return data, {**total, "unchecked": 1}
+                entries.append((info, raw))
             comment = archive.comment
     except (zipfile.BadZipFile, RuntimeError, NotImplementedError, OSError):
         return data, total
@@ -140,7 +155,7 @@ def _plural(n: int) -> str:
 
 
 def findings(counts: dict[str, int]) -> list[str]:
-    result = []
+    result = [UNCHECKED_FINDING] if counts.get("unchecked") else []
     if counts.get("links"):
         result.append(f"AI chat link tracking (utm_source) in {counts['links']} link{_plural(counts['links'])}")
     if counts.get("citations"):
@@ -169,5 +184,6 @@ def present(report: dict[str, Any], counts: dict[str, int]) -> None:
     existing = report.setdefault("findings", [])
     confidences = report.setdefault("findings_confidence", ["probable"] * len(existing))
     existing.extend(sentences)
-    confidences.extend(["probable"] * len(sentences))
-    report["suspicious"] = True
+    confidences.extend(["informational" if s == UNCHECKED_FINDING else "probable" for s in sentences])
+    if any(s != UNCHECKED_FINDING for s in sentences):
+        report["suspicious"] = True

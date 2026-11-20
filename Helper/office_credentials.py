@@ -8,6 +8,8 @@ import zipfile
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
+import zip_guard
+
 MANIFEST_PATH = "META-INF/content_credential.c2pa"
 MAX_PARTS = 10000
 MAX_ASSETS = 128
@@ -59,6 +61,13 @@ def _image_parts(archive, infos):
         i.filename in names or Path(i.filename).suffix.lower() in IMAGE_SUFFIXES | extensions)]
 
 
+def _guarded(handle):
+    # The package is re-opened by path, so it is checked again here rather
+    # than relying on the request's earlier check of the same file.
+    zip_guard.check(handle)
+    return handle
+
+
 def inspect_office(path: Path, verify) -> dict:
     started = time.monotonic()
     document = _unresolved("Document inspection has not completed")
@@ -66,7 +75,7 @@ def inspect_office(path: Path, verify) -> dict:
     manifest_present, asset_count = False, 0
     available = True
     try:
-        with zipfile.ZipFile(path) as archive:
+        with open(path, "rb") as handle, zipfile.ZipFile(_guarded(handle)) as archive:
             infos = archive.infolist()
             manifest_present = any(i.filename == MANIFEST_PATH for i in infos)
             if len(infos) > MAX_PARTS or sum(i.file_size for i in infos) > MAX_TOTAL_BYTES:
