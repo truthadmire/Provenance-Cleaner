@@ -5,7 +5,6 @@ from __future__ import annotations
 import unicodedata
 from collections import Counter
 from dataclasses import dataclass, field
-from difflib import SequenceMatcher
 
 # Format / invisible controls commonly used for steganography or broken pastes.
 STRIP_CODEPOINTS: frozenset[int] = frozenset(
@@ -691,14 +690,10 @@ def clean_text(
         result = unicodedata.normalize("NFKC", result)
         if result != before:
             nfkc_changed = True
-            changed_inputs = sum(
-                end - start
-                for operation, start, end, _new_start, _new_end in SequenceMatcher(
-                    None, before, result, autojunk=False
-                ).get_opcodes()
-                if operation != "equal"
-            )
-            replaced["NFKC_normalize"] += changed_inputs or 1
+            # Record normalization as one event instead of aligning the complete
+            # before/after strings. Exact edit alignment can take quadratic time
+            # for repetitive attacker-controlled input when autojunk is disabled.
+            replaced["NFKC_normalize"] += 1
 
     # Collapse runs of spaces only if we introduced space replacements? Keep conservative: no.
 

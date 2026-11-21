@@ -246,18 +246,32 @@ def test_nfkc_change_is_in_replacement_count():
     assert stats["replaced_count"] == 1
 
 
-def test_nfkc_counts_changed_input_codepoints():
+def test_nfkc_unchanged_text_reports_no_event():
+    cleaned, stats = clean_text("Plain ASCII", nfkc=True)
+    assert cleaned == "Plain ASCII"
+    assert stats["nfkc_changed"] is False
+    assert "NFKC_normalize" not in stats["replaced"]
+
+
+def test_nfkc_reports_one_normalization_event():
     cleaned, stats = clean_text("ＡＢ ﬃ", nfkc=True)
     assert cleaned == "AB ffi"
-    assert stats["replaced"]["NFKC_normalize"] == 3
-    assert stats["replaced_count"] == 3
+    assert stats["replaced"]["NFKC_normalize"] == 1
+    assert stats["replaced_count"] == 1
 
 
-def test_nfkc_counts_contextual_composition_input_codepoints():
+def test_nfkc_contextual_composition_reports_one_event():
     raw = "A\u030a A\u030a"
     cleaned, stats = clean_text(raw, nfkc=True)
     assert cleaned == "\u00c5 \u00c5"
-    assert stats["replaced"]["NFKC_normalize"] == 4
+    assert stats["replaced"]["NFKC_normalize"] == 1
+
+
+def test_nfkc_repetitive_input_uses_coarse_accounting():
+    raw = "AＡ" * 4096
+    cleaned, stats = clean_text(raw, nfkc=True)
+    assert cleaned == "AA" * 4096
+    assert stats["replaced"]["NFKC_normalize"] == 1
 
 
 def test_clean_preserves_mongolian_fvs():
