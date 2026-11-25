@@ -1,17 +1,85 @@
-# Provenance Cleaner
+<p align="center">
+  <img src="App/Assets.xcassets/AppIcon.appiconset/icon_128x128@2x.png" width="128" height="128" alt="Provenance Cleaner app icon">
+</p>
 
-Provenance Cleaner is a native, offline macOS utility for inspecting and
-removing deterministic invisible-Unicode carriers and provenance metadata from
-files the user owns or is authorized to modify. It targets Apple silicon and
-macOS 14 or later. Cleaning and checking are offline; the only things that go
-online are the optional AI review of a prompt-injection check and the optional
-online watermark check of an image.
+<h1 align="center">Provenance Cleaner</h1>
 
-The cleaning engine is vendored from
-[`guillaumemeyer/watermarks-remover`](https://github.com/guillaumemeyer/watermarks-remover)
-at the exact commit
-`3f84d3e3964368b82172112b09ef3e7c02b25749`. The app never follows the upstream
-default branch at build time.
+<p align="center">
+  Check a file for provenance marks and traces of the tools that made it, then save a copy without them.<br>
+  A native Mac app. Checking and cleaning happen on your Mac, with nothing uploaded.
+</p>
+
+<p align="center">
+  <a href="https://github.com/truthadmire/Provenance-Cleaner/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/truthadmire/Provenance-Cleaner?label=release&color=b8613f"></a>
+  <img alt="macOS 14 or later on Apple silicon" src="https://img.shields.io/badge/macOS-14%2B%20%C2%B7%20Apple%20silicon-555">
+  <a href="https://github.com/guillaumemeyer/watermarks-remover"><img alt="Engine: watermarks-remover" src="https://img.shields.io/badge/engine-watermarks--remover-555"></a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/truthadmire/Provenance-Cleaner/releases/latest"><b>Download the DMG</b></a>
+  &nbsp;·&nbsp;
+  <a href="#built-on">Built on</a>
+  &nbsp;·&nbsp;
+  <a href="#build-and-test">Build from source</a>
+</p>
+
+<p align="center">
+  <img src="Design/Screenshots/main-window.png" width="820" alt="The main window, with checked files listed on the left and the findings for one PDF on the right. File names are blurred.">
+</p>
+
+Provenance Cleaner inspects files you own, or are allowed to change, for
+invisible-Unicode carriers and provenance metadata, and removes them from a
+copy. It runs on Apple silicon with macOS 14 or later. Checking and cleaning
+are offline. Only two optional features go online, and only when you start one:
+the AI review of a prompt-injection check and the online watermark check of an
+image.
+
+## What it looks at
+
+| Files | What the app finds and can remove |
+|---|---|
+| Text, Markdown, HTML, code, CSV, JSON | Zero-width and other invisible Unicode carriers, and chat leftovers such as `utm_source=chatgpt.com` and citation markers |
+| JPEG, PNG, WebP, HEIC, AVIF, TIFF, GIF, BMP, SVG | C2PA Content Credentials, EXIF and XMP fields naming an AI generator, PNG settings chunks from image generators |
+| PDF | Document metadata, attached C2PA manifests, generator traces in resource names, font tags and document IDs, metadata inside embedded images |
+| Word, Excel, PowerPoint, ODT, EPUB | Package properties, embedded C2PA, preview-image metadata, Word editing history (session IDs and recorded dates), which you can keep, randomize or remove |
+| MP4, MOV, M4A, MP3, WAV, FLAC | Container metadata and fields naming an AI generator (FLAC tags are reported but not yet removed) |
+
+Every file can also be checked for **prompt injection**: instructions hidden
+from you but readable by an AI assistant that opens the file. The report says
+what each check covered. It never claims a file is watermark-free.
+
+## Built on
+
+Provenance Cleaner is built on
+**[watermarks-remover](https://github.com/guillaumemeyer/watermarks-remover)**
+by Guillaume Meyer and contributors (MIT License). The app embeds that engine
+exactly as it was at commit
+[`3f84d3e`](https://github.com/guillaumemeyer/watermarks-remover/tree/3f84d3e3964368b82172112b09ef3e7c02b25749)
+(`3f84d3e3964368b82172112b09ef3e7c02b25749`), in
+[`Vendor/watermarks-remover`](Vendor/watermarks-remover). It never follows the
+upstream default branch. All 206 files are locked by path, mode and SHA-256 in
+[`Config/UpstreamWatermarksRemover.manifest.sha256`](Config/UpstreamWatermarksRemover.manifest.sha256),
+and the vendored copy is never edited. This project's own corrections and
+additions to the engine live in [`Helper/`](Helper).
+
+The release also bundles these tools, each built from a checksum-pinned source
+recorded in [`Config/Dependencies.lock.json`](Config/Dependencies.lock.json):
+
+| Component | Version | Used for | License |
+|---|---|---|---|
+| [c2patool](https://github.com/contentauth/c2pa-rs) (Content Authenticity Initiative) | 0.27.22 | Reading and verifying C2PA Content Credentials | MIT |
+| [ExifTool](https://exiftool.org) by Phil Harvey | 13.59 | Reading and stripping image, audio, video and PDF metadata | Artistic-1.0-Perl |
+| [qpdf](https://github.com/qpdf/qpdf) | 12.4.1 | Validating and rewriting PDF structure | Apache-2.0 |
+| [libjpeg-turbo](https://libjpeg-turbo.org) | 3.2.0 | JPEG support inside qpdf | IJG / BSD |
+| [Ghostscript](https://www.ghostscript.com) (Artifex) | 10.07.1 | Cleaning metadata inside images embedded in PDFs | AGPL-3.0-or-later |
+| [CPython](https://www.python.org) | 3.14.7 | Runtime for the cleaning engine, from the hash-locked python.org installer | PSF-2.0 |
+| [OpenSSL](https://www.openssl.org) | 3.5.7 | TLS and crypto libraries in the embedded Python | Apache-2.0 |
+| [Zstandard](https://github.com/facebook/zstd) | 1.5.7 | Compression library in the embedded Python | BSD-3-Clause |
+| [PyInstaller](https://pyinstaller.org) | 6.22.2 | Freezing the engine into a signed helper app | GPL-2.0-or-later with bootloader exception |
+
+Full license texts ship inside the app and are summarized in
+[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md). Ghostscript's source
+archive and build recipe accompany every release DMG.
 
 ## Scope and safety
 
